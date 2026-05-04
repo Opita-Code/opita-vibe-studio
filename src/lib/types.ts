@@ -31,6 +31,7 @@ export interface ChatChunk {
 export interface ChatOptions {
   maxTokens?: number;
   temperature?: number;
+  model?: string;
   pipelinePhase?: "entender" | "construir" | "verificar";
 }
 
@@ -64,7 +65,7 @@ export interface TokenUsage {
   billingPeriodEnd: string;
 }
 
-export type UserPlan = "free" | "estudiante" | "pro" | "universidad";
+export type UserPlan = "free" | "estudiante" | "creador" | "pro" | "universidad";
 
 export interface UserProfile {
   id: string;
