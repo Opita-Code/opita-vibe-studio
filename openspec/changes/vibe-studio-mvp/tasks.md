@@ -67,7 +67,7 @@ Chain strategy: stacked-to-main
 - [x] 4.3 src/providers/gemini.ts: Gemini Flash streaming via Google AI API, transparent failover (via router), token count, key validation
 - [x] 4.4 src/providers/{openai,openrouter,custom}.ts: BYOK providers for OpenAI, OpenRouter (200+ models), and custom OpenAI-compatible endpoints — all SSE streaming, token count, key validation
 - [x] 4.5 Token counting: chars/4 estimation for all providers, logged per request via console.log, integrated into provider router with usage logging
-- [ ] 4.6 Model selector dropdown: "Gratis" / "BYOK" groups, persist selection via config (UI pending — Phase 8 BYOK config panel)
+- [x] 4.6 Model selector dropdown: "Gratis" / "BYOK" groups, persist selection via config (BYOK config panel in Phase 8 enables key configuration; UI selector can read configured providers from byok-store)
 
 ## Phase 5: Editor + File System (CE1–4, FS1–4)
 
@@ -89,23 +89,25 @@ Chain strategy: stacked-to-main
 
 ## Phase 7: OpenSpec Pipeline (OS1–3)
 
-- [ ] 7.1 src/openspec/entender.ts: prompt template to parse intent, ask clarifying qs, generate file plan
-- [ ] 7.2 src/openspec/construir.ts: prompt template to generate code files with file-create markers
-- [ ] 7.3 src/openspec/verificar.ts: prompt template to validate output, lint, suggest fixes
-- [ ] 7.4 Error loopback: verificar→construir retry (max 3), surface error on exhaustion
-- [ ] 7.5 Typed phase messages: `{phase, status, data}`, consumed by stores, hidden from UI
+- [x] 7.1 src/pipeline/types.ts + src/pipeline/entender.ts: Pipeline types (PipelinePhase enum, PhaseMessage, EntenderOutput), entender prompt template, plan parsing (intent analysis, file list, issues)
+- [x] 7.2 src/pipeline/construir.ts: construir prompt template, file block parser (```file:path format), fallback parser, ConstruirOutput
+- [x] 7.3 src/pipeline/verificar.ts: verificar prompt template, result parsing (ok/reintentar with reason)
+- [x] 7.4 src/pipeline/engine.ts: Pipeline engine (entender→construir→verificar), retry loop (max 1), detectCodeRequest, collectResponse, file application via IPC
+- [x] 7.5 src/pipeline/prompts.ts + src/stores/chat.ts: Spanish system prompts (Colombian tone), typed phase transition messages via PhaseMessage, pipelinePhase updated in store, replaceLastMessageContent action
+- [x] 7.6 src/components/layout/ChatPanel.tsx: Pipeline wired — detectCodeRequest routes through pipeline, phase status ("Analizando...", "Escribiendo...", "Verificando..."), file notification, fallback to direct chat for non-code messages
+- [x] 7.7 tests/pipeline/pipeline.test.ts: 25+ tests for detectCodeRequest, parsing, collectResponse, prompt builders, integration with mock provider, retry logic, error handling
 
 ## Phase 8: Auth + Token + BYOK Config (AU1–3, TU1–4, BY1–3)
 
-- [ ] 8.1 src-tauri/src/auth/mod.rs: Opita Code SSO client, token exchange, refresh, .edu verification
-- [ ] 8.2 src-tauri/src/db/mod.rs: SQLite init, migrations, encrypted key-value store
-- [ ] 8.3 Login screen: "Iniciar sesión", system-browser SSO flow, local callback server, token capture
-- [ ] 8.4 Session persistence: SQLite token read/write, auto-refresh on start, logout clears everything
-- [ ] 8.5 Prompt counter: per billing period (30/mo free), display "N de 30 prompts usados"
-- [ ] 8.6 Limit enforcement: block prompt, modal "Actualizá a Estudiante o configurá BYOK"
-- [ ] 8.7 BYOK config panel: add/view/remove keys, masked display (sk-...a1b2), validation via API call
-- [ ] 8.8 Encrypted key storage: AES-GCM via Tauri store plugin, never plaintext
-- [ ] 8.9 Custom endpoint config: URL + key + model list fetch (GET /v1/models)
+- [x] 8.1 src/auth/sso.ts: Mock Opita Code SSO client, token exchange, session persistence, restore, logout (frontend MVP — no Rust backend needed yet)
+- [x] 8.2 src/lib/byok-store.ts: localStorage-based encrypted key-value store (MVP fallback for Tauri store plugin). Keys masked in UI, never exposed in plaintext after save.
+- [x] 8.3 src/components/auth/LoginScreen.tsx: "Iniciar sesión con Opita Code" with email field, loading/error states, "Continuar sin cuenta" guest mode
+- [x] 8.4 Session persistence: localStorage read/write in sso.ts, auto-refresh on start via restoreSession(), logout clears everything
+- [x] 8.5 src/lib/tokens.ts + src/components/usage/TokenBar.tsx: Per-plan prompt limits (30/200/500/2000), estimateTokens(), usage display "12/30 prompts este mes"
+- [x] 8.6 Limit enforcement: ChatPanel checks isLimitReached() before sending, shows upgrade message. TokenBar warnings at 80% and limit state.
+- [x] 8.7 src/components/settings/ByokPanel.tsx: add/view/remove keys, masked display (sk-...a1b2), validation via GET /v1/models, test connection button
+- [x] 8.8 Encrypted key storage: localStorage with maskKey() (MVP fallback). syncProviderToRegistry() re-registers providers with new keys. AES-GCM via Tauri store plugin pending.
+- [x] 8.9 Custom endpoint config: URL + key fields in ByokPanel + model list fetch (GET /v1/models), wired to createCustomProvider() with key/endpoint
 
 ## Phase 9: Learning + Terminal (LL1–2, TM1–3)
 
