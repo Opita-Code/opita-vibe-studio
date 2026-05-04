@@ -1,0 +1,68 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Tauri v2 + React + TypeScript (Windows desktop via WebView2)
+  Runtime: Node.js ESM (Bun compatible for tooling)
+  Architecture: Greenfield - no code exists yet, minimal npm init only
+  Testing: No test framework installed (planned: vitest per AGENTS.md)
+  Style: TypeScript, ESM, conventional commits in Spanish (tipo(scope): descripcion)
+  Quality gates: npm test, npm run typecheck, npm run lint (NOT YET CONFIGURED)
+  Governance: OpenSpec Spec-Driven Development (hybrid mode: openspec + engram)
+
+strict_tdd: false
+
+testing:
+  strict_tdd_mode: disabled
+  detected: 2026-05-04
+  test_runner:
+    framework: none
+    command: "npm test (default echo stub - Error: no test specified)"
+  test_layers:
+    unit:
+      available: false
+      tool: "-"
+    integration:
+      available: false
+      tool: "-"
+    e2e:
+      available: false
+      tool: "-"
+  coverage:
+    available: false
+    command: "-"
+  quality_tools:
+    linter:
+      available: false
+      command: "-"
+    type_checker:
+      available: false
+      command: "-"
+    formatter:
+      available: false
+      command: "-"
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected modules/packages
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group tasks by phase (infrastructure, implementation, testing)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+    - Keep tasks small enough to complete in one session
+  apply:
+    - Follow existing code patterns and conventions
+    - Load relevant coding skills for the project stack
+    tdd: false
+    test_command: ""
+  verify:
+    test_command: ""
+    build_command: ""
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas (large removals)
