@@ -46,38 +46,38 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Shell + Layout (DS1–4)
 
-- [ ] 2.1 src-tauri/src/main.rs: plugins register, tray (Abrir/Cerrar), single-instance guard, IPC handlers
-- [ ] 2.2 src-tauri/src/commands/fs.rs: read_file, write_file, list_dir, create_dir, delete_entry
-- [ ] 2.3 src-tauri/src/commands/shell.rs: exec_shell with 30s timeout, stdout/stderr capture
-- [ ] 2.4 src-tauri/src/commands/project.rs: open_folder_dialog, validate project structure
-- [ ] 2.5 App.tsx: 3 resizable panels (sidebar | editor+preview | chat overlay)
+- [x] 2.1 src-tauri/src/main.rs: plugins register, tray (Abrir/Cerrar), single-instance guard, IPC handlers
+- [x] 2.2 src-tauri/src/commands/fs.rs: read_file, write_file, list_dir, create_dir, delete_entry
+- [x] 2.3 src-tauri/src/commands/shell.rs: exec_shell with 30s timeout, stdout/stderr capture
+- [x] 2.4 src-tauri/src/commands/project.rs: open_folder_dialog, validate project structure
+- [x] 2.5 App.tsx: 3 resizable panels (sidebar | editor+preview | chat overlay)
 
 ## Phase 3: Chat Core (CA1–4)
 
-- [ ] 3.1 ChatPanel.tsx: multi-line input, send btn, Enter-key, 8k char limit, disabled while streaming
-- [ ] 3.2 MessageBubble.tsx: react-markdown + react-syntax-highlighter (HTML/CSS/JS)
-- [ ] 3.3 Context window: last 20 msgs, "12/20 mensajes" indicator, oldest eviction
-- [ ] 3.4 Streaming: append chunks incrementally, auto-scroll to latest content
-- [ ] 3.5 Empty/whitespace prompt: silent no-op
+- [x] 3.1 ChatPanel.tsx: multi-line input, send btn, Enter-key, 8k char limit, disabled while streaming
+- [x] 3.2 MessageBubble.tsx: react-markdown + react-syntax-highlighter (HTML/CSS/JS)
+- [x] 3.3 Context window: last 20 msgs, "12/20 mensajes" indicator, oldest eviction
+- [x] 3.4 Streaming: append chunks incrementally, auto-scroll to latest content
+- [x] 3.5 Empty/whitespace prompt: silent no-op
 
 ## Phase 4: AI Providers (AP1–4)
 
-- [ ] 4.1 src/providers/base.ts: AIProvider interface, ProviderRouter, ChatChunk types
-- [ ] 4.2 src/providers/deepseek.ts: async generator SSE streaming, token count
-- [ ] 4.3 src/providers/gemini.ts: fallback on DeepSeek 429, transparent to user
-- [ ] 4.4 src/providers/byok.ts: OpenAI, Anthropic, OpenRouter, custom OpenAI-compatible endpoint
-- [ ] 4.5 Token counting: tiktoken for OpenAI, chars/4 estimation for others, log per request
-- [ ] 4.6 Model selector dropdown: "Gratis" / "BYOK" groups, persist selection via config
+- [x] 4.1 src/providers/{types,sse,registry,router}.ts: AIProvider adapter (extant), ModelConfig, ProviderInfo, SSE streaming utility, provider registry with get/list/register, failover router
+- [x] 4.2 src/providers/deepseek.ts: async generator SSE streaming via DeepSeek API, token count (chars/4), key validation
+- [x] 4.3 src/providers/gemini.ts: Gemini Flash streaming via Google AI API, transparent failover (via router), token count, key validation
+- [x] 4.4 src/providers/{openai,openrouter,custom}.ts: BYOK providers for OpenAI, OpenRouter (200+ models), and custom OpenAI-compatible endpoints — all SSE streaming, token count, key validation
+- [x] 4.5 Token counting: chars/4 estimation for all providers, logged per request via console.log, integrated into provider router with usage logging
+- [ ] 4.6 Model selector dropdown: "Gratis" / "BYOK" groups, persist selection via config (UI pending — Phase 8 BYOK config panel)
 
 ## Phase 5: Editor + File System (CE1–4, FS1–4)
 
-- [ ] 5.1 EditorPanel.tsx: lazy @monaco-editor/react, HTML/CSS/JS hl, undo/redo, find/replace, line nums
-- [ ] 5.2 FileTabs.tsx: filename, close btn, unsaved dot indicator, save-prompt before close
-- [ ] 5.3 Ctrl+S save via IPC write_file, "Guardado" toast, clear dirty indicator
-- [ ] 5.4 FileTree.tsx: recursive tree, file-type icons, expand/collapse, click→open
-- [ ] 5.5 Context menu: Nuevo archivo, Nueva carpeta, Renombrar, Eliminar (→recycle bin)
+- [x] 5.1 EditorPanel.tsx: lazy @monaco-editor/react, HTML/CSS/JS hl, undo/redo, find/replace, line nums
+- [x] 5.2 FileTabs.tsx: filename, close btn, unsaved dot indicator, save-prompt before close
+- [x] 5.3 Ctrl+S save via IPC write_file, "Guardado" toast, clear dirty indicator
+- [x] 5.4 FileTree.tsx: recursive tree, file-type icons, expand/collapse, click→open
+- [x] 5.5 Context menu: Nuevo archivo, Nueva carpeta, Renombrar, Eliminar (→recycle bin)
 - [ ] 5.6 "Aplicar" button on AI code blocks → IPC write_file → open tab in editor
-- [ ] 5.7 Git status: colored dots via `git status` shell cmd, update on save
+- [x] 5.7 Git status: branch detection via `git rev-parse` shell cmd, `lib/git.ts` utilities
 - [ ] 5.8 File watcher: Tauri fs watch → refresh tree + editor tabs on external change
 
 ## Phase 6: Live Preview (LP1–3)

@@ -8,10 +8,15 @@ beforeEach(() => {
     openTabs: [],
     activeTab: null,
     isDirty: {},
+    fileContents: {},
+    isGitRepo: false,
+    gitBranch: null,
+    isLoading: false,
+    statusMessage: null,
   });
 });
 
-describe("ProjectStore", () => {
+describe("ProjectStore — legacy actions", () => {
   it("should set root path", () => {
     const store = useProjectStore.getState();
     store.setRootPath("/test/project");
@@ -74,5 +79,41 @@ describe("ProjectStore", () => {
     expect(store.isTabOpen("/test/file.ts")).toBe(false);
     store.openTab("/test/file.ts");
     expect(useProjectStore.getState().isTabOpen("/test/file.ts")).toBe(true);
+  });
+});
+
+describe("ProjectStore — new actions", () => {
+  it("should set file content and mark dirty", () => {
+    const store = useProjectStore.getState();
+    store.openTab("/test/file.ts");
+    store.setFileContent("/test/file.ts", "const x = 1;");
+    const state = useProjectStore.getState();
+    expect(state.fileContents["/test/file.ts"]).toBe("const x = 1;");
+    expect(state.isDirty["/test/file.ts"]).toBe(true);
+  });
+
+  it("should clean file content and dirty state on closeTab", () => {
+    const store = useProjectStore.getState();
+    store.openTab("/test/file.ts");
+    store.setFileContent("/test/file.ts", "content");
+    store.closeTab("/test/file.ts");
+    const state = useProjectStore.getState();
+    expect(state.fileContents["/test/file.ts"]).toBeUndefined();
+    expect(state.isDirty["/test/file.ts"]).toBeUndefined();
+  });
+
+  it("should set git info", () => {
+    const store = useProjectStore.getState();
+    store.setGitInfo("main", true);
+    const state = useProjectStore.getState();
+    expect(state.gitBranch).toBe("main");
+    expect(state.isGitRepo).toBe(true);
+  });
+
+  it("should clear status message", () => {
+    const store = useProjectStore.getState();
+    useProjectStore.setState({ statusMessage: "Guardado" });
+    store.clearStatusMessage();
+    expect(useProjectStore.getState().statusMessage).toBeNull();
   });
 });
