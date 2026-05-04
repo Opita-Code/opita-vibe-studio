@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicou/tauri/dev/crates/tauri-utils/schema.json",
+  "productName": "Vibe-Studio",
+  "version": "0.1.0",
+  "identifier": "com.opita.vibe-studio",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Vibe-Studio",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 680,
+        "resizable": true,
+        "fullscreen": false,
+        "label": "main"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-eval'; connect-src 'self' https://api.deepseek.com https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://openrouter.ai"
+    },
+    "trayIcon": {
+      "id": "main",
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://releases.opita.co/vibe-studio/{{target}}/{{current_version}}"
+      ],
+      "pubkey": ""
+    }
+  }
+}
