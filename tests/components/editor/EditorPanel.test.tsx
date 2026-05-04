@@ -48,6 +48,9 @@ describe("EditorPanel", () => {
     mockUIState = {
       previewRatio: 0.35,
       setPreviewRatio: vi.fn(),
+      previewVisible: true,
+      togglePreview: vi.fn(),
+      setPreviewVisible: vi.fn(),
     };
 
     // Default project store state: no active tab
@@ -69,9 +72,16 @@ describe("EditorPanel", () => {
     expect(screen.getByText("Abrí un archivo del explorador para empezar")).toBeDefined();
   });
 
-  it("should render preview area", () => {
+  it("should render preview toggle button", () => {
     render(<EditorPanel />);
-    expect(screen.getByText("Vista previa en vivo")).toBeDefined();
+    expect(screen.getByText("Vista Previa")).toBeDefined();
+  });
+
+  it("should render preview iframe when preview is visible", () => {
+    render(<EditorPanel />);
+    const iframe = document.querySelector("iframe");
+    expect(iframe).not.toBeNull();
+    expect(iframe?.getAttribute("sandbox")).toBe("allow-scripts");
   });
 
   it("should render Monaco editor when a file is active", () => {
@@ -105,5 +115,57 @@ describe("EditorPanel", () => {
     render(<EditorPanel />);
     const editor = screen.getByTestId("monaco-editor");
     expect(editor.getAttribute("data-language")).toBe("css");
+  });
+
+  it("should hide preview iframe when previewVisible is false", () => {
+    mockUIState = {
+      previewRatio: 0.35,
+      setPreviewRatio: vi.fn(),
+      previewVisible: false,
+      togglePreview: vi.fn(),
+      setPreviewVisible: vi.fn(),
+    };
+
+    render(<EditorPanel />);
+    const iframe = document.querySelector("iframe");
+    expect(iframe).toBeNull();
+  });
+
+  it("should wrap CSS content in style tags for preview", () => {
+    mockProjectState = {
+      activeTab: "/test/styles.css",
+      openTabs: ["/test/styles.css"],
+      fileContents: { "/test/styles.css": "body { color: red; }" },
+      isDirty: { "/test/styles.css": false },
+      setFileContent: vi.fn(),
+      saveFile: vi.fn(),
+      statusMessage: null,
+      clearStatusMessage: vi.fn(),
+    };
+
+    render(<EditorPanel />);
+    const iframe = document.querySelector("iframe");
+    const srcdoc = iframe?.getAttribute("srcdoc") ?? "";
+    expect(srcdoc).toContain("<style>");
+    expect(srcdoc).toContain("body { color: red; }");
+  });
+
+  it("should wrap JS content in script tags for preview", () => {
+    mockProjectState = {
+      activeTab: "/test/script.js",
+      openTabs: ["/test/script.js"],
+      fileContents: { "/test/script.js": "console.log('hello');" },
+      isDirty: { "/test/script.js": false },
+      setFileContent: vi.fn(),
+      saveFile: vi.fn(),
+      statusMessage: null,
+      clearStatusMessage: vi.fn(),
+    };
+
+    render(<EditorPanel />);
+    const iframe = document.querySelector("iframe");
+    const srcdoc = iframe?.getAttribute("srcdoc") ?? "";
+    expect(srcdoc).toContain("<script>");
+    expect(srcdoc).toContain("console.log('hello');");
   });
 });

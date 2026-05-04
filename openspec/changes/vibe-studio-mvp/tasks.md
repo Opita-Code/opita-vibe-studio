@@ -82,10 +82,10 @@ Chain strategy: stacked-to-main
 
 ## Phase 6: Live Preview (LP1–3)
 
-- [ ] 6.1 PreviewPanel.tsx: sandboxed iframe (allow-scripts, no allow-same-origin), strict CSP meta tag
-- [ ] 6.2 postMessage bridge: editor content→iframe reload, error capture from iframe
-- [ ] 6.3 Auto-reload on file save (500ms debounce) + manual reload btn, "Actualizado" flash
-- [ ] 6.4 Error bar: window.onerror→postMessage→non-blocking error display above preview
+- [x] 6.1 LivePreview.tsx: sandboxed iframe (allow-scripts, no allow-same-origin), strict CSP meta tag, postMessage bridge
+- [x] 6.2 postMessage bridge: editor content→iframe reload with version counter, error capture from iframe
+- [x] 6.3 Auto-reload on file save (version increment) + manual reload btn, "Actualizado" flash
+- [x] 6.4 Error bar: window.onerror→postMessage→non-blocking error display above preview
 
 ## Phase 7: OpenSpec Pipeline (OS1–3)
 
