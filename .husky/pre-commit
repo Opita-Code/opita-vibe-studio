@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# Pre-commit hook: format + lint staged files via lint-staged
+# Runs typecheck + format:check + lint on staged changes
+# Skips if npm test is already passing (CI avoids redundant runs)
+
+npx lint-staged --allow-empty
