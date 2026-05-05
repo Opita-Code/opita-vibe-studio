@@ -21,9 +21,9 @@ export const TIP_DICTIONARY: LearningTip[] = [
     id: "let-const",
     concept: "variables",
     question:
-      "¿Sabías que...? let y const son formas modernas de declarar variables. Usá const cuando el valor no cambia, y let cuando sí.",
+      "¿Sabías que...? let y const son formas modernas de declarar variables. Usa const cuando el valor no cambia, y let cuando sí.",
     explanation:
-      "Desde ES6, JavaScript tiene `let` y `const` que reemplazan a `var`. La diferencia clave: `let` y `const` tienen alcance de bloque ({}), no de función. Usá `const` por defecto — solo usá `let` cuando necesites reasignar. Olvidate de `var`, puede causar bugs raros por hoisting y alcance de función.",
+      "Desde ES6, JavaScript tiene `let` y `const` que reemplazan a `var`. La diferencia clave: `let` y `const` tienen alcance de bloque ({}), no de función. Usa `const` por defecto — solo usa `let` cuando necesites reasignar. Olvídate de `var`, puede causar bugs raros por hoisting y alcance de función.",
     tags: ["javascript", "variables", "basicos"],
     triggerEvent: "js-var",
   },
@@ -33,7 +33,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     question:
       "¿Sabías que...? en JS moderno se recomienda `const` siempre que puedas. Es más predecible y evitás reasignaciones accidentales.",
     explanation:
-      "La regla es simple: empezá con `const`. Si después necesitás reasignar, cambiá a `let`. Esto hace tu código más legible porque quien lee sabe que ese valor no va a cambiar. Bonus: el motor de JS optimiza mejor las variables declaradas con `const`.",
+      "La regla es simple: empieza con `const`. Si después necesitas reasignar, cambia a `let`. Esto hace tu código más legible porque quien lee sabe que ese valor no va a cambiar. Bonus: el motor de JS optimiza mejor las variables declaradas con `const`.",
     tags: ["javascript", "variables", "buenas-practicas"],
     triggerEvent: "js-let",
   },
@@ -65,9 +65,9 @@ export const TIP_DICTIONARY: LearningTip[] = [
     id: "object-shorthand",
     concept: "objetos",
     question:
-      "¿Sabías que...? en JS moderno podés crear objetos sin repetir las propiedades: `{ nombre }` en vez de `{ nombre: nombre }`.",
+      "¿Sabías que...? en JS moderno puedes crear objetos sin repetir las propiedades: `{ nombre }` en vez de `{ nombre: nombre }`.",
     explanation:
-      "ES6 introdujo el shorthand de propiedades: cuando el nombre de la variable coincide con el nombre de la propiedad, podés escribirla una sola vez. También podés usar `{ ...obj }` para copiar objetos con el spread operator, y `{ ...obj, clave: valor }` para sobrescribir propiedades.",
+      "ES6 introdujo el shorthand de propiedades: cuando el nombre de la variable coincide con el nombre de la propiedad, puedes escribirla una sola vez. También puedes usar `{ ...obj }` para copiar objetos con el spread operator, y `{ ...obj, clave: valor }` para sobrescribir propiedades.",
     tags: ["javascript", "objetos", "es6"],
     triggerEvent: "js-object",
   },
@@ -75,7 +75,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     id: "destructuring",
     concept: "objetos",
     question:
-      "¿Sabías que...? con destructuring podés extraer valores de objetos en una sola línea: `const { nombre, edad } = usuario`.",
+      "¿Sabías que...? con destructuring puedes extraer valores de objetos en una sola línea: `const { nombre, edad } = usuario`.",
     explanation:
       "El destructuring es una de las características más útiles de ES6. Te permite 'desarmar' objetos y arrays en variables individuales. Sirve para parámetros de funciones (`function saludar({ nombre })`), imports, y hasta para intercambiar valores sin variable temporal.",
     tags: ["javascript", "objetos", "es6", "destructuring"],
@@ -99,7 +99,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     question:
       "¿Sabías que...? el operador `...` (spread) te permite copiar y combinar arrays fácilmente: `[...arr1, ...arr2]`.",
     explanation:
-      "El spread operator `...` es una forma elegante de trabajar con arrays inmutables. En vez de usar `.concat()` o push mutando el original, creás un nuevo array. También sirve para convertir strings a arrays (`[...'hola']`), y para pasar elementos de un array como argumentos de función.",
+      "El spread operator `...` es una forma elegante de trabajar con arrays inmutables. En vez de usar `.concat()` o push mutando el original, creas un nuevo array. También sirve para convertir strings a arrays (`[...'hola']`), y para pasar elementos de un array como argumentos de función.",
     tags: ["javascript", "arrays", "es6"],
     triggerEvent: "js-array",
   },
@@ -109,9 +109,9 @@ export const TIP_DICTIONARY: LearningTip[] = [
     id: "template-strings",
     concept: "strings",
     question:
-      "¿Sabías que...? con template literals (``) podés interpolar variables sin concatenar: ``Hola, ${nombre}``.",
+      "¿Sabías que...? con template literals (``) puedes interpolar variables sin concatenar: ``Hola, ${nombre}``.",
     explanation:
-      "Las template strings (usando backticks ``) reemplazan la concatenación con `+`. Además de interpolar variables con `${}`, respetan saltos de línea, y podés usar expresiones adentro: `${precio * 1.19}`. También existen las tagged templates para cosas más avanzadas como styled-components.",
+      "Las template strings (usando backticks ``) reemplazan la concatenación con `+`. Además de interpolar variables con `${}`, respetan saltos de línea, y puedes usar expresiones adentro: `${precio * 1.19}`. También existen las tagged templates para cosas más avanzadas como styled-components.",
     tags: ["javascript", "strings", "es6"],
     triggerEvent: "js-concat",
   },
@@ -153,9 +153,9 @@ export const TIP_DICTIONARY: LearningTip[] = [
     id: "flexbox-vs-grid",
     concept: "flexbox",
     question:
-      "¿Sabías que...? Flexbox es para una dimensión (fila O columna). Grid es para dos dimensiones (filas Y columnas). Elegí según lo que necesites.",
+      "¿Sabías que...? Flexbox es para una dimensión (fila O columna). Grid es para dos dimensiones (filas Y columnas). Elige según lo que necesites.",
     explanation:
-      "Regla práctica: si estás maquetando en una sola dirección (como una barra de navegación o una lista de cards horizontal), usá Flexbox. Si necesitás una cuadrícula con filas y columnas que se alinean en ambas direcciones, usá Grid. Con los dos podés hacer layouts completos sin frameworks.",
+      "Regla práctica: si estás maquetando en una sola dirección (como una barra de navegación o una lista de cards horizontal), usa Flexbox. Si necesitas una cuadrícula con filas y columnas que se alinean en ambas direcciones, usa Grid. Con los dos puedes hacer layouts completos sin frameworks.",
     tags: ["css", "flexbox", "grid", "layout"],
     triggerEvent: "css-layout",
   },
@@ -175,7 +175,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     id: "grid-vs-frameworks",
     concept: "grid",
     question:
-      "¿Sabías que...? con CSS Grid y Flexbox rara vez necesitás un framework como Bootstrap solo por el grid.",
+      "¿Sabías que...? con CSS Grid y Flexbox rara vez necesitas un framework como Bootstrap solo por el grid.",
     explanation:
       "Mucha gente usa Bootstrap o Tailwind solo por el sistema de grillas. Con CSS Grid nativo (`grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))`) tenés un layout responsivo en una línea, sin depender de clases externas ni generar HTML verboso.",
     tags: ["css", "grid", "frameworks", "buenas-practicas"],
@@ -231,9 +231,9 @@ export const TIP_DICTIONARY: LearningTip[] = [
     id: "event-delegation",
     concept: "eventos",
     question:
-      "¿Sabías que...? podés usar delegación de eventos en vez de asignar un listener a cada elemento hijo.",
+      "¿Sabías que...? puedes usar delegación de eventos en vez de asignar un listener a cada elemento hijo.",
     explanation:
-      "En vez de hacer `elemento.forEach(el => el.addEventListener(...))`, poné un solo listener en el padre y usá `event.target` para detectar qué hijo disparó el evento. Esto funciona porque los eventos 'burbujean' desde el elemento hijo hasta el documento. Mejor rendimiento y código más limpio.",
+      "En vez de hacer `elemento.forEach(el => el.addEventListener(...))`, pon un solo listener en el padre y usa `event.target` para detectar qué hijo disparó el evento. Esto funciona porque los eventos 'burbujean' desde el elemento hijo hasta el documento. Mejor rendimiento y código más limpio.",
     tags: ["javascript", "eventos", "dom", "buenas-practicas"],
     triggerEvent: "js-event-listener",
   },
@@ -243,7 +243,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     question:
       "¿Sabías que...? `event.preventDefault()` evita comportamientos por defecto como recargar la página al enviar un formulario.",
     explanation:
-      "Cuando enviás un formulario, el navegador recarga la página por defecto. Con `event.preventDefault()` en el evento `submit`, podés manejar el envío con JavaScript (fetch API, validación, etc.). También sirve para evitar que un clic en un link navegue, o que el menú contextual aparezca.",
+      "Cuando envías un formulario, el navegador recarga la página por defecto. Con `event.preventDefault()` en el evento `submit`, puedes manejar el envío con JavaScript (fetch API, validación, etc.). También sirve para evitar que un clic en un link navegue, o que el menú contextual aparezca.",
     tags: ["javascript", "eventos", "formularios"],
     triggerEvent: "js-form-submit",
   },
@@ -287,7 +287,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     question:
       "¿Sabías que...? trabajar con ramas (branches) te permite experimentar sin miedo a romper el código principal.",
     explanation:
-      "Las ramas en Git son livianas y baratas. Creá una rama por feature o fix: `git checkout -b feat/mi-cambio`. Trabajá tranquilo, y cuando esté listo, hacé un PR para fusionarlo. Si algo sale mal, simplemente borrás la rama y el main queda intacto.",
+      "Las ramas en Git son livianas y baratas. Crea una rama por feature o fix: `git checkout -b feat/mi-cambio`. Trabaja tranquilo, y cuando esté listo, haz un PR para fusionarlo. Si algo sale mal, simplemente borras la rama y el main queda intacto.",
     tags: ["git", "flujo-de-trabajo"],
     triggerEvent: "git-branch",
   },
@@ -297,7 +297,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     id: "npm-scripts",
     concept: "npm",
     question:
-      "¿Sabías que...? podés crear scripts personalizados en package.json para automatizar tareas repetitivas.",
+      "¿Sabías que...? puedes crear scripts personalizados en package.json para automatizar tareas repetitivas.",
     explanation:
       'En `package.json`, la sección `scripts` te permite definir comandos cortos: `"dev": "vite"`, `"test": "vitest run"`. Después los ejecutás con `npm run dev` o `npm test`. También existen pre/post hooks: `prebuild` se ejecuta automáticamente antes de `build`. Muy útil para automatizar lint, tests y builds.',
     tags: ["npm", "herramientas", "automatizacion"],

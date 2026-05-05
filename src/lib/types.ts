@@ -89,6 +89,7 @@ export interface LearningTip {
   question: string;
   explanation: string;
   tags: string[];
+  triggerEvent?: string;
 }
 
 export interface LearningEvent {

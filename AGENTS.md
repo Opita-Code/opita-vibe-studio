@@ -6,7 +6,7 @@
 
 Opita Vibe-Studio is an Opita Code product — a simplified vibe-coding environment for Windows, designed as the entry point to OpenSpec-driven development for students and beginners.
 
-**Tagline**: _Vibecodeá en español. Aprendé sin darte cuenta._
+**Tagline**: _Vibecodea en español. Aprende sin darte cuenta._
 
 **Tone**: claro (clear), cercano (warm, Colombian, human), práctico (focused on results).
 

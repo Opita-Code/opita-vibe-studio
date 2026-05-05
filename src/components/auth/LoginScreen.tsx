@@ -79,7 +79,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
           </div>
           <h1 className="text-xl font-bold text-[#d4d4d4]">Opita Vibe</h1>
           <p className="text-center text-sm text-[#969696]">
-            Vibe-codeá en español. Aprendé sin darte cuenta.
+            Vibecodea en español. Aprende sin darte cuenta.
           </p>
         </div>
 

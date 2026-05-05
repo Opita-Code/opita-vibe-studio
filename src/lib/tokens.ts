@@ -27,21 +27,21 @@ export const PLAN_FEATURES: Record<UserPlan, string[]> = {
   ],
   estudiante: [
     "200 prompts por mes",
-    "BYOK: usá tu propia API key",
+    "BYOK: usa tu propia API key",
     "Vista previa en vivo",
     "Editor de código",
     "Verificación de estudiante requerida",
   ],
   creador: [
     "500 prompts por mes",
-    "BYOK: usá tu propia API key",
+    "BYOK: usa tu propia API key",
     "Modelos premium (GPT-4o, Claude)",
     "Vista previa en vivo",
     "Soporte prioritario",
   ],
   pro: [
     "2000 prompts por mes",
-    "BYOK: usá tu propia API key",
+    "BYOK: usa tu propia API key",
     "Todos los modelos disponibles",
     "Vista previa en vivo",
     "Soporte prioritario 24/7",
@@ -49,7 +49,7 @@ export const PLAN_FEATURES: Record<UserPlan, string[]> = {
   ],
   universidad: [
     "2000 prompts por mes",
-    "BYOK: usá tu propia API key",
+    "BYOK: usa tu propia API key",
     "Todos los modelos disponibles",
     "Gestión de múltiples estudiantes",
     "Panel de administración",

@@ -1,5 +1,5 @@
 // Vibe-Studio — Opita Code
-// Vibecodeá en español. Aprendé sin darte cuenta.
+// Vibecodea en español. Aprende sin darte cuenta.
 
 use tauri::Manager;
 

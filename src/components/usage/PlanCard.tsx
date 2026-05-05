@@ -100,7 +100,7 @@ export function PlanCard({ className = "" }: PlanCardProps) {
             // Para MVP: mostrar un mensaje o redirigir
             alert(
               "Próximamente: planes Estudiante, Creador y Pro. " +
-                "Mientras tanto, configurá BYOK para más prompts.",
+                "Mientras tanto, configura BYOK para más prompts.",
             );
           }}
           className="w-full rounded bg-[#4f46e5] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#4338ca]"

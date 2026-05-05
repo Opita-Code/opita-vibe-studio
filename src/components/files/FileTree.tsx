@@ -389,7 +389,7 @@ export function FileTree({ nodes, level = 0 }: { nodes: FileNode[]; level?: numb
     >
       {nodes.length === 0 ? (
         <p className="px-3 py-4 text-xs text-[#616161]">
-          Proyecto vacío — creá un archivo con click derecho
+          Proyecto vacío — crea un archivo con click derecho
         </p>
       ) : (
         nodes.map((node) => (
