@@ -83,5 +83,6 @@ export const useUIStore = create<UIStore>((set) => ({
 
   setTerminalVisible: (visible) => set({ terminalVisible: visible }),
 
-  setTerminalHeight: (height) => set({ terminalHeight: Math.max(100, Math.min(500, height)) }),
+  setTerminalHeight: (height) =>
+    set({ terminalHeight: Math.max(100, Math.min(500, height)) }),
 }));

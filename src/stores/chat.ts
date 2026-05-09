@@ -50,9 +50,10 @@ export const useChatStore = create<ChatStore>((set) => ({
       const updated = [...state.messages, message];
       // Mantener solo los últimos MAX_CONTEXT_MESSAGES
       return {
-        messages: updated.length > MAX_CONTEXT_MESSAGES
-          ? updated.slice(-MAX_CONTEXT_MESSAGES)
-          : updated,
+        messages:
+          updated.length > MAX_CONTEXT_MESSAGES
+            ? updated.slice(-MAX_CONTEXT_MESSAGES)
+            : updated,
       };
     }),
 
