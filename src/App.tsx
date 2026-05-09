@@ -5,6 +5,7 @@ import { ChatPanel } from "@/components/layout/ChatPanel";
 import { ResizeHandle } from "@/components/layout/ResizeHandle";
 import { StatusBar } from "@/components/layout/StatusBar";
 import { LoginScreen } from "@/components/auth/LoginScreen";
+import { FileWatcher } from "@/components/editor/FileWatcher";
 import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 import { restoreSession } from "@/auth/sso";
@@ -80,6 +81,9 @@ function App() {
   // ── Layout principal ────────────────────────────────────
   return (
     <div className="flex h-full w-full flex-col bg-[#1e1e1e] text-[#d4d4d4]">
+      {/* Watcher de archivos del proyecto (invisible) */}
+      <FileWatcher />
+
       {/* Panel principal: sidebar | editor | chat */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar izquierdo — explorador de archivos */}

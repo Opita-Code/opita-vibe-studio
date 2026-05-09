@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { FileNode } from "@/lib/types";
 import { loadProject, readFileContent, saveFileContent, isGitRepo } from "@/lib/fs";
 import { getGitBranch } from "@/lib/git";
+import { markWriting, markWritten } from "@/lib/file-watcher";
 
 // ─── State ─────────────────────────────────────────────────────
 
