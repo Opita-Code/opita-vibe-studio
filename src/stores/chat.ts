@@ -46,9 +46,15 @@ export const useChatStore = create<ChatStore>((set) => ({
   pipelinePhase: null,
 
   addMessage: (message) =>
-    set((state) => ({
-      messages: [...state.messages, message],
-    })),
+    set((state) => {
+      const updated = [...state.messages, message];
+      // Mantener solo los últimos MAX_CONTEXT_MESSAGES
+      return {
+        messages: updated.length > MAX_CONTEXT_MESSAGES
+          ? updated.slice(-MAX_CONTEXT_MESSAGES)
+          : updated,
+      };
+    }),
 
   appendToLastMessage: (content) =>
     set((state) => {

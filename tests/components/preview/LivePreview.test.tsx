@@ -47,7 +47,7 @@ describe("LivePreview", () => {
     const iframe = document.querySelector("iframe");
     const srcdoc = iframe?.getAttribute("srcdoc") ?? "";
     expect(srcdoc).toContain("Content-Security-Policy");
-    expect(srcdoc).toContain("default-src 'self' 'unsafe-inline'");
+    expect(srcdoc).toContain("default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
     expect(srcdoc).toContain("script-src 'unsafe-inline'");
   });
 
