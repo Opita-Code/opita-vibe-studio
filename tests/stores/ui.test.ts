@@ -10,6 +10,9 @@ beforeEach(() => {
     connectedProvider: "DeepSeek",
     tokensRemaining: 0,
     previewRatio: 0.35,
+    previewVisible: true,
+    terminalVisible: false,
+    terminalHeight: 200,
   });
 });
 

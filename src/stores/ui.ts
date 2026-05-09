@@ -19,6 +19,10 @@ interface UIState {
   previewRatio: number;
   /** Visibilidad del panel de vista previa */
   previewVisible: boolean;
+  /** Visibilidad del panel de terminal */
+  terminalVisible: boolean;
+  /** Altura del panel de terminal en píxeles */
+  terminalHeight: number;
 }
 
 // ─── Actions ───────────────────────────────────────────────────
@@ -34,6 +38,9 @@ interface UIActions {
   setPreviewRatio: (ratio: number) => void;
   togglePreview: () => void;
   setPreviewVisible: (visible: boolean) => void;
+  toggleTerminal: () => void;
+  setTerminalVisible: (visible: boolean) => void;
+  setTerminalHeight: (height: number) => void;
 }
 
 // ─── Store ─────────────────────────────────────────────────────
@@ -49,6 +56,8 @@ export const useUIStore = create<UIStore>((set) => ({
   tokensRemaining: 0,
   previewRatio: 0.35,
   previewVisible: true,
+  terminalVisible: false,
+  terminalHeight: 200,
 
   setSidebarWidth: (width) => set({ sidebarWidth: Math.max(180, Math.min(400, width)) }),
 
@@ -69,4 +78,10 @@ export const useUIStore = create<UIStore>((set) => ({
   togglePreview: () => set((state) => ({ previewVisible: !state.previewVisible })),
 
   setPreviewVisible: (visible) => set({ previewVisible: visible }),
+
+  toggleTerminal: () => set((state) => ({ terminalVisible: !state.terminalVisible })),
+
+  setTerminalVisible: (visible) => set({ terminalVisible: visible }),
+
+  setTerminalHeight: (height) => set({ terminalHeight: Math.max(100, Math.min(500, height)) }),
 }));
