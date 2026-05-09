@@ -43,9 +43,9 @@ jobs:
 
       - name: Sincronizar a S3
         run: |
-          aws s3 sync dist/ s3://opita-vibe-studio/ --delete \
+          aws s3 sync dist/ s3://vibe-landing-728741135483/ --delete \
             --cache-control "max-age=31536000,public,immutable"
-          aws s3 sync dist/ s3://opita-vibe-studio/ --delete \
+          aws s3 sync dist/ s3://vibe-landing-728741135483/ --delete \
             --cache-control "max-age=0,no-cache,must-revalidate" \
             --exclude "*" --include "*.html"
 
