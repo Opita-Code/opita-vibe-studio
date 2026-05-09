@@ -76,9 +76,9 @@ Chain strategy: stacked-to-main
 - [x] 5.3 Ctrl+S save via IPC write_file, "Guardado" toast, clear dirty indicator
 - [x] 5.4 FileTree.tsx: recursive tree, file-type icons, expand/collapse, click→open
 - [x] 5.5 Context menu: Nuevo archivo, Nueva carpeta, Renombrar, Eliminar (→recycle bin)
-- [ ] 5.6 "Aplicar" button on AI code blocks → IPC write_file → open tab in editor
+- [x] 5.6 "Aplicar" button on AI code blocks → IPC write_file → open tab in editor
 - [x] 5.7 Git status: branch detection via `git rev-parse` shell cmd, `lib/git.ts` utilities
-- [ ] 5.8 File watcher: Tauri fs watch → refresh tree + editor tabs on external change
+- [x] 5.8 File watcher: Tauri fs watch → refresh tree + editor tabs on external change
 
 ## Phase 6: Live Preview (LP1–3)
 
@@ -111,12 +111,12 @@ Chain strategy: stacked-to-main
 
 ## Phase 9: Learning + Terminal (LL1–2, TM1–3)
 
-- [ ] 9.1 src/lib/tips.ts: 20+ Colombian Spanish tips by concept tag (flexbox, grid, selectors, events, DOM)
-- [ ] 9.2 LearningTip.tsx: "¿Sabías que...?" toast, dismissible, 8s auto-dismiss, deduplicated
-- [ ] 9.3 Event triggers: file create/AI code gen/file save → tag lookup → show tip if unseen
-- [ ] 9.4 TerminalPanel.tsx: command input, spinner, stdout/stderr output, exit code, 30s timeout display
-- [ ] 9.5 Spanish translation: file-not-found, perm-denied, cmd-not-found, git/npm status output
-- [ ] 9.6 Preset commands dropdown (git status, npm init, etc.) + dangerous cmd confirmation dialog
+- [x] 9.1 src/lib/tips.ts: 20+ Colombian Spanish tips by concept tag (flexbox, grid, selectors, events, DOM)
+- [x] 9.2 LearningTip.tsx: "¿Sabías que...?" toast, dismissible, 8s auto-dismiss, deduplicated
+- [x] 9.3 Event triggers: file create/AI code gen/file save → tag lookup → show tip if unseen
+- [x] 9.4 TerminalPanel.tsx: command input, spinner, stdout/stderr output, exit code, 30s timeout display
+- [x] 9.5 Spanish translation: file-not-found, perm-denied, cmd-not-found, git/npm status output
+- [x] 9.6 Preset commands dropdown (git status, npm init, etc.) + dangerous cmd confirmation dialog
 
 ## Phase 10: Tests (49 scenarios coverage)
 
