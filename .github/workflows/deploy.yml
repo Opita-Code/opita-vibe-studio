@@ -41,11 +41,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Sincronizar a S3
+      - name: Sincronizar a S3 (solo /app/ — el landing en / no se toca)
         run: |
-          aws s3 sync dist/ s3://vibe-landing-728741135483/ --delete \
+          aws s3 sync dist/ s3://vibe-landing-728741135483/app/ --delete \
             --cache-control "max-age=31536000,public,immutable"
-          aws s3 sync dist/ s3://vibe-landing-728741135483/ --delete \
+          aws s3 sync dist/ s3://vibe-landing-728741135483/app/ --delete \
             --cache-control "max-age=0,no-cache,must-revalidate" \
             --exclude "*" --include "*.html"
 
