@@ -210,7 +210,7 @@ export function ByokPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-[#4f46e5] border-t-transparent" />
+        <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-[var(--vibe-indigo)] border-t-transparent" />
       </div>
     );
   }
@@ -262,7 +262,7 @@ export function ByokPanel() {
                   <button
                     onClick={() => handleTestConnection(provider.id)}
                     disabled={testingProvider === provider.id}
-                    className="rounded px-2 py-1 text-xs text-[#818cf8] transition-colors hover:bg-[#333] disabled:opacity-50"
+                    className="rounded px-2 py-1 text-xs text-[var(--vibe-indigo)] transition-colors hover:bg-[#333] disabled:opacity-50"
                     title="Probar conexión"
                   >
                     {testingProvider === provider.id ? "..." : "Probar"}
@@ -316,7 +316,7 @@ export function ByokPanel() {
           <select
             value={selectedProvider}
             onChange={(e) => handleProviderChange(e.target.value)}
-            className="w-full rounded border border-[#444] bg-[#3c3c3c] px-3 py-1.5 text-xs text-[#d4d4d4] outline-none focus:border-[#4f46e5]"
+            className="w-full rounded border border-[#444] bg-[#3c3c3c] px-3 py-1.5 text-xs text-[#d4d4d4] outline-none focus:border-[var(--vibe-indigo)]"
           >
             {BYOK_PROVIDERS.map((p) => (
               <option key={p.id} value={p.id}>
@@ -340,7 +340,7 @@ export function ByokPanel() {
                 setSaveError(null);
               }}
               placeholder="https://mi-llm.example.com/v1"
-              className="w-full rounded border border-[#444] bg-[#3c3c3c] px-3 py-1.5 text-xs text-[#d4d4d4] placeholder-[#616161] outline-none focus:border-[#4f46e5]"
+              className="w-full rounded border border-[#444] bg-[#3c3c3c] px-3 py-1.5 text-xs text-[#d4d4d4] placeholder-[#616161] outline-none focus:border-[var(--vibe-indigo)]"
             />
           </div>
         )}
@@ -362,7 +362,7 @@ export function ByokPanel() {
                 ? "Ingresá tu API key"
                 : `sk-... (${getDef(selectedProvider)?.name ?? "proveedor"})`
             }
-            className="w-full rounded border border-[#444] bg-[#3c3c3c] px-3 py-1.5 text-xs text-[#d4d4d4] placeholder-[#616161] outline-none focus:border-[#4f46e5]"
+            className="w-full rounded border border-[#444] bg-[#3c3c3c] px-3 py-1.5 text-xs text-[#d4d4d4] placeholder-[#616161] outline-none focus:border-[var(--vibe-indigo)]"
           />
         </div>
 
@@ -372,7 +372,7 @@ export function ByokPanel() {
             href={getDef(selectedProvider)!.docsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mb-2 block text-[10px] text-[#818cf8] underline"
+            className="mb-2 block text-[10px] text-[var(--vibe-indigo)] underline"
           >
             ¿Dónde obtengo mi API key?
           </a>
@@ -394,7 +394,7 @@ export function ByokPanel() {
         <button
           onClick={handleSave}
           disabled={saving || !apiKey.trim()}
-          className="w-full rounded bg-[#4f46e5] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#4338ca] disabled:opacity-50"
+          className="w-full rounded bg-[var(--vibe-indigo)] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[var(--vibe-indigo)]/80 disabled:opacity-50"
         >
           {saving ? "Validando..." : "Guardar"}
         </button>

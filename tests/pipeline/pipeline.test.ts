@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   detectCodeRequest,
   toMessages,
@@ -370,7 +370,7 @@ describe("buildEntenderMessages", () => {
     const msgs = buildEntenderMessages("Quiero una página");
     expect(msgs).toHaveLength(2);
     expect(msgs[0].role).toBe("system");
-    expect(msgs[0].content).toContain("Opita Vibe");
+    expect(msgs[0].content).toContain("Vibe Studio");
     expect(msgs[1].role).toBe("user");
     expect(msgs[1].content).toBe("Quiero una página");
   });
@@ -483,7 +483,7 @@ describe("Pipeline Integration (with mock provider)", () => {
     registerProvider(mockProvider);
 
     const context = [makeMsg("Hola previo")];
-    const events: any[] = [];
+    const events: unknown[] = [];
 
     // Necesitamos importar runPipeline dinámicamente para usar el provider registrado
     const { runPipeline } = await import("../../src/pipeline/engine");
@@ -524,7 +524,7 @@ describe("Pipeline Integration (with mock provider)", () => {
     const context = [makeMsg("Hola")];
     const { runPipeline } = await import("../../src/pipeline/engine");
 
-    const events: any[] = [];
+    const events: unknown[] = [];
     for await (const event of runPipeline(
       "Quiero crear un script",
       context,
@@ -552,7 +552,7 @@ describe("Pipeline Integration (with mock provider)", () => {
     const context = [makeMsg("Hola")];
     const { runPipeline } = await import("../../src/pipeline/engine");
 
-    const events: any[] = [];
+    const events: unknown[] = [];
     for await (const event of runPipeline(
       "Quiero crear algo",
       context,
@@ -586,7 +586,7 @@ describe("Pipeline Integration (with mock provider)", () => {
     const context = [makeMsg("Hola")];
     const { runPipeline } = await import("../../src/pipeline/engine");
 
-    const events: any[] = [];
+    const events: unknown[] = [];
     for await (const event of runPipeline(
       "Quiero crear algo",
       context,

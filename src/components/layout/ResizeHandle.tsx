@@ -64,7 +64,7 @@ export function ResizeHandle({
         orientation === "horizontal"
           ? "w-[3px] cursor-col-resize"
           : "h-[3px] cursor-row-resize"
-      } bg-[#333] hover:bg-opita-500 active:bg-opita-600 transition-colors duration-150`}
+      } bg-[#333] hover:bg-[var(--vibe-indigo)] active:bg-[var(--vibe-indigo)] transition-colors duration-150`}
       onMouseDown={handleMouseDown}
     />
   );

@@ -52,7 +52,9 @@ export function PlanCard({ className = "" }: PlanCardProps) {
         {/* Badge del plan */}
         <span
           className={`rounded px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
-            isFree ? "bg-[#333] text-[#969696]" : "bg-[#4f46e5]/20 text-[#818cf8]"
+            isFree
+              ? "bg-[#333] text-[#969696]"
+              : "bg-[var(--vibe-indigo)]/20 text-[var(--vibe-indigo)]"
           }`}
         >
           {plan}
@@ -103,7 +105,7 @@ export function PlanCard({ className = "" }: PlanCardProps) {
                 "Mientras tanto, configura BYOK para más prompts.",
             );
           }}
-          className="w-full rounded bg-[#4f46e5] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#4338ca]"
+          className="w-full rounded bg-[var(--vibe-indigo)] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[var(--vibe-indigo)]/80"
         >
           Actualizar plan
         </button>

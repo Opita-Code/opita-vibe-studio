@@ -102,7 +102,7 @@ describe("OpenRouter BYOK Provider", () => {
     const headers = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1]
       .headers;
     expect(headers["HTTP-Referer"]).toBe("https://vibe-studio.opita.co");
-    expect(headers["X-Title"]).toBe("Vibe-Studio");
+    expect(headers["X-Title"]).toBe("Vibe Studio");
   });
 
   it("should count tokens as chars/4", () => {

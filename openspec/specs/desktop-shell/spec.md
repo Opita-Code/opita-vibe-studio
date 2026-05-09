@@ -11,7 +11,7 @@ The Tauri v2 desktop shell MUST provide a main application window with configura
 - GIVEN the app is installed on Windows 10/11
 - WHEN the user launches the executable
 - THEN a main window opens with dimensions 1280×800 (default)
-- AND the window title displays "Vibe-Studio"
+- AND the window title displays "Vibe Studio"
 
 #### Scenario: Close button minimizes to tray
 
@@ -23,13 +23,13 @@ The Tauri v2 desktop shell MUST provide a main application window with configura
 
 ### Requirement: System Tray Integration
 
-The app MUST register a system tray icon with a context menu containing at minimum: "Abrir Vibe-Studio", "Cerrar". The tray SHALL be visible on app startup and persist until explicit quit.
+The app MUST register a system tray icon with a context menu containing at minimum: "Abrir Vibe Studio", "Cerrar". The tray SHALL be visible on app startup and persist until explicit quit.
 
 #### Scenario: Tray menu shows options
 
 - GIVEN the app is running
 - WHEN the user right-clicks the tray icon
-- THEN a context menu appears with "Abrir Vibe-Studio" and "Cerrar"
+- THEN a context menu appears with "Abrir Vibe Studio" and "Cerrar"
 - AND selecting "Abrir" restores the main window if hidden
 - AND selecting "Cerrar" terminates the app process completely
 

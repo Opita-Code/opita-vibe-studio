@@ -22,8 +22,8 @@ beforeEach(() => {
 describe("LoginScreen", () => {
   it("should render login form", () => {
     render(<LoginScreen />);
-    expect(screen.getByText("Opita Vibe")).toBeTruthy();
-    expect(screen.getByText("Iniciar sesión con Opita Code")).toBeTruthy();
+    expect(screen.getByText("Vibe Studio")).toBeTruthy();
+    expect(screen.getByText("Iniciar sesión con Vibe Studio")).toBeTruthy();
     expect(screen.getByText("Continuar sin cuenta")).toBeTruthy();
   });
 
@@ -37,7 +37,7 @@ describe("LoginScreen", () => {
     render(<LoginScreen onAuthenticated={onAuth} />);
 
     // Empty email → button is disabled, so click does nothing
-    const button = screen.getByText("Iniciar sesión con Opita Code");
+    const button = screen.getByText("Iniciar sesión con Vibe Studio");
     expect(button.hasAttribute("disabled")).toBe(true);
   });
 
@@ -56,7 +56,7 @@ describe("LoginScreen", () => {
     const input = screen.getByPlaceholderText("tu@email.com");
     fireEvent.change(input, { target: { value: "test@opita.co" } });
 
-    const button = screen.getByText("Iniciar sesión con Opita Code");
+    const button = screen.getByText("Iniciar sesión con Vibe Studio");
     fireEvent.click(button);
 
     expect(screen.getByText("Iniciando sesión...")).toBeTruthy();

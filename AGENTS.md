@@ -1,10 +1,10 @@
-# AGENTS.md — OPITA Vibe-Studio
+# AGENTS.md — Vibe Studio
 
 > **CRITICAL**: Every AI agent touching this repo MUST read and follow these rules.
 
 ## 🏷️ Brand
 
-Opita Vibe-Studio is an Opita Code product — a simplified vibe-coding environment for Windows, designed as the entry point to OpenSpec-driven development for students and beginners.
+Vibe Studio is an Opita Code product — a simplified vibe-coding environment for Windows, designed as the entry point to OpenSpec-driven development for students and beginners.
 
 **Tagline**: _Vibecodea en español. Aprende sin darte cuenta._
 

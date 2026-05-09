@@ -6,7 +6,7 @@ import type { ChatChunk } from "@/lib/types";
  * Será reemplazado por proveedores reales en Phase 4.
  */
 export async function* mockStreamResponse(): AsyncGenerator<ChatChunk> {
-  const response = "Hola, soy Opita Vibe. ¿En qué te puedo ayudar?";
+  const response = "Hola, soy Vibe Studio. ¿En qué te puedo ayudar?";
 
   for (const char of response) {
     yield { type: "text", content: char };

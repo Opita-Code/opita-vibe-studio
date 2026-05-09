@@ -12,7 +12,7 @@ describe("mockStreamResponse", () => {
     }
 
     const fullText = chunks.join("");
-    expect(fullText).toBe("Hola, soy Opita Vibe. ¿En qué te puedo ayudar?");
+    expect(fullText).toBe("Hola, soy Vibe Studio. ¿En qué te puedo ayudar?");
     // Each chunk should be a single character
     expect(chunks.length).toBe(fullText.length);
   });

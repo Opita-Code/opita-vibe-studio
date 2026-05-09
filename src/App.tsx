@@ -65,7 +65,7 @@ function App() {
     return (
       <div className="flex h-full w-full items-center justify-center bg-[#1e1e1e]">
         <div className="flex flex-col items-center gap-3">
-          <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[#4f46e5] border-t-transparent" />
+          <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[var(--vibe-indigo)] border-t-transparent" />
           <span className="text-sm text-[#969696]">Cargando...</span>
         </div>
       </div>

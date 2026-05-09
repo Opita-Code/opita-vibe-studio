@@ -1,29 +1,31 @@
 schema: spec-driven
 
 context: |
-  Tech stack: Tauri v2 + React + TypeScript (Windows desktop via WebView2)
-  Runtime: Node.js ESM (Bun compatible for tooling)
-  Architecture: Greenfield - no code exists yet, minimal npm init only
-  Testing: No test framework installed (planned: vitest per AGENTS.md)
-  Style: TypeScript, ESM, conventional commits in Spanish (tipo(scope): descripcion)
-  Quality gates: npm test, npm run typecheck, npm run lint (NOT YET CONFIGURED)
-  Governance: OpenSpec Spec-Driven Development (hybrid mode: openspec + engram)
+  Tech stack: Tauri v2 + React 18 + TypeScript 5.4 (Windows desktop via WebView2)
+  Backend: Rust (edition 2021) — Tauri commands for fs, shell, dialog, sql (SQLite), updater
+  State: Zustand 4.5
+  Editor: Monaco Editor 0.45 (@monaco-editor/react)
+  Styling: Tailwind CSS 3.4 — custom "opita" + "vibe" palettes (indigo tones, brand tokens)
+  Runtime: Node.js ESM, Vite 5.4, npm
+  Commit style: conventional commits in Spanish — tipo(scope): descripción
+  Quality gates: npm test && npm run typecheck && npm run lint
+  Governance: OpenSpec SDD — hybrid mode (openspec + engram)
 
-strict_tdd: false
+strict_tdd: true
 
 testing:
-  strict_tdd_mode: disabled
-  detected: 2026-05-04
+  strict_tdd_mode: enabled
+  detected: 2026-05-09
   test_runner:
-    framework: none
-    command: "npm test (default echo stub - Error: no test specified)"
+    framework: vitest
+    command: "npx vitest run"
   test_layers:
     unit:
-      available: false
-      tool: "-"
+      available: true
+      tool: vitest
     integration:
-      available: false
-      tool: "-"
+      available: true
+      tool: "@testing-library/react + jsdom"
     e2e:
       available: false
       tool: "-"
@@ -32,14 +34,14 @@ testing:
     command: "-"
   quality_tools:
     linter:
-      available: false
-      command: "-"
+      available: true
+      command: "npx eslint ."
     type_checker:
-      available: false
-      command: "-"
+      available: true
+      command: "tsc --noEmit"
     formatter:
-      available: false
-      command: "-"
+      available: true
+      command: "prettier --write ."
 
 rules:
   proposal:
@@ -58,11 +60,11 @@ rules:
   apply:
     - Follow existing code patterns and conventions
     - Load relevant coding skills for the project stack
-    tdd: false
-    test_command: ""
+    tdd: true
+    test_command: "npx vitest run"
   verify:
-    test_command: ""
-    build_command: ""
+    test_command: "npx vitest run"
+    build_command: "npm run build"
     coverage_threshold: 0
   archive:
     - Warn before merging destructive deltas (large removals)

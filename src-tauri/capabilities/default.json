@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Default capability set for Vibe-Studio",
+  "description": "Default capability set for Vibe Studio",
   "windows": ["main"],
   "permissions": [
     "core:default",

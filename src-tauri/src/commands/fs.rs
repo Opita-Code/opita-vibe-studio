@@ -1,4 +1,4 @@
-// Vibe-Studio — Comandos del sistema de archivos
+// Vibe Studio — Comandos del sistema de archivos
 // Operaciones: leer, escribir, listar, crear directorios, eliminar
 
 use serde::Serialize;

@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useAuthStore } from "@/stores/auth";
 import { initiateSSO } from "@/auth/sso";
+import logoSvg from "@/assets/logo-symbol.svg";
 
 // ─── Props ──────────────────────────────────────────────────────
 
@@ -15,7 +16,7 @@ interface LoginScreenProps {
  * Pantalla de inicio de sesión.
  *
  * Para el MVP:
- * - Campo de email + botón "Iniciar sesión con Opita Code"
+ * - Campo de email + botón "Iniciar sesión con Vibe Studio"
  * - Loading state mientras se autentica
  * - Error state con retry
  * - "Continuar sin cuenta" para modo invitado (free)
@@ -23,6 +24,8 @@ interface LoginScreenProps {
  * En producción:
  * - Redirige al navegador del sistema para SSO OAuth 2.0
  * - Callback recibe el token y completa la autenticación
+ *
+ * Brand: muestra el símbolo SVG de Vibe Studio y el nombre "Vibe Studio"
  */
 export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const [email, setEmail] = useState("");
@@ -30,7 +33,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const [error, setError] = useState<string | null>(null);
 
   const login = useAuthStore((s) => s.login);
-  const setPlan = useAuthStore((s) => s.setPlan);
+  const enableGuestMode = useAuthStore((s) => s.enableGuestMode);
 
   const handleSSOLogin = useCallback(async () => {
     if (!email.trim()) {
@@ -56,9 +59,9 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
 
   const handleGuestMode = useCallback(() => {
     // Modo invitado: sin autenticación, plan free
-    setPlan("free");
+    enableGuestMode();
     onAuthenticated?.();
-  }, [setPlan, onAuthenticated]);
+  }, [enableGuestMode, onAuthenticated]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -74,10 +77,8 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
       <div className="flex w-full max-w-sm flex-col items-center gap-6 px-6">
         {/* Logo / Brand */}
         <div className="flex flex-col items-center gap-2">
-          <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-[#4f46e5] text-2xl font-bold text-white">
-            OV
-          </div>
-          <h1 className="text-xl font-bold text-[#d4d4d4]">Opita Vibe</h1>
+          <img src={logoSvg} alt="Vibe Studio" className="h-16 w-16" />
+          <h1 className="text-xl font-bold text-[#d4d4d4]">Vibe Studio</h1>
           <p className="text-center text-sm text-[#969696]">
             Vibecodea en español. Aprende sin darte cuenta.
           </p>
@@ -96,7 +97,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
             placeholder="tu@email.com"
             disabled={isLoading}
             autoFocus
-            className="w-full rounded border border-[#444] bg-[#2d2d2d] px-4 py-2.5 text-sm text-[#d4d4d4] placeholder-[#616161] outline-none transition-colors focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] disabled:opacity-50"
+            className="w-full rounded border border-[#444] bg-[#2d2d2d] px-4 py-2.5 text-sm text-[#d4d4d4] placeholder-[#616161] outline-none transition-colors focus:border-[var(--vibe-indigo)] focus:ring-1 focus:ring-[var(--vibe-indigo)] disabled:opacity-50"
           />
 
           {error && (
@@ -108,7 +109,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
           <button
             onClick={handleSSOLogin}
             disabled={isLoading || !email.trim()}
-            className="flex w-full items-center justify-center gap-2 rounded bg-[#4f46e5] px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-[#4338ca] disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded bg-[var(--vibe-indigo)] px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-[var(--vibe-indigo)]/80 disabled:opacity-50"
           >
             {isLoading ? (
               <>
@@ -116,7 +117,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
                 Iniciando sesión...
               </>
             ) : (
-              "Iniciar sesión con Opita Code"
+              "Iniciar sesión con Vibe Studio"
             )}
           </button>
         </div>
@@ -132,7 +133,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         <button
           onClick={handleGuestMode}
           disabled={isLoading}
-          className="text-sm text-[#818cf8] transition-colors hover:text-[#a5b4fc] disabled:opacity-50"
+          className="text-sm text-[var(--vibe-indigo)] transition-colors hover:text-[var(--vibe-indigo)]/80 disabled:opacity-50"
         >
           Continuar sin cuenta
         </button>
@@ -140,7 +141,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         {/* Footer info */}
         <p className="text-center text-xs text-[#616161]">
           Al continuar, aceptás nuestros{" "}
-          <span className="text-[#818cf8]">términos y condiciones</span>.
+          <span className="text-[var(--vibe-indigo)]">términos y condiciones</span>.
         </p>
       </div>
     </div>

@@ -1,4 +1,4 @@
-// Vibe-Studio — Comandos de proyecto
+// Vibe Studio — Comandos de proyecto
 // Diálogo para abrir carpeta, validación de estructura
 
 use serde::Serialize;

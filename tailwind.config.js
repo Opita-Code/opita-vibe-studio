@@ -17,6 +17,11 @@ export default {
           900: "#312e81",
           950: "#1e1b4b",
         },
+        vibe: {
+          indigo: "#4f46e5",
+          black: "#0b0b0c",
+          "dark-bg": "#1e1e1e",
+        },
       },
     },
   },

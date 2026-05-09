@@ -1,0 +1,22 @@
+:root {
+  --vibe-indigo: #4f46e5;
+  --vibe-black: #0b0b0c;
+  --vibe-white: #ffffff;
+  --vibe-dark-bg: #1e1e1e;
+
+  --vibe-logo-safe-area: 24px;
+  --vibe-radius-symbol-module: 999px;
+}
+
+.vibe-logo-light {
+  color: var(--vibe-black);
+}
+
+.vibe-logo-dark {
+  color: var(--vibe-white);
+  background: var(--vibe-dark-bg);
+}
+
+.vibe-accent {
+  color: var(--vibe-indigo);
+}

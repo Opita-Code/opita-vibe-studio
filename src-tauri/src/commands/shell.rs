@@ -1,4 +1,4 @@
-// Vibe-Studio — Comando de ejecución de shell
+// Vibe Studio — Comando de ejecución de shell
 // Ejecuta comandos del sistema con timeout de 30s
 
 use serde::Serialize;

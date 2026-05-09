@@ -22,6 +22,7 @@ interface AuthActions {
   setLoading: (loading: boolean) => void;
   login: (user: UserProfile, session: Session) => void;
   logout: () => void;
+  enableGuestMode: () => void;
   incrementPromptsUsed: () => void;
 }
 
@@ -72,6 +73,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
       plan: "free",
       isAuthenticated: false,
       tokenUsage: defaultTokenUsage,
+    }),
+
+  enableGuestMode: () =>
+    set({
+      isAuthenticated: true,
+      plan: "free",
     }),
 
   incrementPromptsUsed: () =>

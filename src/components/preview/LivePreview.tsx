@@ -39,7 +39,7 @@ window.addEventListener("error",function(e){
 window.addEventListener("load",function(){
   window.parent.postMessage({type:"preview-loaded"},"*");
 });
-<\/script>`;
+</script>`;
   const headInjection = csp + errorScript;
 
   // Handle empty content — show placeholder
@@ -223,7 +223,7 @@ export function buildPreviewContent(
     }
     case "js": {
       return {
-        html: `<script>\n${content}\n<\/script>`,
+        html: `<script>\n${content}\n</script>`,
         isFullDocument: false,
       };
     }

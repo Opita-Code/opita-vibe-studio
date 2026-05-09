@@ -15,7 +15,7 @@ export function StatusBar() {
   const gitBranch = useProjectStore((s) => s.gitBranch);
 
   return (
-    <footer className="flex items-center justify-between h-6 px-3 bg-[#007acc] text-[#ffffff] text-xs shrink-0 select-none">
+    <footer className="flex items-center justify-between h-6 px-3 bg-[var(--vibe-indigo)] text-[#ffffff] text-xs shrink-0 select-none">
       {/* Mensaje de estado + git branch */}
       <div className="flex items-center gap-3 truncate">
         <span className="truncate">{statusMessage}</span>

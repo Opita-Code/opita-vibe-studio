@@ -57,7 +57,7 @@ export function createOpenRouterProvider(apiKey?: string, model?: string): AIPro
           {
             Authorization: `Bearer ${key}`,
             "HTTP-Referer": "https://vibe-studio.opita.co",
-            "X-Title": "Vibe-Studio",
+            "X-Title": "Vibe Studio",
           },
           {
             model,
