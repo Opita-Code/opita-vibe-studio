@@ -35,7 +35,10 @@ export function FileTabs() {
   if (openTabs.length === 0) return null;
 
   return (
-    <div className="flex items-center h-9 bg-[#252526] border-b border-[#333] overflow-x-auto shrink-0 select-none" role="tablist">
+    <div
+      className="flex items-center h-9 bg-[#252526] border-b border-[#333] overflow-x-auto shrink-0 select-none"
+      role="tablist"
+    >
       {openTabs.map((path) => {
         const isActive = path === activeTab;
         const dirty = isDirty[path];

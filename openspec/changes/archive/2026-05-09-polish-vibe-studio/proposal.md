@@ -7,21 +7,25 @@ Correct high-severity polish regressions found in exploration so Vibe Studio mat
 ## Scope
 
 ### In Scope
+
 - Align accent, hover, focus, and contrast styling with Vibe brand tokens; remove legacy VS Code blues.
 - Replace Argentine voseo in prompts and UI copy with Colombian-neutral Spanish.
 - Fix critical accessibility gaps: missing aria metadata, weak focus visibility, and key interactive labels.
 - Remove low-risk debug noise, fix preview CSP for common assets, and correct Terminal dialog positioning.
 
 ### Out of Scope
+
 - New shortcuts, new features, or visual redesign beyond targeted polish.
 - Architecture changes, store refactors, or broad token-system expansion outside touched issues.
 
 ## Capabilities
 
 ### New Capabilities
+
 - None.
 
 ### Modified Capabilities
+
 - `brand-colors`: enforce indigo brand accents, working hover states, and accessible focus/contrast.
 - `brand-copy`: require Colombian-neutral Spanish across prompts and UI text.
 - `live-preview`: allow safe preview loading for common external images/fonts while keeping sandboxing.
@@ -37,19 +41,19 @@ Make a narrow UI polish pass over the affected components, reusing existing CSS 
 
 ## Affected Areas
 
-| Area | Impact | Description |
-|------|--------|-------------|
+| Area                                                             | Impact   | Description                                     |
+| ---------------------------------------------------------------- | -------- | ----------------------------------------------- |
 | `src/components/{chat,layout,editor,settings,terminal,learning}` | Modified | Copy, aria, focus, hover, and brand-color fixes |
-| `src/components/preview/LivePreview.tsx` | Modified | Preview CSP adjustment and lint cleanup |
-| `src/pipeline/prompts.ts` | Modified | Neutralize system-prompt Spanish |
-| `src/providers/*.ts` | Modified | Remove production debug logs |
+| `src/components/preview/LivePreview.tsx`                         | Modified | Preview CSP adjustment and lint cleanup         |
+| `src/pipeline/prompts.ts`                                        | Modified | Neutralize system-prompt Spanish                |
+| `src/providers/*.ts`                                             | Modified | Remove production debug logs                    |
 
 ## Risks
 
-| Risk | Likelihood | Mitigation |
-|------|------------|------------|
-| CSP relaxation weakens preview isolation | Med | Limit to preview iframe asset needs only; keep sandbox and no app-level CSP changes |
-| A11y polish changes UI behavior subtly | Low | Constrain changes to labels, roles, focus, and visual tokens |
+| Risk                                     | Likelihood | Mitigation                                                                          |
+| ---------------------------------------- | ---------- | ----------------------------------------------------------------------------------- |
+| CSP relaxation weakens preview isolation | Med        | Limit to preview iframe asset needs only; keep sandbox and no app-level CSP changes |
+| A11y polish changes UI behavior subtly   | Low        | Constrain changes to labels, roles, focus, and visual tokens                        |
 
 ## Rollback Plan
 

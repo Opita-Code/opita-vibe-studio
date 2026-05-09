@@ -314,7 +314,10 @@ export function ByokPanel() {
 
         {/* Selector de proveedor */}
         <div className="mb-2">
-          <label htmlFor="byok-provider" className="mb-1 block text-[10px] uppercase tracking-wider text-[#616161]">
+          <label
+            htmlFor="byok-provider"
+            className="mb-1 block text-[10px] uppercase tracking-wider text-[#616161]"
+          >
             Proveedor
           </label>
           <select
@@ -334,7 +337,10 @@ export function ByokPanel() {
         {/* Campo de endpoint (solo custom) */}
         {selectedProvider === "custom" && (
           <div className="mb-2">
-            <label htmlFor="byok-endpoint" className="mb-1 block text-[10px] uppercase tracking-wider text-[#616161]">
+            <label
+              htmlFor="byok-endpoint"
+              className="mb-1 block text-[10px] uppercase tracking-wider text-[#616161]"
+            >
               URL del endpoint
             </label>
             <input
@@ -353,7 +359,10 @@ export function ByokPanel() {
 
         {/* Campo de API key */}
         <div className="mb-2">
-          <label htmlFor="byok-api-key" className="mb-1 block text-[10px] uppercase tracking-wider text-[#616161]">
+          <label
+            htmlFor="byok-api-key"
+            className="mb-1 block text-[10px] uppercase tracking-wider text-[#616161]"
+          >
             API Key
           </label>
           <input
