@@ -403,8 +403,8 @@ describe("buildVerificarMessages", () => {
 // ─── MAX_VERIFY_RETRIES ────────────────────────────────────────
 
 describe("MAX_VERIFY_RETRIES", () => {
-  it("should be 1 (max one retry)", () => {
-    expect(MAX_VERIFY_RETRIES).toBe(1);
+  it("should be 3 (max three retries per spec)", () => {
+    expect(MAX_VERIFY_RETRIES).toBe(3);
   });
 });
 
@@ -533,9 +533,9 @@ describe("Pipeline Integration (with mock provider)", () => {
       events.push(event);
     }
 
-    // Debería reintentar (retry + segunda vuelta de construir/verificar)
+    // Debería reintentar mientras queden intentos (MAX_VERIFY_RETRIES = 3)
     const retryEvents = events.filter((e) => e.type === "retry");
-    expect(retryEvents.length).toBe(1);
+    expect(retryEvents.length).toBeGreaterThanOrEqual(1);
     expect(retryEvents[0].reason).toContain("punto y coma");
   });
 
@@ -565,6 +565,36 @@ describe("Pipeline Integration (with mock provider)", () => {
     const errorEvents = events.filter((e) => e.type === "error");
     expect(errorEvents.length).toBeGreaterThanOrEqual(1);
     expect(errorEvents[0].message).toContain("No se pudo corregir");
+  });
+
+  it("should emit exactly MAX_VERIFY_RETRIES retry events when verificar always fails", async () => {
+    // Proveedor mock que siempre devuelve "reintentar"
+    const mockProvider = createMockPipelineProvider(
+      ["## Plan", "Crear un test", "## Archivos", "- test.js"].join("\n"),
+      ["```file:test.js", 'var x = 1', "```"].join("\n"),
+      "reintentar: error de sintaxis",
+    );
+
+    registerProvider(mockProvider);
+
+    const context = [makeMsg("Hola")];
+    const { runPipeline } = await import("../../src/pipeline/engine");
+
+    const events: unknown[] = [];
+    for await (const event of runPipeline(
+      "Quiero crear un test",
+      context,
+      "pipeline-test",
+    )) {
+      events.push(event);
+    }
+
+    // Deberían haber exactamente MAX_VERIFY_RETRIES reintentos
+    // antes de emitir el error final
+    const retryEvents = events.filter((e) => e.type === "retry");
+    const errorEvents = events.filter((e) => e.type === "error");
+    expect(retryEvents.length).toBe(MAX_VERIFY_RETRIES);
+    expect(errorEvents.length).toBeGreaterThanOrEqual(1);
   });
 
   it("should handle entender failure gracefully", async () => {

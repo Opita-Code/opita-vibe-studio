@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createDeepSeekProvider } from "../../src/providers/deepseek";
-import type { Message, ChatChunk } from "../../src/lib/types";
+import type { Message, ChatChunk, AIProvider } from "../../src/lib/types";
 
 function makeMsg(
   content: string,
@@ -137,5 +137,90 @@ describe("DeepSeek Provider", () => {
     const provider = createDeepSeekProvider("sk-invalid-key");
     const valid = await provider.validateKey!("sk-invalid-key");
     expect(valid).toBe(false);
+  });
+
+  // ── Adapter compliance ────────────────────────────────────
+
+  it("should conform to AIProvider interface", () => {
+    const provider: AIProvider = createDeepSeekProvider("sk-test-key");
+    expect(provider.id).toBe("deepseek");
+    expect(provider.name).toBe("DeepSeek V3");
+    expect(provider.tier).toBe("free");
+    expect(typeof provider.chat).toBe("function");
+    expect(typeof provider.countTokens).toBe("function");
+    expect(typeof provider.validateKey).toBe("function");
+  });
+
+  // ── SseError handling ─────────────────────────────────────
+
+  it("should yield error chunk on 500 server error", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response("Internal Server Error", {
+        status: 500,
+        statusText: "Internal Server Error",
+      }),
+    );
+
+    const provider = createDeepSeekProvider("sk-test-key");
+    const chunks: ChatChunk[] = [];
+
+    for await (const chunk of provider.chat([makeMsg("Hola")])) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(chunks[0].type).toBe("error");
+    expect(chunks[0].content).toContain("500");
+  });
+
+  it("should yield error chunk on network error (SseError)", async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error("fetch failed"));
+
+    const provider = createDeepSeekProvider("sk-test-key");
+    const chunks: ChatChunk[] = [];
+
+    for await (const chunk of provider.chat([makeMsg("Hola")])) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(chunks[0].type).toBe("error");
+  });
+
+  // ── Token counting edge cases ─────────────────────────────
+
+  it("should count 0 tokens for empty messages", () => {
+    const provider = createDeepSeekProvider("sk-test-key");
+    expect(provider.countTokens([])).toBe(0);
+  });
+
+  it("should count multiple messages cumulatively", () => {
+    const provider = createDeepSeekProvider("sk-test-key");
+    const messages = [
+      makeMsg("ABC", "system"),
+      makeMsg("DEFG", "user"),
+      makeMsg("HIJKL", "assistant"),
+    ];
+    const totalChars = messages.reduce((s, m) => s + m.content.length, 0);
+    expect(provider.countTokens(messages)).toBe(Math.ceil(totalChars / 4));
+  });
+
+  // ── Streaming options ─────────────────────────────────────
+
+  it("should handle multiple chunks from SSE", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(makeMockResponse(["Uno ", "dos ", "tres ", "cuatro"]));
+
+    const provider = createDeepSeekProvider("sk-test-key");
+    const chunks: ChatChunk[] = [];
+
+    for await (const chunk of provider.chat([makeMsg("test")])) {
+      chunks.push(chunk);
+    }
+
+    const textChunks = chunks.filter((c) => c.type === "text");
+    expect(textChunks.length).toBe(4);
+    expect(textChunks.map((c) => c.content).join("")).toBe("Uno dos tres cuatro");
   });
 });

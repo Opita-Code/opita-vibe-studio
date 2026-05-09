@@ -120,11 +120,11 @@ Chain strategy: stacked-to-main
 
 ## Phase 10: Tests (49 scenarios coverage)
 
-- [ ] 10.1 tests/providers/deepseek.test.ts: adapter compliance, streaming, token counting
-- [ ] 10.2 tests/providers/router.test.ts: provider selection logic, DeepSeek→Gemini fallback
-- [ ] 10.3 tests/stores/chat.test.ts: message CRUD, streaming append, context eviction
-- [ ] 10.4 tests/stores/project.test.ts: file ops, tab management, dirty state, save flow
-- [ ] 10.5 tests/openspec/pipeline.test.ts: prompt templates, output parsing, error loopback (max 3)
+- [x] 10.1 tests/providers/deepseek.test.ts: adapter compliance, streaming, token counting
+- [x] 10.2 tests/providers/router.test.ts: provider selection logic, DeepSeek→Gemini fallback
+- [x] 10.3 tests/stores/chat.test.ts: message CRUD, streaming append, context eviction
+- [x] 10.4 tests/stores/project.test.ts: file ops, tab management, dirty state, save flow
+- [x] 10.5 tests/openspec/pipeline.test.ts: prompt templates, output parsing, error loopback (max 3)
 
 ## Phase 11: Polish + Verification
 

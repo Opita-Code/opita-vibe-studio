@@ -46,7 +46,7 @@ const CODE_KEYWORDS = [
 ];
 
 /** Máximo de reintentos para la fase Verificar. */
-export const MAX_VERIFY_RETRIES = 1;
+export const MAX_VERIFY_RETRIES = 3;
 
 // ─── Helpers ───────────────────────────────────────────────────
 

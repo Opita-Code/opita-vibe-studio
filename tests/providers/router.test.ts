@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { routeRequest } from "../../src/providers/router";
+import { routeRequest, streamFromProvider } from "../../src/providers/router";
 import { resetRegistry, registerProvider } from "../../src/providers/registry";
 import type { AIProvider, ChatChunk, ChatOptions, Message } from "../../src/lib/types";
 
@@ -158,5 +158,85 @@ describe("Provider Router", () => {
     expect(textChunks.length).toBeGreaterThan(0);
     const fullText = textChunks.map((c) => c.content).join("");
     expect(fullText).toContain("byok-working");
+  });
+
+  // ── DeepSeek → Gemini fallback ────────────────────────────
+
+  it("should fallback from deepseek to gemini when deepseek fails", async () => {
+    resetRegistry();
+    registerProvider(makeTestProvider("deepseek", "DeepSeek V3", "free", false));
+    registerProvider(makeTestProvider("gemini", "Gemini Flash", "free", true));
+
+    const context = [makeMsg("Creá una página")];
+    const chunks: (ChatChunk & { providerId?: string })[] = [];
+
+    for await (const chunk of routeRequest(context, {
+      preferredProvider: "deepseek",
+    })) {
+      chunks.push(chunk);
+    }
+
+    const textChunks = chunks.filter((c) => c.type === "text");
+    expect(textChunks.length).toBeGreaterThan(0);
+
+    // Should have received response from gemini (not deepseek)
+    const geminiChunks = chunks.filter(
+      (c) => (c as ChatChunk & { providerId?: string }).providerId === "gemini",
+    );
+    expect(geminiChunks.length).toBeGreaterThan(0);
+  });
+
+  it("should return fallback message when both deepseek and gemini fail", async () => {
+    resetRegistry();
+    registerProvider(makeTestProvider("deepseek", "DeepSeek V3", "free", false));
+    registerProvider(makeTestProvider("gemini", "Gemini Flash", "free", false));
+
+    const context = [makeMsg("Creá una página")];
+    const chunks: ChatChunk[] = [];
+
+    for await (const chunk of routeRequest(context, {
+      preferredProvider: "deepseek",
+    })) {
+      chunks.push(chunk);
+    }
+
+    const textChunks = chunks.filter((c) => c.type === "text");
+    const fullText = textChunks.map((c) => c.content).join("");
+    expect(fullText).toContain("Configurá una API key");
+  });
+
+  // ── streamFromProvider ────────────────────────────────────
+
+  it("streamFromProvider should combine context and prompt", async () => {
+    resetRegistry();
+    registerProvider(makeTestProvider("provider-a", "Provider A", "free", true));
+
+    const context = [makeMsg("mensaje anterior")];
+    const chunks: ChatChunk[] = [];
+
+    for await (const chunk of streamFromProvider(
+      "nuevo prompt",
+      context,
+      "provider-a",
+    )) {
+      chunks.push(chunk);
+    }
+
+    const textChunks = chunks.filter((c) => c.type === "text");
+    expect(textChunks.length).toBeGreaterThan(0);
+  });
+
+  it("streamFromProvider should work without preferred provider", async () => {
+    resetRegistry();
+    registerProvider(makeTestProvider("provider-a", "Provider A", "free", true));
+
+    const chunks: ChatChunk[] = [];
+
+    for await (const chunk of streamFromProvider("solo prompt", [])) {
+      chunks.push(chunk);
+    }
+
+    const textChunks = chunks.filter((c) => c.type === "text");
+    expect(textChunks.length).toBeGreaterThan(0);
   });
 });
