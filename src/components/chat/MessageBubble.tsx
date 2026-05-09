@@ -35,7 +35,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       <div
         className={`max-w-[85%] rounded-lg px-3 py-2 ${
           isUser
-            ? "rounded-br-sm bg-[#1e4d8c] text-white"
+            ? "rounded-br-sm bg-[var(--vibe-indigo)] text-white"
             : "rounded-bl-sm bg-[#2d2d2d] text-[#d4d4d4]"
         }`}
       >

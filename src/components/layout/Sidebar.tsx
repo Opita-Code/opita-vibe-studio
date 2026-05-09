@@ -45,6 +45,7 @@ export function Sidebar({ width }: SidebarProps) {
           onClick={handleOpenFolder}
           className="text-xs text-[#969696] hover:text-[#d4d4d4] transition-colors px-1.5 py-0.5 rounded hover:bg-[#333]"
           title="Abrir carpeta"
+          aria-label="Abrir carpeta"
         >
           📂
         </button>
@@ -71,11 +72,12 @@ export function Sidebar({ width }: SidebarProps) {
         ) : (
           <div className="flex flex-col items-center justify-center h-32 gap-3 px-4">
             <p className="text-sm text-[#616161] text-center">
-              Abrí un proyecto para empezar
+              Abre un proyecto para empezar
             </p>
             <button
               onClick={handleOpenFolder}
-              className="text-xs bg-[#007acc] text-white px-3 py-1.5 rounded hover:bg-[#0098ff] transition-colors"
+              style={{ backgroundColor: "var(--vibe-indigo)" }}
+              className="text-xs text-white px-3 py-1.5 rounded hover:opacity-80 transition-opacity"
             >
               Abrir carpeta
             </button>

@@ -75,7 +75,7 @@ export function createCustomProvider(
         const tokensUsed = countTokens([
           { role: "assistant", content: fullContent },
         ] as Message[]);
-        console.log(
+        console.warn(
           `[Custom] Tokens generados (estimado): ${tokensUsed}, endpoint: ${url}`,
         );
 

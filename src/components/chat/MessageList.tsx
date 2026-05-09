@@ -43,7 +43,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
           <span className="text-3xl">💬</span>
           <p className="text-sm text-[#969696]">No hay mensajes todavía</p>
           <p className="text-xs text-[#616161] max-w-xs">
-            Escribí en español lo que querés crear y la IA te va a ayudar. Podés pedir
+            Escribe en español lo que quieres crear y la IA te va a ayudar. Puedes pedir
             páginas web, componentes, o hacer preguntas sobre código.
           </p>
         </div>

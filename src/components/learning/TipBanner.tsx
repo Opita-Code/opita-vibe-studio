@@ -98,7 +98,8 @@ export function TipBanner({ position = "bottom-left" }: TipBannerProps) {
         <div className="flex items-center gap-2 mt-3 pt-2 border-t border-[#3a3a3a]">
           <button
             onClick={dismissTip}
-            className="px-3 py-1 text-xs bg-[#007acc] text-white rounded hover:bg-[#0098ff] transition-colors"
+            style={{ backgroundColor: "var(--vibe-indigo)" }}
+            className="px-3 py-1 text-xs text-white rounded hover:opacity-80 transition-opacity"
           >
             Entendido 👍
           </button>

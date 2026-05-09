@@ -73,7 +73,7 @@ export function createOpenRouterProvider(apiKey?: string, model?: string): AIPro
         const tokensUsed = countTokens([
           { role: "assistant", content: fullContent },
         ] as Message[]);
-        console.log(
+        console.warn(
           `[OpenRouter] Tokens generados (estimado): ${tokensUsed}, modelo: ${model}`,
         );
 

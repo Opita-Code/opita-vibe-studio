@@ -31,7 +31,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     id: "const-preference",
     concept: "variables",
     question:
-      "¿Sabías que...? en JS moderno se recomienda `const` siempre que puedas. Es más predecible y evitás reasignaciones accidentales.",
+      "¿Sabías que...? en JS moderno se recomienda `const` siempre que puedas. Es más predecible y evitas reasignaciones accidentales.",
     explanation:
       "La regla es simple: empieza con `const`. Si después necesitas reasignar, cambia a `let`. Esto hace tu código más legible porque quien lee sabe que ese valor no va a cambiar. Bonus: el motor de JS optimiza mejor las variables declaradas con `const`.",
     tags: ["javascript", "variables", "buenas-practicas"],
@@ -45,7 +45,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     question:
       "¿Sabías que...? si estás escribiendo el mismo código más de dos veces, es hora de crear una función.",
     explanation:
-      "El principio DRY (Don't Repeat Yourself) es fundamental. Cada vez que copies y pegues código, preguntate: '¿Esto podría ser una función?' Una función bien nombrada hace tu código más legible, fácil de mantener y menos propenso a bugs. Bonus: las funciones también facilitan hacer tests.",
+      "El principio DRY (Don't Repeat Yourself) es fundamental. Cada vez que copies y pegues código, pregúntate: '¿Esto podría ser una función?' Una función bien nombrada hace tu código más legible, fácil de mantener y menos propenso a bugs. Bonus: las funciones también facilitan hacer tests.",
     tags: ["javascript", "funciones", "buenas-practicas"],
     triggerEvent: "code-repeat",
   },
@@ -87,7 +87,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     id: "array-map",
     concept: "arrays",
     question:
-      "¿Sabías que...? preferí `.map()` en vez de `for` para transformar arrays. Es más declarativo y evitás errores de índice.",
+      "¿Sabías que...? prefiere `.map()` en vez de `for` para transformar arrays. Es más declarativo y evitas errores de índice.",
     explanation:
       "Los métodos de array como `.map()`, `.filter()`, `.reduce()` y `.forEach()` hacen tu código más legible y menos propenso a bugs. `.map()` crea un NUEVO array con los resultados de aplicar una función a cada elemento. No modifica el original — eso es inmutabilidad, y es buena práctica.",
     tags: ["javascript", "arrays", "es6", "buenas-practicas"],
@@ -123,7 +123,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     question:
       "¿Sabías que...? `async/await` hace el código asíncrono tan legible como si fuera síncrono. Olvidate del callback hell.",
     explanation:
-      "`async/await` es azúcar sintáctica sobre Promises. Una función `async` siempre devuelve una Promise. `await` pausa la ejecución hasta que la Promise se resuelva. Usá `try/catch` para manejar errores. Es mucho más legible que `.then().catch()` encadenados.",
+      "`async/await` es azúcar sintáctica sobre Promises. Una función `async` siempre devuelve una Promise. `await` pausa la ejecución hasta que la Promise se resuelva. Usa `try/catch` para manejar errores. Es mucho más legible que `.then().catch()` encadenados.",
     tags: ["javascript", "async", "promesas"],
     triggerEvent: "js-then",
   },
@@ -133,7 +133,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     question:
       "¿Sabías que...? `console.table()` muestra arrays y objetos en formato de tabla en la consola. Mucho más legible que `console.log()`.",
     explanation:
-      "`console` tiene métodos muy útiles más allá de `log()`: `console.table()` para tablas, `console.group()` para agrupar logs, `console.time()` para medir rendimiento, `console.trace()` para ver el stack de llamadas, y `console.dir()` para ver propiedades de un objeto. Probálos, te van a salvar horas de debugging.",
+      "`console` tiene métodos muy útiles más allá de `log()`: `console.table()` para tablas, `console.group()` para agrupar logs, `console.time()` para medir rendimiento, `console.trace()` para ver el stack de llamadas, y `console.dir()` para ver propiedades de un objeto. Pruébalos, te van a salvar horas de debugging.",
     tags: ["javascript", "debugging", "consola"],
     triggerEvent: "js-console-log",
   },
@@ -177,7 +177,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     question:
       "¿Sabías que...? con CSS Grid y Flexbox rara vez necesitas un framework como Bootstrap solo por el grid.",
     explanation:
-      "Mucha gente usa Bootstrap o Tailwind solo por el sistema de grillas. Con CSS Grid nativo (`grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))`) tenés un layout responsivo en una línea, sin depender de clases externas ni generar HTML verboso.",
+      "Mucha gente usa Bootstrap o Tailwind solo por el sistema de grillas. Con CSS Grid nativo (`grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))`) tienes un layout responsivo en una línea, sin depender de clases externas ni generar HTML verboso.",
     tags: ["css", "grid", "frameworks", "buenas-practicas"],
     triggerEvent: "css-class-framework",
   },
@@ -243,7 +243,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     question:
       "¿Sabías que...? `event.preventDefault()` evita comportamientos por defecto como recargar la página al enviar un formulario.",
     explanation:
-      "Cuando envías un formulario, el navegador recarga la página por defecto. Con `event.preventDefault()` en el evento `submit`, puedes manejar el envío con JavaScript (fetch API, validación, etc.). También sirve para evitar que un clic en un link navegue, o que el menú contextual aparezca.",
+      "Cuando envías un formulario, el navegador recarga la página por defecto. Con `event.preventDefault()` en el evento `submit`, puedes manejar el envío con JavaScript (fetch API, validación, etc.). También sirve para evitar que un clic en un enlace navegue, o que el menú contextual aparezca.",
     tags: ["javascript", "eventos", "formularios"],
     triggerEvent: "js-form-submit",
   },
@@ -255,7 +255,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     question:
       "¿Sabías que...? `document.createDocumentFragment()` es más eficiente que agregar elementos uno por uno al DOM.",
     explanation:
-      "Cada vez que agregás un elemento al DOM, el navegador tiene que recalcular el layout. Con un DocumentFragment, construís toda la estructura en memoria y la agregás de una sola vez. Es como armar un mueble antes de llevarlo a la pieza en vez de llevar tabla por tabla.",
+      "Cada vez que agregas un elemento al DOM, el navegador tiene que recalcular el layout. Con un DocumentFragment, construyes toda la estructura en memoria y la agregas de una sola vez. Es como armar un mueble antes de llevarlo a la pieza en vez de llevar tabla por tabla.",
     tags: ["javascript", "dom", "rendimiento"],
     triggerEvent: "js-dom-append",
   },
@@ -307,7 +307,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     id: "npm-install-save",
     concept: "npm",
     question:
-      "¿Sabías que...? con `npm install paquete` se agrega a `dependencies`. Usá `--save-dev` para herramientas de desarrollo.",
+      "¿Sabías que...? con `npm install paquete` se agrega a `dependencies`. Usa `--save-dev` para herramientas de desarrollo.",
     explanation:
       "La diferencia es importante: `dependencies` son necesarias para que la app funcione en producción (React, Zustand). `devDependencies` son solo para desarrollo (Vitest, ESLint, Prettier). Esto hace que `npm install --production` instale solo lo necesario y tus builds de producción sean más rápidos.",
     tags: ["npm", "buenas-practicas"],

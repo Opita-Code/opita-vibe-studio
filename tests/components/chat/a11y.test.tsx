@@ -24,7 +24,7 @@ describe("ChatInput — ARIA labels y roles", () => {
   it("debería tener placeholder descriptivo en el textarea", () => {
     render(<ChatInput onSend={() => {}} disabled={false} />);
     const textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     );
     expect(textarea).toBeDefined();
   });
@@ -36,7 +36,7 @@ describe("ChatInput — navegación por teclado", () => {
   it("debería poder tabear al botón de envío", () => {
     render(<ChatInput onSend={() => {}} disabled={false} />);
     const textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     ) as HTMLTextAreaElement;
     const button = screen.getByRole("button", { name: "Enviar mensaje" });
 
@@ -57,7 +57,7 @@ describe("ChatInput — navegación por teclado", () => {
     render(<ChatInput onSend={onSend} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     ) as HTMLTextAreaElement;
 
     textarea.focus();
@@ -73,7 +73,7 @@ describe("ChatInput — navegación por teclado", () => {
     render(<ChatInput onSend={() => {}} disabled={true} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     ) as HTMLTextAreaElement;
     const button = screen.getByRole("button", { name: "Enviar mensaje" });
 

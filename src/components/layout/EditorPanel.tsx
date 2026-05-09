@@ -122,6 +122,7 @@ export function EditorPanel() {
           <div className="flex items-center justify-between px-3 py-1 shrink-0 bg-[#252526] border-b border-[#333]">
             <button
               onClick={togglePreview}
+              aria-label="Alternar vista previa"
               className="flex items-center gap-1.5 px-2 py-1 text-xs text-[#888] hover:text-[#d4d4d4] hover:bg-[#333] rounded transition-colors"
               title={previewVisible ? "Ocultar vista previa" : "Mostrar vista previa"}
             >
@@ -141,6 +142,7 @@ export function EditorPanel() {
             {/* Reload button */}
             <button
               onClick={() => setVersion((v) => v + 1)}
+              aria-label="Recargar vista previa"
               className="px-2 py-1 text-xs text-[#888] hover:text-[#d4d4d4] hover:bg-[#333] rounded transition-colors"
               title="Recargar vista previa"
             >

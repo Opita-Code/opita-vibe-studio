@@ -231,6 +231,7 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
           <div className="relative">
             <button
               onClick={() => setShowPresets(!showPresets)}
+              aria-label="Comandos predefinidos"
               className="px-2 py-0.5 text-xs text-[#888] hover:text-[#d4d4d4] hover:bg-[#333] rounded transition-colors"
               title="Comandos predefinidos"
             >
@@ -258,6 +259,7 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
           {/* Botón limpiar */}
           <button
             onClick={handleClear}
+            aria-label="Limpiar terminal"
             className="px-2 py-0.5 text-xs text-[#888] hover:text-[#d4d4d4] hover:bg-[#333] rounded transition-colors"
             title="Limpiar terminal"
           >
@@ -274,7 +276,7 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
       >
         {output.length === 0 ? (
           <p className="text-[#616161] italic">
-            Escribí un comando o seleccioná un preset para empezar
+            Escribe un comando o selecciona un preset para empezar
           </p>
         ) : (
           output.map((line) => (
@@ -304,7 +306,7 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
           value={command}
           onChange={(e) => setCommand(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Escribí un comando..."
+          placeholder="Escribe un comando..."
           disabled={isRunning}
           rows={1}
           className="flex-1 bg-transparent text-[#d4d4d4] outline-none resize-none placeholder-[#616161] font-mono text-xs leading-5"
@@ -328,12 +330,14 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
             <div className="flex items-center gap-2 justify-end">
               <button
                 onClick={() => setConfirmCommand(null)}
+                aria-label="Cancelar comando peligroso"
                 className="px-3 py-1 text-xs text-[#888] hover:text-[#d4d4d4] hover:bg-[#3a3a3a] rounded transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleConfirmDangerous}
+                aria-label="Confirmar ejecución de comando peligroso"
                 className="px-3 py-1 text-xs bg-[#c72e2e] text-white rounded hover:bg-[#e04040] transition-colors"
               >
                 Ejecutar de todas formas

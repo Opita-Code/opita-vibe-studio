@@ -35,7 +35,7 @@ export function FileTabs() {
   if (openTabs.length === 0) return null;
 
   return (
-    <div className="flex items-center h-9 bg-[#252526] border-b border-[#333] overflow-x-auto shrink-0 select-none">
+    <div className="flex items-center h-9 bg-[#252526] border-b border-[#333] overflow-x-auto shrink-0 select-none" role="tablist">
       {openTabs.map((path) => {
         const isActive = path === activeTab;
         const dirty = isDirty[path];
@@ -44,6 +44,8 @@ export function FileTabs() {
           <button
             key={path}
             onClick={() => setActiveTab(path)}
+            role="tab"
+            aria-selected={isActive}
             className={`
               flex items-center gap-1.5 h-full px-3 text-xs border-r border-[#333]
               whitespace-nowrap transition-colors cursor-pointer
@@ -62,12 +64,13 @@ export function FileTabs() {
             <span className="truncate max-w-[140px]">{getFileName(path)}</span>
 
             {/* Botón de cierre */}
-            <span
+            <button
               onClick={(e) => handleClose(e, path)}
+              aria-label={`Cerrar ${getFileName(path)}`}
               className="ml-0.5 w-4 h-4 flex items-center justify-center rounded hover:bg-[#444] text-[#616161] hover:text-[#e0e0e0] transition-colors"
             >
               ×
-            </span>
+            </button>
           </button>
         );
       })}

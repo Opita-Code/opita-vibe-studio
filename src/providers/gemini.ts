@@ -77,7 +77,7 @@ export function createGeminiProvider(apiKey?: string): AIProvider {
         const tokensUsed = countTokens([
           { role: "assistant", content: fullContent },
         ] as Message[]);
-        console.log(`[Gemini] Tokens generados (estimado): ${tokensUsed}`);
+        console.warn(`[Gemini] Tokens generados (estimado): ${tokensUsed}`);
 
         yield { type: "done", content: "" };
       } catch (err) {

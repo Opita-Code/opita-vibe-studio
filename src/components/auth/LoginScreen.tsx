@@ -37,7 +37,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
 
   const handleSSOLogin = useCallback(async () => {
     if (!email.trim()) {
-      setError("Ingresá tu correo electrónico para continuar");
+      setError("Ingresa tu correo electrónico para continuar");
       return;
     }
 

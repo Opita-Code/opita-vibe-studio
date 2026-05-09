@@ -75,7 +75,7 @@ export function createOpenAIProvider(apiKey?: string, model?: string): AIProvide
         const tokensUsed = countTokens([
           { role: "assistant", content: fullContent },
         ] as Message[]);
-        console.log(
+        console.warn(
           `[OpenAI] Tokens generados (estimado): ${tokensUsed}, modelo: ${model}`,
         );
 

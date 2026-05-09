@@ -439,7 +439,7 @@ function createMockPipelineProvider(
       let response = "";
       if (fullPrompt.includes("analizar") || fullPrompt.includes("ANALIZAR")) {
         response = entenderResponse;
-      } else if (fullPrompt.includes("Revisá") || fullPrompt.includes("revisaría")) {
+      } else if (fullPrompt.includes("Revisa") || fullPrompt.includes("revisaría")) {
         response = verificarResponse;
       } else {
         response = construirResponse;

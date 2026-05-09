@@ -10,7 +10,7 @@ describe("ChatInput", () => {
   it("should render textarea and send button", () => {
     render(<ChatInput onSend={() => {}} disabled={false} />);
     expect(
-      screen.getByPlaceholderText("Escribí en español lo que querés crear..."),
+      screen.getByPlaceholderText("Escribe en español lo que quieres crear..."),
     ).toBeDefined();
     expect(screen.getByRole("button", { name: "Enviar mensaje" })).toBeDefined();
   });
@@ -20,7 +20,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={onSend} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "  Hola  " } });
@@ -34,7 +34,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={onSend} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     ) as HTMLTextAreaElement;
 
     fireEvent.keyDown(textarea, { key: "Enter" });
@@ -46,7 +46,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={onSend} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "   " } });
@@ -59,7 +59,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={onSend} disabled={true} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "Hola" } });
@@ -72,7 +72,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={onSend} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "line1" } });
@@ -86,12 +86,12 @@ describe("ChatInput", () => {
     const { rerender } = render(<ChatInput onSend={() => {}} disabled={true} />);
 
     let textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     );
     expect(textarea.hasAttribute("disabled")).toBe(true);
 
     rerender(<ChatInput onSend={() => {}} disabled={false} />);
-    textarea = screen.getByPlaceholderText("Escribí en español lo que querés crear...");
+    textarea = screen.getByPlaceholderText("Escribe en español lo que quieres crear...");
     expect(textarea.hasAttribute("disabled")).toBe(false);
   });
 
@@ -100,7 +100,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={onSend} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "Hola" } });
@@ -113,7 +113,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={() => {}} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "Hola" } });
@@ -125,7 +125,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={() => {}} disabled={true} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribí en español lo que querés crear...",
+      "Escribe en español lo que quieres crear...",
     );
     const button = screen.getByRole("button", { name: "Enviar mensaje" });
 

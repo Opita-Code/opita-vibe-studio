@@ -57,16 +57,17 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
             }
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Escribí en español lo que querés crear..."
+          placeholder="Escribe en español lo que quieres crear..."
           disabled={disabled}
           rows={3}
-          className="flex-1 resize-none rounded bg-[#3c3c3c] px-3 py-2 text-sm text-[#d4d4d4] placeholder-[#616161] outline-none focus:ring-1 focus:ring-[#1e4d8c] disabled:opacity-50"
+          className="flex-1 resize-none rounded bg-[#3c3c3c] px-3 py-2 text-sm text-[#d4d4d4] placeholder-[#616161] outline-none focus-visible:ring-2 focus-visible:ring-[var(--vibe-indigo)] disabled:opacity-50"
         />
         <button
           onClick={handleSend}
           disabled={disabled || !text.trim()}
           aria-label="Enviar mensaje"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-[#1e4d8c] text-white transition-colors hover:bg-[#2a5fa8] disabled:opacity-40"
+          style={{ backgroundColor: "var(--vibe-indigo)" }}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded text-white hover:opacity-80 disabled:opacity-40 transition-opacity"
         >
           <svg
             width="16"

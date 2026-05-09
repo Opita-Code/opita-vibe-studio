@@ -72,7 +72,7 @@ export function createDeepSeekProvider(apiKey?: string): AIProvider {
         const tokensUsed = countTokens([
           { role: "assistant", content: fullContent },
         ] as Message[]);
-        console.log(`[DeepSeek] Tokens generados (estimado): ${tokensUsed}`);
+        console.warn(`[DeepSeek] Tokens generados (estimado): ${tokensUsed}`);
 
         yield { type: "done", content: "" };
       } catch (err) {

@@ -129,7 +129,7 @@ export function ByokPanel() {
       );
 
       if (!valid) {
-        setSaveError("API key inválida. Verificá que sea correcta.");
+        setSaveError("API key inválida. Verifica que sea correcta.");
         return;
       }
 
@@ -219,7 +219,7 @@ export function ByokPanel() {
     <div className="flex flex-col gap-4">
       <h2 className="text-sm font-semibold text-[#d4d4d4]">Bring Your Own Key (BYOK)</h2>
       <p className="text-xs text-[#969696]">
-        Configurá tus propias API keys para usar modelos adicionales. Las keys se
+        Configura tus propias API keys para usar modelos adicionales. Las keys se
         almacenan de forma segura.
       </p>
 
@@ -262,6 +262,7 @@ export function ByokPanel() {
                   <button
                     onClick={() => handleTestConnection(provider.id)}
                     disabled={testingProvider === provider.id}
+                    aria-label={`Probar conexión con ${def?.name ?? provider.name}`}
                     className="rounded px-2 py-1 text-xs text-[var(--vibe-indigo)] transition-colors hover:bg-[#333] disabled:opacity-50"
                     title="Probar conexión"
                   >
@@ -276,12 +277,14 @@ export function ByokPanel() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleDelete(provider.id)}
+                          aria-label={`Confirmar eliminación de ${def?.name ?? provider.name}`}
                           className="rounded px-2 py-1 text-xs text-red-400 transition-colors hover:bg-[#333]"
                         >
                           Confirmar
                         </button>
                         <button
                           onClick={() => setConfirmDelete(null)}
+                          aria-label="Cancelar eliminación"
                           className="rounded px-2 py-1 text-xs text-[#969696] transition-colors hover:bg-[#333]"
                         >
                           Cancelar
@@ -290,6 +293,7 @@ export function ByokPanel() {
                     ) : (
                       <button
                         onClick={() => setConfirmDelete(provider.id)}
+                        aria-label={`Eliminar key de ${def?.name ?? provider.name}`}
                         className="rounded px-2 py-1 text-xs text-[#969696] transition-colors hover:bg-[#333] hover:text-red-400"
                         title="Eliminar key"
                       >
@@ -310,10 +314,11 @@ export function ByokPanel() {
 
         {/* Selector de proveedor */}
         <div className="mb-2">
-          <label className="mb-1 block text-[10px] uppercase tracking-wider text-[#616161]">
+          <label htmlFor="byok-provider" className="mb-1 block text-[10px] uppercase tracking-wider text-[#616161]">
             Proveedor
           </label>
           <select
+            id="byok-provider"
             value={selectedProvider}
             onChange={(e) => handleProviderChange(e.target.value)}
             className="w-full rounded border border-[#444] bg-[#3c3c3c] px-3 py-1.5 text-xs text-[#d4d4d4] outline-none focus:border-[var(--vibe-indigo)]"
@@ -329,10 +334,11 @@ export function ByokPanel() {
         {/* Campo de endpoint (solo custom) */}
         {selectedProvider === "custom" && (
           <div className="mb-2">
-            <label className="mb-1 block text-[10px] uppercase tracking-wider text-[#616161]">
+            <label htmlFor="byok-endpoint" className="mb-1 block text-[10px] uppercase tracking-wider text-[#616161]">
               URL del endpoint
             </label>
             <input
+              id="byok-endpoint"
               type="url"
               value={endpoint}
               onChange={(e) => {
@@ -347,10 +353,11 @@ export function ByokPanel() {
 
         {/* Campo de API key */}
         <div className="mb-2">
-          <label className="mb-1 block text-[10px] uppercase tracking-wider text-[#616161]">
+          <label htmlFor="byok-api-key" className="mb-1 block text-[10px] uppercase tracking-wider text-[#616161]">
             API Key
           </label>
           <input
+            id="byok-api-key"
             type="password"
             value={apiKey}
             onChange={(e) => {
@@ -359,7 +366,7 @@ export function ByokPanel() {
             }}
             placeholder={
               selectedProvider === "custom"
-                ? "Ingresá tu API key"
+                ? "Ingresa tu API key"
                 : `sk-... (${getDef(selectedProvider)?.name ?? "proveedor"})`
             }
             className="w-full rounded border border-[#444] bg-[#3c3c3c] px-3 py-1.5 text-xs text-[#d4d4d4] placeholder-[#616161] outline-none focus:border-[var(--vibe-indigo)]"
@@ -394,7 +401,8 @@ export function ByokPanel() {
         <button
           onClick={handleSave}
           disabled={saving || !apiKey.trim()}
-          className="w-full rounded bg-[var(--vibe-indigo)] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[var(--vibe-indigo)]/80 disabled:opacity-50"
+          style={{ backgroundColor: "var(--vibe-indigo)" }}
+          className="w-full rounded px-3 py-1.5 text-xs font-medium text-white hover:opacity-80 disabled:opacity-50 transition-opacity"
         >
           {saving ? "Validando..." : "Guardar"}
         </button>

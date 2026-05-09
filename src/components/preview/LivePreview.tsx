@@ -28,7 +28,7 @@ interface LivePreviewProps {
  */
 function buildSrcdoc(userContent: string, isFullDocument: boolean): string {
   const csp =
-    "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';\">";
+    "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src * data:; font-src * data:; connect-src *;\">";
   const errorScript = `<script>
 window.onerror=function(m,u,l,c){
   window.parent.postMessage({type:"preview-error",message:m,url:u||"",line:l||0,col:c||0},"*");

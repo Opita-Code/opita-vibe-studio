@@ -26,12 +26,12 @@ describe("TerminalPanel", () => {
 
   it("should render the command input placeholder", () => {
     render(<TerminalPanel />);
-    expect(screen.getByPlaceholderText("Escribí un comando...")).toBeDefined();
+    expect(screen.getByPlaceholderText("Escribe un comando...")).toBeDefined();
   });
 
   it("should show initial empty state message", () => {
     render(<TerminalPanel />);
-    expect(screen.getByText(/Escribí un comando o seleccioná un preset/)).toBeDefined();
+    expect(screen.getByText(/Escribe un comando o selecciona un preset/)).toBeDefined();
   });
 
   it("should render preset commands button", () => {
@@ -60,7 +60,7 @@ describe("TerminalPanel", () => {
     fireEvent.click(screen.getByText(/Git: estado/));
 
     const input = screen.getByPlaceholderText(
-      "Escribí un comando...",
+      "Escribe un comando...",
     ) as HTMLTextAreaElement;
     expect(input.value).toBe("git status");
   });
