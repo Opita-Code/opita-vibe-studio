@@ -1,8 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import type { Message } from "@/lib/types";
+import { ApplyCodeBlock } from "@/components/chat/ApplyCodeBlock";
 
 // ─── Props ─────────────────────────────────────────────────────
 
@@ -62,18 +61,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   }
 
                   return (
-                    <SyntaxHighlighter
-                      style={oneDark}
-                      language={match[1]}
-                      PreTag="div"
-                      customStyle={{
-                        margin: "0.5rem 0",
-                        borderRadius: "0.375rem",
-                        fontSize: "0.8rem",
-                      }}
-                    >
-                      {code}
-                    </SyntaxHighlighter>
+                    <ApplyCodeBlock code={code} language={match[1]} />
                   );
                 },
               }}

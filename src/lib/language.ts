@@ -40,3 +40,56 @@ export function detectLanguage(path: string): string {
       return "plaintext";
   }
 }
+
+// ─── File Extension by Language ────────────────────────────────
+
+const LANGUAGE_EXTENSIONS: Record<string, string> = {
+  html: "html",
+  css: "css",
+  javascript: "js",
+  typescript: "ts",
+  jsx: "jsx",
+  tsx: "tsx",
+  json: "json",
+  markdown: "md",
+  xml: "xml",
+  yaml: "yml",
+  shell: "sh",
+  bash: "sh",
+  python: "py",
+  rust: "rs",
+  toml: "toml",
+  plaintext: "txt",
+};
+
+/**
+ * Sugiere una extensión de archivo para un lenguaje de código dado.
+ * Útil cuando se quiere guardar un bloque de código del chat como archivo.
+ */
+export function getLanguageExtension(language: string): string {
+  return LANGUAGE_EXTENSIONS[language] ?? "txt";
+}
+
+/**
+ * Sugiere un nombre de archivo por defecto para un lenguaje de código.
+ */
+export function suggestFilename(language: string): string {
+  const ext = getLanguageExtension(language);
+  switch (language) {
+    case "html":
+      return `index.${ext}`;
+    case "css":
+      return `styles.${ext}`;
+    case "javascript":
+      return `script.${ext}`;
+    case "typescript":
+      return `script.${ext}`;
+    case "python":
+      return `script.${ext}`;
+    case "shell":
+    case "bash":
+      return `script.${ext}`;
+    default:
+      return `codigo.${ext}`;
+  }
+}

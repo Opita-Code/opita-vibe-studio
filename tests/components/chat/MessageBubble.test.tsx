@@ -1,7 +1,23 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MessageBubble } from "../../../src/components/chat/MessageBubble";
+import { useProjectStore } from "../../../src/stores/project";
 import type { Message } from "../../../src/lib/types";
+
+beforeEach(() => {
+  useProjectStore.setState({
+    rootPath: "/test/project",
+    files: [],
+    openTabs: [],
+    activeTab: null,
+    isDirty: {},
+    fileContents: {},
+    isGitRepo: false,
+    gitBranch: null,
+    isLoading: false,
+    statusMessage: null,
+  });
+});
 
 function makeMsg(overrides: Partial<Message> & { role: Message["role"] }): Message {
   return {
@@ -54,5 +70,40 @@ describe("MessageBubble", () => {
     const msg = makeMsg({ role: "assistant", content: "" });
     const { container } = render(<MessageBubble message={msg} />);
     expect(container.firstChild).toBeDefined();
+  });
+
+  it("should show Aplicar button on code blocks in assistant messages", () => {
+    const msg = makeMsg({
+      role: "assistant",
+      content: "```html\n<h1>Hola</h1>\n```",
+    });
+    render(<MessageBubble message={msg} />);
+
+    // The code block should have an Aplicar button
+    expect(screen.getByTitle("Guardar este código como archivo")).toBeDefined();
+    expect(screen.getByText("Aplicar")).toBeDefined();
+  });
+
+  it("should show Aplicar button on code blocks without language (plaintext)", () => {
+    const msg = makeMsg({
+      role: "assistant",
+      content: "```\nplain text block\n```",
+    });
+    render(<MessageBubble message={msg} />);
+
+    // Plain code blocks without language should NOT have the button
+    // (they render as inline code, not as ApplyCodeBlock)
+    expect(screen.queryByText("Aplicar")).toBeNull();
+  });
+
+  it("should not show Aplicar on inline code (backticks without newlines)", () => {
+    const msg = makeMsg({
+      role: "assistant",
+      content: "Usa el comando `npm install` para instalar",
+    });
+    render(<MessageBubble message={msg} />);
+
+    // Inline code should not have the button
+    expect(screen.queryByText("Aplicar")).toBeNull();
   });
 });
