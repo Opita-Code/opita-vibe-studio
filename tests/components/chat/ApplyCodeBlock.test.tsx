@@ -6,7 +6,6 @@ import { useProjectStore } from "../../../src/stores/project";
 // ─── Mocks ──────────────────────────────────────────────────────
 
 const mockWriteFile = vi.fn();
-const mockOpenFile = vi.fn();
 
 vi.mock("../../../src/lib/ipc", () => ({
   writeFile: (...args: unknown[]) => mockWriteFile(...args),
@@ -34,9 +33,7 @@ beforeEach(() => {
 
 describe("ApplyCodeBlock", () => {
   it("should render code content and an Aplicar button", () => {
-    render(
-      <ApplyCodeBlock code={'<h1>Hola</h1>'} language="html" />,
-    );
+    render(<ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />);
 
     // The code content should be rendered by SyntaxHighlighter (token spans)
     expect(screen.getByText("Hola")).toBeDefined();
@@ -47,9 +44,7 @@ describe("ApplyCodeBlock", () => {
   });
 
   it("should show a filename input when Aplicar is clicked", async () => {
-    render(
-      <ApplyCodeBlock code={'<h1>Hola</h1>'} language="html" />,
-    );
+    render(<ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />);
 
     // Click Aplicar
     fireEvent.click(screen.getByText("Aplicar"));
@@ -80,9 +75,7 @@ describe("ApplyCodeBlock", () => {
   it("should call writeFile and openFile when submitted", async () => {
     mockWriteFile.mockResolvedValue(undefined);
 
-    render(
-      <ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />,
-    );
+    render(<ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />);
 
     fireEvent.click(screen.getByText("Aplicar"));
 
@@ -101,38 +94,28 @@ describe("ApplyCodeBlock", () => {
   it("should show error message when writeFile fails", async () => {
     mockWriteFile.mockRejectedValue(new Error("Permiso denegado"));
 
-    render(
-      <ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />,
-    );
+    render(<ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />);
 
     fireEvent.click(screen.getByText("Aplicar"));
     fireEvent.click(screen.getByText("Guardar"));
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/Error al guardar: Permiso denegado/),
-      ).toBeDefined();
+      expect(screen.getByText(/Error al guardar: Permiso denegado/)).toBeDefined();
     });
   });
 
   it("should show message when no project is open", () => {
     useProjectStore.setState({ rootPath: null });
 
-    render(
-      <ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />,
-    );
+    render(<ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />);
 
     fireEvent.click(screen.getByText("Aplicar"));
 
-    expect(
-      screen.getByText("Abrí un proyecto primero"),
-    ).toBeDefined();
+    expect(screen.getByText("Abre un proyecto primero")).toBeDefined();
   });
 
   it("should prevent saving with empty or invalid filename", () => {
-    render(
-      <ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />,
-    );
+    render(<ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />);
 
     fireEvent.click(screen.getByText("Aplicar"));
 
@@ -144,9 +127,7 @@ describe("ApplyCodeBlock", () => {
   });
 
   it("should close the save dialog on Cancel", () => {
-    render(
-      <ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />,
-    );
+    render(<ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />);
 
     fireEvent.click(screen.getByText("Aplicar"));
     expect(screen.getByDisplayValue("index.html")).toBeDefined();
@@ -158,9 +139,7 @@ describe("ApplyCodeBlock", () => {
   });
 
   it("should render inline code without Aplicar button when language is undefined", () => {
-    render(
-      <ApplyCodeBlock code={"const x = 1"} language={undefined} />,
-    );
+    render(<ApplyCodeBlock code={"const x = 1"} language={undefined} />);
 
     // No Aplicar button for inline code
     expect(screen.queryByText("Aplicar")).toBeNull();
@@ -175,9 +154,7 @@ describe("ApplyCodeBlock", () => {
 
     mockWriteFile.mockResolvedValue(undefined);
 
-    render(
-      <ApplyCodeBlock code={"<h1>Nuevo</h1>"} language="html" />,
-    );
+    render(<ApplyCodeBlock code={"<h1>Nuevo</h1>"} language="html" />);
 
     fireEvent.click(screen.getByText("Aplicar"));
 

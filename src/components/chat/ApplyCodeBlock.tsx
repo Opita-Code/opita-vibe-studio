@@ -71,7 +71,7 @@ export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
     setShowDialog(true);
     if (!rootPath) {
       setStatus("error");
-      setError("Abrí un proyecto primero");
+      setError("Abre un proyecto primero");
       return;
     }
     setFilename(suggestFilename(language ?? "plaintext"));
@@ -83,9 +83,7 @@ export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
   // Check if file already exists
   const checkOverwrite = useCallback(
     (fullPath: string): boolean => {
-      return (
-        openTabs.includes(fullPath) || fileContents[fullPath] !== undefined
-      );
+      return openTabs.includes(fullPath) || fileContents[fullPath] !== undefined;
     },
     [openTabs, fileContents],
   );
@@ -122,8 +120,7 @@ export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
     }
   }, [rootPath, filename, code, needsOverwrite, checkOverwrite, openFile, closeDialog]);
 
-  const isSaveDisabled =
-    !filename.trim() || status === "saving";
+  const isSaveDisabled = !filename.trim() || status === "saving";
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -139,11 +136,7 @@ export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
 
   // ── Inline code (no language) — no Apply button ─────────────
   if (!language) {
-    return (
-      <code className="rounded bg-[#3c3c3c] px-1 text-[#ce9178]">
-        {code}
-      </code>
-    );
+    return <code className="rounded bg-[#3c3c3c] px-1 text-[#ce9178]">{code}</code>;
   }
 
   // ── Render ──────────────────────────────────────────────────
@@ -165,13 +158,13 @@ export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
           onClick={handleApply}
           className={`
             absolute top-2 right-2 px-2 py-1 text-xs rounded
-            transition-all duration-150
+            transition-opacity duration-150
             opacity-0 group-hover:opacity-100
             focus:opacity-100
-            bg-[#007acc] text-white
-            hover:bg-[#0098ff]
-            focus:outline-none focus:ring-1 focus:ring-[#007acc]
+            text-white
+            focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--vibe-indigo)]
           `}
+          style={{ backgroundColor: "var(--vibe-indigo)" }}
           title="Guardar este código como archivo"
           aria-label="Aplicar código"
         >
@@ -188,7 +181,7 @@ export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
 
       {/* Save dialog */}
       {showDialog && (
-        <div className="absolute top-0 left-0 right-0 z-10 p-3 bg-[#2d2d2d] border border-[#007acc] rounded-md shadow-xl">
+        <div className="absolute top-0 left-0 right-0 z-10 p-3 bg-[#2d2d2d] border border-[var(--vibe-indigo)] rounded-md shadow-xl">
           {/* Overwrite confirmation */}
           {needsOverwrite ? (
             <div>
@@ -218,7 +211,8 @@ export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
                 <button
                   onClick={handleSave}
                   disabled={isSaveDisabled}
-                  className="px-3 py-1 text-xs rounded bg-[#007acc] text-white hover:bg-[#0098ff] transition-colors disabled:opacity-50"
+                  style={{ backgroundColor: "var(--vibe-indigo)" }}
+                  className="px-3 py-1 text-xs rounded text-white hover:opacity-80 transition-opacity disabled:opacity-50"
                 >
                   Reintentar
                 </button>
@@ -241,7 +235,7 @@ export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
                 value={filename}
                 onChange={(e) => setFilename(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-full bg-[#3c3c3c] text-[#cccccc] text-sm px-2 py-1 border border-[#555] rounded outline-none focus:border-[#007acc] mb-2"
+                className="w-full bg-[#3c3c3c] text-[#cccccc] text-sm px-2 py-1 border border-[#555] rounded outline-none focus:border-[var(--vibe-indigo)] mb-2"
                 placeholder="archivo.ext"
               />
               {!rootPath && (
@@ -253,7 +247,8 @@ export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
                 <button
                   onClick={handleSave}
                   disabled={isSaveDisabled}
-                  className="px-3 py-1 text-xs rounded bg-[#007acc] text-white hover:bg-[#0098ff] transition-colors disabled:opacity-50"
+                  style={{ backgroundColor: "var(--vibe-indigo)" }}
+                  className="px-3 py-1 text-xs rounded text-white hover:opacity-80 transition-opacity disabled:opacity-50"
                 >
                   {status === "saving" ? "Guardando..." : "Guardar"}
                 </button>
