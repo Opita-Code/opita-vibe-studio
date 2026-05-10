@@ -59,7 +59,7 @@ async function sendMessage(
         "⚠️ Llegaste al límite de **" +
         usage.promptsLimit +
         " prompts** este mes.\n\n" +
-        "Podés:\n" +
+        "Puedes:\n" +
         "1. **Actualizar plan** → más prompts mensuales\n" +
         "2. **Configurar BYOK** → tus prompts no cuentan en el límite\n\n" +
         "Los prompts se renuevan automáticamente.",
