@@ -137,7 +137,7 @@ function InlineCreateInput({
         onKeyDown={handleKeyDown}
         onBlur={handleSubmit}
         placeholder={type === "directory" ? "nombre-carpeta" : "archivo.ext"}
-        className="flex-1 bg-[#3c3c3c] text-[#cccccc] text-sm px-1 py-0.5 border border-[#007acc] outline-none rounded min-w-0"
+        className="flex-1 bg-[#3c3c3c] text-[#cccccc] text-sm px-1 py-0.5 border border-[var(--vibe-indigo)] outline-none rounded min-w-0"
       />
     </div>
   );
@@ -185,7 +185,7 @@ function ContextMenu({
     >
       <button
         onClick={onNewFile}
-        className="w-full text-left px-4 py-1.5 text-sm text-[#cccccc] hover:bg-[#094771] transition-colors"
+        className="w-full text-left px-4 py-1.5 text-sm text-[#cccccc] hover:bg-indigo-900/20 transition-colors"
       >
         Nuevo archivo
       </button>
@@ -193,7 +193,7 @@ function ContextMenu({
       {isDirectory && (
         <button
           onClick={onNewFolder}
-          className="w-full text-left px-4 py-1.5 text-sm text-[#cccccc] hover:bg-[#094771] transition-colors"
+          className="w-full text-left px-4 py-1.5 text-sm text-[#cccccc] hover:bg-indigo-900/20 transition-colors"
         >
           Nueva carpeta
         </button>
