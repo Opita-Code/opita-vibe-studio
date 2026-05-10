@@ -101,7 +101,7 @@ export function EditorPanel() {
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-[#616161] gap-2">
               <p className="text-sm">Editor de código</p>
-              <p className="text-xs">Abrí un archivo del explorador para empezar</p>
+              <p className="text-xs">Abre un archivo del explorador para empezar</p>
             </div>
           )}
         </div>

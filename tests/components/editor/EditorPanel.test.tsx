@@ -69,7 +69,7 @@ describe("EditorPanel", () => {
   it("should render editor panel with placeholder when no file is open", () => {
     render(<EditorPanel />);
     expect(screen.getByText("Editor de código")).toBeDefined();
-    expect(screen.getByText("Abrí un archivo del explorador para empezar")).toBeDefined();
+    expect(screen.getByText("Abre un archivo del explorador para empezar")).toBeDefined();
   });
 
   it("should render preview toggle button", () => {
