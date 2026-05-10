@@ -109,7 +109,8 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
           <button
             onClick={handleSSOLogin}
             disabled={isLoading || !email.trim()}
-            className="flex w-full items-center justify-center gap-2 rounded bg-[var(--vibe-indigo)] px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-[var(--vibe-indigo)]/80 disabled:opacity-50"
+            style={{ backgroundColor: "var(--vibe-indigo)" }}
+            className="flex w-full items-center justify-center gap-2 rounded px-4 py-2.5 text-sm font-medium text-white hover:opacity-80 transition-opacity disabled:opacity-50"
           >
             {isLoading ? (
               <>
@@ -133,7 +134,8 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         <button
           onClick={handleGuestMode}
           disabled={isLoading}
-          className="text-sm text-[var(--vibe-indigo)] transition-colors hover:text-[var(--vibe-indigo)]/80 disabled:opacity-50"
+          style={{ color: "var(--vibe-indigo)" }}
+          className="text-sm hover:opacity-80 transition-opacity disabled:opacity-50"
         >
           Continuar sin cuenta
         </button>
