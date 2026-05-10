@@ -38,3 +38,14 @@ body {
   background-color: #1e1e1e;
   color: #d4d4d4;
 }
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
