@@ -167,7 +167,7 @@ export const TIP_DICTIONARY: LearningTip[] = [
     question:
       "¿Sabías que...? CSS Grid te permite crear layouts de dos dimensiones con `grid-template-columns` y `grid-template-rows`.",
     explanation:
-      "Grid es el sistema de layout más poderoso de CSS. Definis filas y columnas con `grid-template-columns: 1fr 1fr 1fr` y los hijos se colocan automáticamente. Podés usar `grid-template-areas` para nombrar zonas del layout. Es ideal para la estructura general de la página.",
+      "Grid es el sistema de layout más poderoso de CSS. Defines filas y columnas con `grid-template-columns: 1fr 1fr 1fr` y los hijos se colocan automáticamente. Puedes usar `grid-template-areas` para nombrar zonas del layout. Es ideal para la estructura general de la página.",
     tags: ["css", "grid", "layout"],
     triggerEvent: "css-grid",
   },
