@@ -4,8 +4,8 @@ import { useProjectStore } from "@/stores/project";
 import { useAuthStore } from "@/stores/auth";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
-import { TokenBar } from "@/components/usage/TokenBar";
-import { routeRequest } from "@/providers/router";
+
+import { streamAwsSse } from "@/services/aiService";
 import { detectCodeRequest, runPipeline } from "@/pipeline/engine";
 import { isLimitReached } from "@/lib/tokens";
 import type { Message } from "@/lib/types";
@@ -14,6 +14,7 @@ import type { Message } from "@/lib/types";
 
 interface ChatPanelProps {
   width: number;
+  onLogin?: () => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -142,14 +143,15 @@ async function sendMessage(
 
       setPipelinePhase(null);
     } else {
-      // ── Chat directo (sin pipeline) ─────────────────────
-      for await (const chunk of routeRequest(context, {
-        preferredProvider: activeProvider,
-      })) {
+      // ── Chat directo (Vía AWS Serverless Backend) ─────────
+      const dummyToken = "dev-token-a-reemplazar";
+      for await (const chunk of streamAwsSse(context, dummyToken)) {
         if (chunk.type === "text") {
           appendToLastMessage(chunk.content);
         } else if (chunk.type === "error") {
           appendToLastMessage(`\n\n⚠️ ${chunk.content}`);
+        } else if (chunk.type === "mcp_tool_request") {
+          console.log("[Fase 3] MCP Tool Request interceptado:", chunk.tool, chunk.args);
         }
       }
     }
@@ -175,10 +177,11 @@ async function sendMessage(
  * Verifica el límite de prompts antes de cada mensaje y bloquea
  * el envío si se alcanzó el límite del plan.
  */
-export function ChatPanel({ width }: ChatPanelProps) {
+export function ChatPanel({ width, onLogin }: ChatPanelProps) {
   const messages = useChatStore((s) => s.messages);
   const isStreaming = useChatStore((s) => s.isStreaming);
   const activeProvider = useChatStore((s) => s.activeProvider);
+  const authMode = useAuthStore((s) => s.authMode);
   const addMessage = useChatStore((s) => s.addMessage);
   const appendToLastMessage = useChatStore((s) => s.appendToLastMessage);
   const replaceLastMessageContent = useChatStore((s) => s.replaceLastMessageContent);
@@ -212,27 +215,39 @@ export function ChatPanel({ width }: ChatPanelProps) {
 
   return (
     <aside
-      className="flex flex-col bg-[#252526] border-l border-[#333] overflow-hidden shrink-0"
+      className="flex flex-col bg-slate-900/40 backdrop-blur-md border-x border-white/5 overflow-hidden shrink-0 h-full"
       style={{ width }}
     >
       {/* Encabezado */}
-      <div className="flex items-center justify-between border-b border-[#333] px-4 py-2 shrink-0">
-        <span className="text-xs font-semibold uppercase tracking-wider text-[#969696]">
-          Chat
+      <div className="flex items-center border-b border-white/5 px-4 py-3 shrink-0 bg-slate-900/30">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+          <span className="text-vibe-purple">✨</span> Asistente IA
         </span>
-        <span className="text-xs text-[#616161]">Ctrl+B</span>
       </div>
 
-      {/* Barra de tokens */}
-      <div className="border-b border-[#333] px-4 py-1.5">
-        <TokenBar compact />
-      </div>
+      {/* Banner de modo invitado */}
+
 
       {/* Lista de mensajes con scroll */}
       <MessageList messages={messages} isStreaming={isStreaming} />
 
-      {/* Área de entrada */}
-      <ChatInput onSend={handleSend} disabled={isStreaming} />
+      {/* Input de chat o Prompt de Login */}
+      {authMode === "unauthenticated" ? (
+        <div className="p-6 m-4 mt-auto bg-slate-800/40 border border-white/5 rounded-xl shadow-2xl backdrop-blur flex flex-col items-center text-center">
+          <span className="text-4xl mb-4 animate-pulse">✨</span>
+          <p className="text-sm font-medium text-transparent bg-clip-text bg-gradient-to-r from-slate-200 to-slate-400 mb-5">
+            Despierta a la IA para potenciar tu código
+          </p>
+          <button 
+            onClick={onLogin} 
+            className="w-full py-2.5 bg-gradient-to-r from-vibe-purple to-vibe-cyan text-white text-sm font-medium rounded-lg shadow-lg shadow-purple-500/20 hover:scale-105 transition-transform"
+          >
+            Iniciar Sesión
+          </button>
+        </div>
+      ) : (
+        <ChatInput onSend={handleSend} disabled={isStreaming} />
+      )}
     </aside>
   );
 }
