@@ -6,6 +6,7 @@ import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 
 import { streamAwsSse } from "@/services/aiService";
+import { handleMcpToolRequest } from "@/services/mcpClient";
 import { detectCodeRequest, runPipeline } from "@/pipeline/engine";
 import { isLimitReached } from "@/lib/tokens";
 import type { Message } from "@/lib/types";
@@ -151,7 +152,10 @@ async function sendMessage(
         } else if (chunk.type === "error") {
           appendToLastMessage(`\n\n⚠️ ${chunk.content}`);
         } else if (chunk.type === "mcp_tool_request") {
-          console.log("[Fase 3] MCP Tool Request interceptado:", chunk.tool, chunk.args);
+          console.log("[Fase 3] Ejecutando MCP Tool:", chunk.tool);
+          if (chunk.tool) {
+            handleMcpToolRequest(chunk.tool, chunk.args, dummyToken);
+          }
         }
       }
     }
