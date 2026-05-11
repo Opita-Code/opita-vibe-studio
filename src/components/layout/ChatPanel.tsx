@@ -146,7 +146,7 @@ async function sendMessage(
     } else {
       // ── Chat directo (Vía AWS Serverless Backend) ─────────
       const dummyToken = "dev-token-a-reemplazar";
-      for await (const chunk of streamAwsSse(context, dummyToken)) {
+      for await (const chunk of streamAwsSse(context, activeProvider, dummyToken)) {
         if (chunk.type === "text") {
           appendToLastMessage(chunk.content);
         } else if (chunk.type === "error") {

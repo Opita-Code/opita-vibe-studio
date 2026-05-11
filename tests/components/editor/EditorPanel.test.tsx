@@ -46,11 +46,7 @@ describe("EditorPanel", () => {
 
     // Default UI store state
     mockUIState = {
-      previewRatio: 0.35,
-      setPreviewRatio: vi.fn(),
-      previewVisible: true,
-      togglePreview: vi.fn(),
-      setPreviewVisible: vi.fn(),
+      activeView: "split",
     };
 
     // Default project store state: no active tab
@@ -67,9 +63,10 @@ describe("EditorPanel", () => {
   });
 
   it("should render editor panel with placeholder when no file is open", () => {
+    mockUIState = { activeView: "editor" };
     render(<EditorPanel />);
-    expect(screen.getByText("Editor de código")).toBeDefined();
-    expect(screen.getByText("Abre un archivo del explorador para empezar")).toBeDefined();
+    expect(screen.getByText("Comenzar un Proyecto")).toBeDefined();
+    expect(screen.getByText("Selecciona una carpeta local de tu computadora para empezar a escribir código de manera segura.")).toBeDefined();
   });
 
   it("should render preview toggle button", () => {
@@ -85,6 +82,7 @@ describe("EditorPanel", () => {
   });
 
   it("should render Monaco editor when a file is active", () => {
+    mockUIState = { activeView: "editor" };
     mockProjectState = {
       activeTab: "/test/index.html",
       openTabs: ["/test/index.html"],
@@ -94,6 +92,7 @@ describe("EditorPanel", () => {
       saveFile: vi.fn(),
       statusMessage: null,
       clearStatusMessage: vi.fn(),
+      rootPath: "/test",
     };
 
     render(<EditorPanel />);
@@ -101,6 +100,7 @@ describe("EditorPanel", () => {
   });
 
   it("should pass correct language to Monaco based on file extension", () => {
+    mockUIState = { activeView: "editor" };
     mockProjectState = {
       activeTab: "/test/styles.css",
       openTabs: ["/test/styles.css"],
@@ -110,6 +110,7 @@ describe("EditorPanel", () => {
       saveFile: vi.fn(),
       statusMessage: null,
       clearStatusMessage: vi.fn(),
+      rootPath: "/test",
     };
 
     render(<EditorPanel />);
@@ -117,18 +118,14 @@ describe("EditorPanel", () => {
     expect(editor.getAttribute("data-language")).toBe("css");
   });
 
-  it("should hide preview iframe when previewVisible is false", () => {
-    mockUIState = {
-      previewRatio: 0.35,
-      setPreviewRatio: vi.fn(),
-      previewVisible: false,
-      togglePreview: vi.fn(),
-      setPreviewVisible: vi.fn(),
-    };
+  it("should hide preview container when activeView is editor", () => {
+    mockUIState = { activeView: "editor" };
 
-    render(<EditorPanel />);
-    const iframe = document.querySelector("iframe");
-    expect(iframe).toBeNull();
+    const { container } = render(<EditorPanel />);
+    // The preview section is wrapped in a div that gets "hidden" when activeView is editor
+    // because isPreview (activeView === "preview") is false and we check for "hidden" in the class
+    const previewContainer = container.querySelector(".hidden.transition-opacity");
+    expect(previewContainer).not.toBeNull();
   });
 
   it("should wrap CSS content in style tags for preview", () => {

@@ -4,15 +4,16 @@ import { useUIStore } from "../../src/stores/ui";
 beforeEach(() => {
   useUIStore.setState({
     sidebarWidth: 240,
-    chatVisible: true,
     statusMessage: "Listo",
     activeModel: "deepseek-chat",
     connectedProvider: "DeepSeek",
     tokensRemaining: 0,
-    previewRatio: 0.35,
-    previewVisible: true,
     terminalVisible: false,
     terminalHeight: 200,
+    activeView: "preview",
+    explorerVisible: false,
+    chatWidth: 320,
+    chatPosition: "left",
   });
 });
 
@@ -20,8 +21,8 @@ describe("UIStore", () => {
   it("should start with default layout values", () => {
     const state = useUIStore.getState();
     expect(state.sidebarWidth).toBe(240);
-    expect(state.chatVisible).toBe(true);
-    expect(state.previewRatio).toBe(0.35);
+    expect(state.activeView).toBe("preview");
+    expect(state.chatWidth).toBe(320);
   });
 
   it("should set sidebar width within bounds", () => {
@@ -37,20 +38,6 @@ describe("UIStore", () => {
   it("should clamp sidebar width to maximum 400", () => {
     useUIStore.getState().setSidebarWidth(500);
     expect(useUIStore.getState().sidebarWidth).toBe(400);
-  });
-
-  it("should toggle chat visibility", () => {
-    useUIStore.getState().toggleChat();
-    expect(useUIStore.getState().chatVisible).toBe(false);
-    useUIStore.getState().toggleChat();
-    expect(useUIStore.getState().chatVisible).toBe(true);
-  });
-
-  it("should set chat visibility explicitly", () => {
-    useUIStore.getState().setChatVisible(false);
-    expect(useUIStore.getState().chatVisible).toBe(false);
-    useUIStore.getState().setChatVisible(true);
-    expect(useUIStore.getState().chatVisible).toBe(true);
   });
 
   it("should set status message", () => {
@@ -70,36 +57,26 @@ describe("UIStore", () => {
     expect(useUIStore.getState().tokensRemaining).toBe(15000);
   });
 
-  it("should set preview ratio within bounds", () => {
-    useUIStore.getState().setPreviewRatio(0.5);
-    expect(useUIStore.getState().previewRatio).toBe(0.5);
+  // ─── Layout Views ─────────────────────────────────────────
+
+  it("should set active view explicitly", () => {
+    useUIStore.getState().setActiveView("editor");
+    expect(useUIStore.getState().activeView).toBe("editor");
+    useUIStore.getState().setActiveView("preview");
+    expect(useUIStore.getState().activeView).toBe("preview");
   });
 
-  it("should clamp preview ratio to minimum 0.15", () => {
-    useUIStore.getState().setPreviewRatio(0.05);
-    expect(useUIStore.getState().previewRatio).toBe(0.15);
+  it("should toggle chat position", () => {
+    expect(useUIStore.getState().chatPosition).toBe("left");
+    useUIStore.getState().toggleChatPosition();
+    expect(useUIStore.getState().chatPosition).toBe("right");
+    useUIStore.getState().toggleChatPosition();
+    expect(useUIStore.getState().chatPosition).toBe("left");
   });
 
-  it("should clamp preview ratio to maximum 0.6", () => {
-    useUIStore.getState().setPreviewRatio(0.8);
-    expect(useUIStore.getState().previewRatio).toBe(0.6);
-  });
-
-  // ─── Preview Toggle ─────────────────────────────────────────
-
-  it("should toggle preview visibility", () => {
-    expect(useUIStore.getState().previewVisible).toBe(true);
-    useUIStore.getState().togglePreview();
-    expect(useUIStore.getState().previewVisible).toBe(false);
-    useUIStore.getState().togglePreview();
-    expect(useUIStore.getState().previewVisible).toBe(true);
-  });
-
-  it("should set preview visibility explicitly", () => {
-    useUIStore.getState().setPreviewVisible(false);
-    expect(useUIStore.getState().previewVisible).toBe(false);
-    useUIStore.getState().setPreviewVisible(true);
-    expect(useUIStore.getState().previewVisible).toBe(true);
+  it("should set chat width within bounds", () => {
+    useUIStore.getState().setChatWidth(400);
+    expect(useUIStore.getState().chatWidth).toBe(400);
   });
 
   // ─── Terminal Toggle ────────────────────────────────────────

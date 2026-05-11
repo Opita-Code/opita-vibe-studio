@@ -84,10 +84,11 @@ describe("ChatPanel — voseo compliance", () => {
 
     // Set auth store to limit-reached state
     useAuthStore.setState({
-      user: null,
+      user: { id: "test", name: "Test User", email: "test@example.com" },
       session: null,
       plan: "free",
-      isAuthenticated: false,
+      isAuthenticated: true,
+      authMode: "authenticated",
       isLoading: false,
       tokenUsage: {
         promptsUsed: 30,

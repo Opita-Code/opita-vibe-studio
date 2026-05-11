@@ -24,6 +24,10 @@ export default $config({
       link: [table], // Grants IAM permissions automatically
       environment: {
         JWT_SECRET: process.env.JWT_SECRET || "opita_secret_for_dev_only_123",
+        DEEP_SEEK_KEY: process.env.DEEP_SEEK_KEY || "",
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
+        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
       },
       streaming: true, // Crucial for 15-minute connection and real-time response
     });

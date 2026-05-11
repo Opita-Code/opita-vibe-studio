@@ -5,6 +5,7 @@ const AWS_API_URL = "http://localhost:3000/api/chat";
 
 export async function* streamAwsSse(
   messages: Message[],
+  providerId: string,
   token: string = "dev-token-a-reemplazar"
 ): AsyncGenerator<{ type: "text" | "error" | "done" | "mcp_tool_request"; content: string; tool?: string; args?: any }> {
   try {
@@ -17,6 +18,7 @@ export async function* streamAwsSse(
       body: JSON.stringify({
         projectId: "local-workspace",
         messages,
+        providerId,
       })
     });
 
