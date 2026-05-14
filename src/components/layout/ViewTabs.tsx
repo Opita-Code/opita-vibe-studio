@@ -107,7 +107,7 @@ export function ViewTabs() {
         </div>
       </div>
 
-      <div className={`relative flex items-center bg-obsidian-950/60 backdrop-blur-2xl rounded-full p-1.5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset] pointer-events-auto transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+      <div role="tablist" aria-label="Cambiar entre Editor y Vista Previa" className={`relative flex items-center bg-obsidian-950/60 backdrop-blur-2xl rounded-full p-1.5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset] pointer-events-auto transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
         isVisible ? "translate-y-0 opacity-100" : "translate-y-12 opacity-0"
       }`}>
         {TABS.map((tab) => {
@@ -126,7 +126,7 @@ export function ViewTabs() {
               title={tab.hint || tab.label}
             >
               {active && (
-                <div className="absolute inset-0 bg-gradient-to-r from-vibe-cyan/10 to-vibe-purple/10 opacity-50" />
+                <div className="absolute inset-0 bg-gradient-to-r from-vibe-cyan/10 to-vibe-purple/10 opacity-50" aria-hidden="true" />
               )}
               <span className="relative z-10 flex items-center gap-2">
                 {tab.label}

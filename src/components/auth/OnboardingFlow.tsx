@@ -5,8 +5,8 @@ export function OnboardingFlow({ onEnterGuest, onLogin }: { onEnterGuest: () => 
   return (
     <div className="flex h-full w-full flex-col text-white/90 bg-obsidian-900 relative overflow-y-auto overflow-x-hidden items-center justify-start pt-12 pb-24">
       {/* Background Orbs with Zen Flow animation */}
-      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-aura-purple/5 mix-blend-screen filter blur-[100px] animate-blob pointer-events-none"></div>
-      <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-aura-cyan/5 mix-blend-screen filter blur-[100px] animate-blob-reverse delay-2000 pointer-events-none"></div>
+      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-aura-purple/5 mix-blend-screen filter blur-[100px] animate-blob pointer-events-none" aria-hidden="true"></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-aura-cyan/5 mix-blend-screen filter blur-[100px] animate-blob-reverse delay-2000 pointer-events-none" aria-hidden="true"></div>
 
       <div className="z-10 w-full max-w-3xl flex flex-col items-center">
         

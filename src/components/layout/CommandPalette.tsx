@@ -172,6 +172,9 @@ export function CommandPalette() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Paleta de comandos"
             className="w-full max-w-2xl bg-[#0D0D12]/85 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
@@ -185,9 +188,15 @@ export function CommandPalette() {
             className="w-full bg-transparent text-slate-100 placeholder-slate-500 py-4 outline-none text-xl font-light"
             placeholder="Busca comandos, archivos..."
             value={omnibarQuery}
+            role="combobox"
+            aria-label="Buscar comandos y archivos"
+            aria-expanded={flattenedItems.length > 0}
+            aria-controls="omnibar-results"
+            aria-activedescendant={flattenedItems[selectedIndex] ? `omni-item-${flattenedItems[selectedIndex].id}` : undefined}
+            autoComplete="off"
             onChange={(e) => {
               setOmnibarQuery(e.target.value);
-              setSelectedIndex(0); // Reset index on type
+              setSelectedIndex(0);
             }}
           />
           <div className="flex gap-2">
@@ -196,7 +205,7 @@ export function CommandPalette() {
         </div>
         
         {/* Results Area */}
-        <div ref={scrollRef} className="max-h-[50vh] overflow-y-auto p-2 overscroll-contain">
+        <div ref={scrollRef} id="omnibar-results" role="listbox" aria-label="Resultados de búsqueda" className="max-h-[50vh] overflow-y-auto p-2 overscroll-contain">
           {flattenedItems.length === 0 ? (
             <div className="px-6 py-12 text-center text-slate-500 flex flex-col items-center gap-3">
               <svg className="w-12 h-12 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -220,6 +229,9 @@ export function CommandPalette() {
                   return (
                     <button 
                       key={item.id}
+                      id={`omni-item-${item.id}`}
+                      role="option"
+                      aria-selected={isSelected}
                       data-selected={isSelected}
                       onClick={() => executeAction(item)}
                       onMouseEnter={() => setSelectedIndex(currentIndex)}
