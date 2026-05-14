@@ -20,6 +20,7 @@ interface AuthState {
   /** Whether a pending migration from guest to cloud exists */
   needsMigration: boolean;
   hasCompletedOnboarding: boolean;
+  loginModalOpen: boolean;
 }
 
 // ─── Actions ───────────────────────────────────────────────────
@@ -32,7 +33,7 @@ interface AuthActions {
   setLoading: (loading: boolean) => void;
   login: (user: UserProfile, session: Session) => void;
   logout: () => void;
-  incrementPromptsUsed: () => void;
+  fetchTokenUsage: () => Promise<void>;
   detectSession: () => Promise<void>;
   /**
    * Checks if the OAuth user's email matches the guest's stored email.
@@ -44,15 +45,19 @@ interface AuthActions {
    */
   migrateFromGuest: (email: string) => boolean;
   completeOnboarding: () => void;
+  setLoginModalOpen: (open: boolean) => void;
 }
 
 // ─── Defaults ──────────────────────────────────────────────────
 
 const defaultTokenUsage: TokenUsage = {
-  promptsUsed: 0,
-  promptsLimit: 30,
-  billingPeriodStart: new Date().toISOString(),
-  billingPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  tokensUsedToday: 0,
+  tokensLimitDaily: 150_000,
+  tokensUsedThisHour: 0,
+  tokensLimitHourly: 30_000,
+  plan: "free",
+  resetDailyAt: new Date().toISOString(),
+  resetHourlyAt: new Date().toISOString(),
 };
 
 // ─── Store ─────────────────────────────────────────────────────
@@ -70,6 +75,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
   guestEmail: "test@example.com",
   needsMigration: false,
   hasCompletedOnboarding: localStorage.getItem("vibe-onboarding-done") === "true",
+  loginModalOpen: false,
+
+  setLoginModalOpen: (open) => set({ loginModalOpen: open }),
 
   setUser: (user) => set({ user }),
 
@@ -106,15 +114,19 @@ export const useAuthStore = create<AuthStore>((set) => ({
       needsMigration: false,
     }),
 
-
-
-  incrementPromptsUsed: () =>
-    set((state) => ({
-      tokenUsage: {
-        ...state.tokenUsage,
-        promptsUsed: state.tokenUsage.promptsUsed + 1,
-      },
-    })),
+  fetchTokenUsage: async () => {
+    try {
+      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const API_URL = isLocalhost ? "http://localhost:3000" : "https://api.opitacode.com";
+      const response = await fetch(API_URL + "/usage", { credentials: "include" });
+      if (response.ok) {
+        const data = await response.json();
+        set({ tokenUsage: data });
+      }
+    } catch {
+      // Silently fail — usage display is non-critical
+    }
+  },
 
   detectSession: async () => {
     const { restoreSession } = await import("@/auth/sso");
@@ -127,6 +139,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
           plan: result.user.plan,
           authMode: "authenticated",
         });
+        // Fetch token usage after successful session restoration
+        const store = useAuthStore.getState();
+        store.fetchTokenUsage();
       }
     } catch {
       // No session or error — stay in guest mode (already default)

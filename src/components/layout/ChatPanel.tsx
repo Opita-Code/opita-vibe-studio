@@ -15,7 +15,6 @@ import type { Message, Attachment } from "@/lib/types";
 
 interface ChatPanelProps {
   width?: number;
-  onLogin?: () => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -42,7 +41,7 @@ async function sendMessage(
   replaceLastMessageContent: (content: string) => void,
   setStreaming: (v: boolean) => void,
   setPipelinePhase: (phase: "entender" | "construir" | "verificar" | null) => void,
-  incrementPromptsUsed: () => void,
+  fetchTokenUsage: () => Promise<void>,
   isRetry: boolean = false
 ) {
   const usage = useAuthStore.getState().tokenUsage;
@@ -51,13 +50,11 @@ async function sendMessage(
       id: generateId(),
       role: "assistant",
       content:
-        "⚠️ Llegaste al límite de **" +
-        usage.promptsLimit +
-        " prompts** este mes.\n\n" +
+        "⚠️ Llegaste al límite de tokens de tu plan.\n\n" +
         "Puedes:\n" +
-        "1. **Actualizar plan** → más prompts mensuales\n" +
-        "2. **Configurar BYOK** → tus prompts no cuentan en el límite\n\n" +
-        "Los prompts se renuevan automáticamente.",
+        "1. **Actualizar plan** → más tokens diarios\n" +
+        "2. **Configurar BYOK** → tus tokens no cuentan en el límite\n\n" +
+        "Los tokens se renuevan cada día.",
       timestamp: Date.now(),
     };
     addMessage(limitMsg);
@@ -224,7 +221,7 @@ async function sendMessage(
     }
 
     if (!isRetry) {
-      incrementPromptsUsed();
+      fetchTokenUsage();
     }
   } catch (_err) {
     appendToLastMessage(`\n\n⚠️ Error inesperado: ${_err}\n<!--RETRY_NETWORK-->`);
@@ -233,7 +230,7 @@ async function sendMessage(
   }
 }
 
-export function ChatPanel({ width, onLogin }: ChatPanelProps) {
+export function ChatPanel({ width }: ChatPanelProps) {
   const session = useChatStore((s) => s.sessions[s.activeSessionId]);
   const messages = session?.messages || [];
   
@@ -259,10 +256,16 @@ export function ChatPanel({ width, onLogin }: ChatPanelProps) {
   const setStreaming = useChatStore((s) => s.setStreaming);
   const setPipelinePhase = useChatStore((s) => s.setPipelinePhase);
   const createNewSession = useChatStore((s) => s.createNewSession);
-  const incrementPromptsUsed = useAuthStore((s) => s.incrementPromptsUsed);
+  const fetchTokenUsage = useAuthStore((s) => s.fetchTokenUsage);
 
   const handleSend = useCallback(
     (text: string, attachments?: Attachment[]) => {
+      const currentAuthMode = useAuthStore.getState().authMode;
+      if (currentAuthMode === "unauthenticated") {
+        useAuthStore.getState().setLoginModalOpen(true);
+        return;
+      }
+
       sendMessage(
         text,
         attachments,
@@ -273,11 +276,11 @@ export function ChatPanel({ width, onLogin }: ChatPanelProps) {
         replaceLastMessageContent,
         setStreaming,
         setPipelinePhase,
-        incrementPromptsUsed,
+        fetchTokenUsage,
         false
       );
     },
-    [activeProvider, activeModelId, addMessage, appendToLastMessage, replaceLastMessageContent, setStreaming, setPipelinePhase, incrementPromptsUsed]
+    [activeProvider, activeModelId, addMessage, appendToLastMessage, replaceLastMessageContent, setStreaming, setPipelinePhase, fetchTokenUsage]
   );
 
   const handleRetryLast = useCallback(() => {
@@ -307,10 +310,10 @@ export function ChatPanel({ width, onLogin }: ChatPanelProps) {
       replaceLastMessageContent,
       setStreaming,
       setPipelinePhase,
-      incrementPromptsUsed,
+      fetchTokenUsage,
       true // isRetry
     );
-  }, [messages, activeProvider, activeModelId, addMessage, appendToLastMessage, replaceLastMessageContent, setStreaming, setPipelinePhase, incrementPromptsUsed]);
+  }, [messages, activeProvider, activeModelId, addMessage, appendToLastMessage, replaceLastMessageContent, setStreaming, setPipelinePhase, fetchTokenUsage]);
 
   // If the last message is an error with the retry tag, show the retry button below it
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
@@ -318,7 +321,7 @@ export function ChatPanel({ width, onLogin }: ChatPanelProps) {
 
   return (
     <aside
-      className={`flex flex-col bg-obsidian-950/80 backdrop-blur-xl border-l border-white/10 overflow-hidden shrink-0 h-full shadow-[-4px_0_15px_rgba(0,0,0,0.5)]`}
+      className={`flex flex-col bg-obsidian-950/80 backdrop-blur-xl border-l border-white/10 overflow-hidden shrink-0 h-full w-full shadow-[-4px_0_15px_rgba(0,0,0,0.5)]`}
       style={{ width }}
     >
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 shrink-0 bg-transparent">
@@ -419,7 +422,7 @@ export function ChatPanel({ width, onLogin }: ChatPanelProps) {
             Despierta a Vibe AI para potenciar tu código
           </p>
           <button 
-            onClick={onLogin} 
+            onClick={() => useAuthStore.getState().setLoginModalOpen(true)} 
             className="w-full py-2.5 bg-white text-black text-sm font-semibold rounded-lg shadow hover:bg-slate-200 transition-colors"
             aria-describedby="chat-cta-description"
           >

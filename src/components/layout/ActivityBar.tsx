@@ -2,7 +2,7 @@ import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
 
-export function ActivityBar({ onLogin }: { onLogin?: () => void }) {
+export function ActivityBar() {
   const { 
     activeSidebar, 
     setActiveSidebar, 
@@ -125,30 +125,26 @@ export function ActivityBar({ onLogin }: { onLogin?: () => void }) {
           </svg>
         </button>
 
-        {/* Landing / Precios (Solo Unauthenticated) */}
-        {authMode === "unauthenticated" && (
-          <a
-            href="https://vibe.opitacode.com"
-            target="_blank"
-            rel="noreferrer"
-            className="w-full flex justify-center py-2 relative group transition-colors text-slate-500 hover:text-aura-cyan"
-            title="Conoce Vibe Studio y Planes"
-            aria-label="Conoce Vibe Studio y Planes (abre en nueva pestaña)"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-            </svg>
-          </a>
-        )}
+        {/* Landing / Precios */}
+        <a
+          href="/"
+          className="w-full flex justify-center py-2 relative group transition-colors text-slate-500 hover:text-aura-cyan"
+          title="Ir a la Landing — Planes y Precios"
+          aria-label="Ir a la Landing"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+        </a>
 
         {/* User Account */}
         <div className="w-full flex justify-center py-2 relative mb-2">
           {authMode === "unauthenticated" ? (
             <button
-              onClick={onLogin}
-              className="w-8 h-8 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center transition-all"
+              onClick={() => useAuthStore.getState().setLoginModalOpen(true)}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all duration-200 border border-white/5 hover:border-white/10"
               title="Iniciar sesión"
               aria-label="Iniciar sesión"
             >

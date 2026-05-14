@@ -40,7 +40,7 @@ function Workspace() {
   return (
     <div className="flex flex-1 overflow-hidden relative w-full h-full pb-16 md:pb-0">
       {/* 1. Barra de actividad (Izquierda) */}
-      <ActivityBar onLogin={() => setLoginModalOpen(true)} />
+      <ActivityBar />
 
       {/* 2. Primary Sidebar (Izquierda) */}
       <ExplorerDock />
@@ -84,16 +84,13 @@ function Workspace() {
   );
 }
 
-// Global modal state (hacky for now due to lifting it outside App scope to pass to ActivityBar)
-let setLoginModalOpen: (open: boolean) => void = () => {};
-
 export default function App() {
   const authMode = useAuthStore((s) => s.authMode);
   const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);
   const sessionDetected = useAuthStore((s) => s.sessionDetected);
   const detectSession = useAuthStore((s) => s.detectSession);
-  const [loginModalOpenState, setLoginModalOpenState] = useState(false);
-  setLoginModalOpen = setLoginModalOpenState;
+  const loginModalOpen = useAuthStore((s) => s.loginModalOpen);
+  const setLoginModalOpen = useAuthStore((s) => s.setLoginModalOpen);
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
@@ -109,9 +106,9 @@ export default function App() {
     // Auto-open login modal if requested via URL intent
     const params = new URLSearchParams(window.location.search);
     if (params.get("login") === "true" && authMode === "unauthenticated") {
-      setLoginModalOpenState(true);
+      setLoginModalOpen(true);
     }
-  }, [detectSession, authMode]);
+  }, [detectSession, authMode, setLoginModalOpen]);
 
   if (isMobile) {
     return <MobileNotSupportedScreen />;
@@ -134,7 +131,7 @@ export default function App() {
             onLogin={() => setLoginModalOpen(true)} 
           />
         </div>
-        {loginModalOpenState && (
+        {loginModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
             <LoginScreen 
               onClose={() => setLoginModalOpen(false)} 
@@ -167,7 +164,7 @@ export default function App() {
           <Workspace />
         </div>
 
-        {loginModalOpenState && (
+        {loginModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <LoginScreen 
               onClose={() => setLoginModalOpen(false)} 
