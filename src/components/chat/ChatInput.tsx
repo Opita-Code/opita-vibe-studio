@@ -332,9 +332,9 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         </button>
       </div>
 
-      <div className="mt-2 flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-medium tracking-wide uppercase text-aura-purple/60">
+      <div className="mt-3 flex items-center justify-between px-2">
+        <div className="flex items-center gap-4">
+          <span className="text-[10px] font-medium tracking-widest uppercase text-aura-purple/50 bg-aura-purple/5 px-2 py-0.5 rounded-full border border-aura-purple/10">
             {isUploading ? "Subiendo..." : `Engine ${CHAR_LIMIT / 1000}k`}
           </span>
           <div className="relative" ref={dropdownRef}>
