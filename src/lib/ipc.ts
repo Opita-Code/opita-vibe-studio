@@ -1,27 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 
-// ─── Window State ───────────────────────────────────────────────
-
-/** Alterna entre maximizado y restaurado */
-export function toggleMaximize(): Promise<void> {
-  return invoke("toggle_maximize");
-}
-
-/** Minimiza la ventana */
-export function minimizeWindow(): Promise<void> {
-  return invoke("minimize_window");
-}
-
-/** Cierra la ventana (oculta a la bandeja) */
-export function closeWindow(): Promise<void> {
-  return invoke("close_window");
-}
-
-/** Alterna pantalla completa */
-export function toggleFullscreen(): Promise<void> {
-  return invoke("toggle_fullscreen");
-}
-
 // ─── File System ─────────────────────────────────────────────────
 
 export interface FileEntry {

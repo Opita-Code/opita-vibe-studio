@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/nicou/tauri/dev/crates/tauri-utils/schema.json",
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-utils/schema.json",
   "productName": "Vibe Studio",
   "version": "0.1.0",
   "identifier": "com.opita.vibe-studio",
@@ -38,7 +38,7 @@
       "endpoints": [
         "https://releases.opita.co/vibe-studio/{{target}}/{{current_version}}"
       ],
-      "pubkey": ""
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU2N0QxOENDQzNBNDk4REMKUldUY21LVER6Qmg5VnJnUW9mTk54Nkc3Ri8vTG13UDRSL0FKZkg0bnFoclZaSmJ0SFE1ZkJybWQK"
     }
   }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, DragEvent, ClipboardEvent } from "react";
+import { useCallback, useRef, useState, useEffect, DragEvent, ClipboardEvent } from "react";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
 import type { Attachment } from "@/lib/types";

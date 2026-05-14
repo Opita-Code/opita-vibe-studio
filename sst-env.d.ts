@@ -34,6 +34,10 @@ declare module "sst" {
       "type": "sst.aws.Function"
       "url": string
     }
+    "TokenUsage": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
     "Transactions": {
       "name": string
       "type": "sst.aws.Dynamo"

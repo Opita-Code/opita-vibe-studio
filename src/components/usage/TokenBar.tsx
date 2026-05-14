@@ -1,10 +1,12 @@
 import { useAuthStore } from "@/stores/auth";
 import {
-  getRemainingPrompts,
+  getRemainingTokens,
   isLimitReached,
+  isHourlyLimitReached,
   getUsagePercent,
-  formatRenewalDate,
-  getDaysUntilRenewal,
+  getMinutesUntilHourlyReset,
+  getHoursUntilDailyReset,
+  formatTokenCount,
   PLAN_NAMES,
 } from "@/lib/tokens";
 
@@ -20,13 +22,13 @@ interface TokenBarProps {
 // ─── Component ──────────────────────────────────────────────────
 
 /**
- * Barra de progreso de uso de tokens/prompts.
+ * Barra de progreso de uso de tokens.
  *
  * Muestra:
- * - "127/200 tokens este mes"
+ * - "45.2K/250K tokens hoy"
  * - Barra de progreso visual
  * - Warning al 80%
- * - Límite alcanzado con mensaje de renovación
+ * - Límite alcanzado con mensaje de cooldown
  *
  * Se integra con `useAuthStore` para obtener el uso actual.
  */
@@ -34,31 +36,37 @@ export function TokenBar({ className = "", compact = false }: TokenBarProps) {
   const plan = useAuthStore((s) => s.plan);
   const tokenUsage = useAuthStore((s) => s.tokenUsage);
 
-  const remaining = getRemainingPrompts(tokenUsage);
+  const remaining = getRemainingTokens(tokenUsage);
   const percent = getUsagePercent(tokenUsage);
   const limitReached = isLimitReached(tokenUsage);
-  const renewalDate = formatRenewalDate(tokenUsage.billingPeriodEnd);
-  const daysUntilRenewal = getDaysUntilRenewal(tokenUsage.billingPeriodEnd);
+  const hourlyLimitReached = isHourlyLimitReached(tokenUsage);
   const isWarning = percent >= 80 && !limitReached;
 
   // Color de la barra según estado
-  const barColor = limitReached
+  const barColor = limitReached || hourlyLimitReached
     ? "bg-red-500"
     : isWarning
       ? "bg-yellow-500"
       : "bg-[#4ec9b0]";
 
   // Texto de estado
-  const statusText = limitReached
-    ? `Sin tokens. Se renuevan en ${daysUntilRenewal} día${daysUntilRenewal !== 1 ? "s" : ""}`
-    : isWarning
-      ? `Te quedan ${remaining} tokens`
-      : `${remaining} tokens disponibles`;
+  let statusText: string;
+  if (limitReached) {
+    const hours = getHoursUntilDailyReset(tokenUsage.resetDailyAt);
+    statusText = `Sin tokens. Se renuevan en ${hours}h`;
+  } else if (hourlyLimitReached) {
+    const minutes = getMinutesUntilHourlyReset(tokenUsage.resetHourlyAt);
+    statusText = `Límite horario. Se renueva en ${minutes}min`;
+  } else if (isWarning) {
+    statusText = `${formatTokenCount(remaining)} tokens restantes`;
+  } else {
+    statusText = `${formatTokenCount(remaining)} tokens disponibles`;
+  }
 
   if (compact) {
     return (
       <span className={`text-xs ${className}`}>
-        {tokenUsage.promptsUsed}/{tokenUsage.promptsLimit}{" "}
+        {formatTokenCount(tokenUsage.tokensUsedToday)}/{formatTokenCount(tokenUsage.tokensLimitDaily)}{" "}
         <span className="text-[#969696]">({PLAN_NAMES[plan]})</span>
       </span>
     );
@@ -69,11 +77,11 @@ export function TokenBar({ className = "", compact = false }: TokenBarProps) {
       {/* Texto de uso */}
       <div className="flex items-center justify-between text-xs">
         <span className="text-[#d4d4d4]">
-          {tokenUsage.promptsUsed}/{tokenUsage.promptsLimit} prompts este mes
+          {formatTokenCount(tokenUsage.tokensUsedToday)}/{formatTokenCount(tokenUsage.tokensLimitDaily)} tokens hoy
         </span>
         <span
           className={
-            limitReached
+            limitReached || hourlyLimitReached
               ? "text-red-400"
               : isWarning
                 ? "text-yellow-400"
@@ -93,11 +101,15 @@ export function TokenBar({ className = "", compact = false }: TokenBarProps) {
           aria-valuenow={percent}
           aria-valuemin={0}
           aria-valuemax={100}
+          aria-label={`Uso de tokens: ${percent}%`}
         />
       </div>
 
-      {/* Fecha de renovación */}
-      <span className="text-xs text-[#616161]">Se renuevan el {renewalDate}</span>
+      {/* Info de renovación */}
+      <div className="flex items-center justify-between text-[10px] text-[#616161]">
+        <span>Diario se renueva en {getHoursUntilDailyReset(tokenUsage.resetDailyAt)}h</span>
+        <span>Hora se renueva en {getMinutesUntilHourlyReset(tokenUsage.resetHourlyAt)}min</span>
+      </div>
     </div>
   );
 }

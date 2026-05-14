@@ -1,11 +1,11 @@
 import type { TokenUsage, UserPlan } from "./types";
 
-// ─── Plan Limits ────────────────────────────────────────────────
+// ─── Plan Limits (tokens por ventana temporal) ──────────────────
 
-export const PLAN_LIMITS: Record<UserPlan, number> = {
-  free: 30,
-  estudiante: 200,
-  pro: 2000,
+export const PLAN_LIMITS: Record<UserPlan, { daily: number; hourly: number }> = {
+  free:       { daily: 150_000,   hourly: 30_000 },
+  estudiante: { daily: 250_000,   hourly: 60_000 },
+  pro:        { daily: 1_000_000, hourly: 200_000 },
 };
 
 export const PLAN_NAMES: Record<UserPlan, string> = {
@@ -16,58 +16,80 @@ export const PLAN_NAMES: Record<UserPlan, string> = {
 
 export const PLAN_FEATURES: Record<UserPlan, string[]> = {
   free: [
-    "30 prompts por mes",
+    "Hasta 150K tokens diarios",
     "Modelos básicos",
     "Vista previa en vivo",
     "Editor de código",
   ],
   estudiante: [
-    "200 prompts por mes",
-    "Chat IA ilimitado",
-    "Vista previa en vivo",
-    "Requiere correo .edu",
+    "Hasta 250K tokens diarios",
+    "Orquestación SDD (V4-Flash)",
+    "Sincronización Cloud",
+    "30 ejecuciones de código diarias",
   ],
   pro: [
-    "Prompts ilimitados",
-    "Subagentes Autónomos (SDD)",
-    "Todos los modelos disponibles",
-    "Despliegue a AWS 1-click",
+    "Hasta 1M tokens diarios",
+    "Orquestación SDD Premium (Reasoner + Flash)",
+    "Subagentes Autónomos (Edición de código)",
+    "Modo degradado (nunca se bloquea)",
   ],
 };
 
-// ─── Token Estimation ───────────────────────────────────────────
+// ─── Token Formatting ───────────────────────────────────────────
 
 /**
- * Estima tokens a partir de texto usando la regla chars/4.
- * Es una aproximación — todos los providers del MVP usan
- * esta misma fórmula salvo que tengan un tokenizador real.
+ * Formatea un número de tokens para display humano.
+ * 150000 → "150K", 1000000 → "1M", 45230 → "45.2K"
  */
-export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
+export function formatTokenCount(tokens: number): string {
+  if (tokens >= 1_000_000) {
+    const val = tokens / 1_000_000;
+    return val % 1 === 0 ? `${val}M` : `${val.toFixed(1)}M`;
+  }
+  if (tokens >= 1_000) {
+    const val = tokens / 1_000;
+    return val % 1 === 0 ? `${val}K` : `${val.toFixed(1)}K`;
+  }
+  return tokens.toString();
 }
 
 // ─── Token Usage Helpers ────────────────────────────────────────
 
 /**
- * Calcula cuántos prompts le quedan al usuario este período.
+ * Calcula cuántos tokens le quedan al usuario hoy.
  */
-export function getRemainingPrompts(usage: TokenUsage): number {
-  return Math.max(0, usage.promptsLimit - usage.promptsUsed);
+export function getRemainingTokens(usage: TokenUsage): number {
+  return Math.max(0, usage.tokensLimitDaily - usage.tokensUsedToday);
 }
 
 /**
- * Verifica si el usuario alcanzó el límite mensual de prompts.
+ * Verifica si el usuario alcanzó el límite diario.
  */
 export function isLimitReached(usage: TokenUsage): boolean {
-  return usage.promptsUsed >= usage.promptsLimit;
+  return usage.tokensUsedToday >= usage.tokensLimitDaily;
 }
 
 /**
- * Retorna el porcentaje de uso (0-100).
+ * Verifica si el usuario alcanzó el límite horario.
+ */
+export function isHourlyLimitReached(usage: TokenUsage): boolean {
+  return usage.tokensUsedThisHour >= usage.tokensLimitHourly;
+}
+
+/**
+ * Retorna el porcentaje de uso diario (0-100).
  */
 export function getUsagePercent(usage: TokenUsage): number {
-  if (usage.promptsLimit <= 0) return 100;
-  return Math.min(100, Math.round((usage.promptsUsed / usage.promptsLimit) * 100));
+  if (usage.tokensLimitDaily <= 0) return 100;
+  return Math.min(100, Math.round((usage.tokensUsedToday / usage.tokensLimitDaily) * 100));
+}
+
+/**
+ * Retorna el porcentaje de uso horario (0-100).
+ */
+export function getHourlyUsagePercent(usage: TokenUsage): number {
+  if (usage.tokensLimitHourly <= 0) return 100;
+  return Math.min(100, Math.round((usage.tokensUsedThisHour / usage.tokensLimitHourly) * 100));
 }
 
 /**
@@ -94,11 +116,21 @@ export function formatRenewalDate(isoDate: string): string {
 }
 
 /**
- * Calcula los días restantes hasta la renovación.
+ * Calcula los minutos restantes hasta el reset horario.
  */
-export function getDaysUntilRenewal(isoDate: string): number {
+export function getMinutesUntilHourlyReset(isoDate: string): number {
   const now = Date.now();
   const end = new Date(isoDate).getTime();
   const diff = end - now;
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  return Math.max(0, Math.ceil(diff / (1000 * 60)));
+}
+
+/**
+ * Calcula las horas restantes hasta el reset diario.
+ */
+export function getHoursUntilDailyReset(isoDate: string): number {
+  const now = Date.now();
+  const end = new Date(isoDate).getTime();
+  const diff = end - now;
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60)));
 }

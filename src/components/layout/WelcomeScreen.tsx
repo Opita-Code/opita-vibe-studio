@@ -1,13 +1,12 @@
 import { useCallback } from "react";
 import { useUIStore } from "@/stores/ui";
 import { useProjectStore } from "@/stores/project";
-import { useAuthStore } from "@/stores/auth";
 import { getFileSystemBackend } from "@/lib/fs-backend";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
 
 export function WelcomeScreen() {
   const openProject = useProjectStore((s) => s.openProject);
-  const { authMode } = useAuthStore();
+
 
   const handleOpenFolder = useCallback(async () => {
     try {
@@ -42,13 +41,9 @@ export function WelcomeScreen() {
           <span className="opacity-30">•</span>
           <button onClick={handleAskAI} className="hover:text-aura-cyan transition-colors">Preguntar a IA</button>
           
-          {authMode === "unauthenticated" && (
-            <>
-              <span className="opacity-30">•</span>
+          <span className="opacity-30">•</span>
               <a 
-                href="https://vibe.opitacode.com" 
-                target="_blank" 
-                rel="noreferrer" 
+                href="/" 
                 className="hover:text-aura-purple transition-colors flex items-center gap-1"
               >
                 Conoce Vibe Studio
@@ -56,8 +51,6 @@ export function WelcomeScreen() {
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line>
                 </svg>
               </a>
-            </>
-          )}
         </div>
       </div>
     </div>

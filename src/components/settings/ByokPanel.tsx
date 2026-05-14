@@ -306,6 +306,10 @@ export function ByokPanel() {
                                     const redirectUri = "http://localhost:1455/auth/callback";
                                     const authUrl = `https://auth.openai.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=openid+profile+email+offline_access&code_challenge=${codeChallenge}&code_challenge_method=S256&state=${state}&id_token_add_organizations=true&codex_cli_simplified_flow=true`;
 
+                                    // Enviar el state al backend para validación CSRF
+                                    const { emit } = await import("@tauri-apps/api/event");
+                                    await emit("oauth_set_state", state);
+
                                     const { open } = await import("@tauri-apps/plugin-shell");
                                     await open(authUrl);
 

@@ -12,24 +12,39 @@ const API_URL = import.meta.env.VITE_API_URL || "https://api.opitacode.com";
 
 // ─── Public API ─────────────────────────────────────────────────
 
+export interface SSOOptions {
+  /** Destination after the user clicks the magic link. Defaults to /app. */
+  postAuthUrl?: string;
+  /** Which service is requesting auth — controls email template and redirect fallback. */
+  service?: "vibe-studio" | "opita-code";
+}
+
 /**
  * Inicia el flujo de autenticación mediante Magic Link en AWS.
  *
- * @param email - Email del usuario
+ * @param email   - Email del usuario
+ * @param options - postAuthUrl: ruta de destino post-auth (default: /app)
+ *                  service: identificador del servicio para el template de email
  */
-export async function initiateSSO(email?: string): Promise<void> {
+export async function initiateSSO(email?: string, options?: SSOOptions): Promise<void> {
   if (!email || !email.includes("@")) {
     throw new Error("Email inválido");
   }
+
+  // Use the explicit post-auth destination, NOT window.location.href.
+  // window.location.href here would be the login page URL, causing a redirect loop.
+  const postAuthUrl = options?.postAuthUrl ?? `${window.location.origin}/app`;
+  const service = options?.service ?? "vibe-studio";
 
   const response = await fetch(`${API_URL}/auth/request`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ 
+    body: JSON.stringify({
       email,
-      redirectTo: window.location.href 
+      service,
+      redirectTo: postAuthUrl,
     }),
   });
 

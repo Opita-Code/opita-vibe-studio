@@ -3,8 +3,10 @@ import {
   PLAN_NAMES,
   PLAN_FEATURES,
   PLAN_LIMITS,
-  getRemainingPrompts,
-  formatRenewalDate,
+  getRemainingTokens,
+  getUsagePercent,
+  getHoursUntilDailyReset,
+  formatTokenCount,
 } from "@/lib/tokens";
 
 // ─── Props ──────────────────────────────────────────────────────
@@ -21,10 +23,10 @@ interface PlanCardProps {
  *
  * Muestra:
  * - Nombre del plan
- * - Límite de prompts
+ * - Límite de tokens diarios
  * - Lista de características
  * - Botón de upgrade
- * - Fecha de renovación
+ * - Tiempo de renovación
  *
  * Se integra con `useAuthStore` para datos del plan actual.
  */
@@ -32,9 +34,10 @@ export function PlanCard({ className = "" }: PlanCardProps) {
   const plan = useAuthStore((s) => s.plan);
   const tokenUsage = useAuthStore((s) => s.tokenUsage);
 
-  const remaining = getRemainingPrompts(tokenUsage);
+  const remaining = getRemainingTokens(tokenUsage);
+  const percent = getUsagePercent(tokenUsage);
   const limit = PLAN_LIMITS[plan];
-  const renewalDate = formatRenewalDate(tokenUsage.billingPeriodEnd);
+  const hoursUntilReset = getHoursUntilDailyReset(tokenUsage.resetDailyAt);
   const features = PLAN_FEATURES[plan] ?? [];
   const isFree = plan === "free";
 
@@ -45,7 +48,7 @@ export function PlanCard({ className = "" }: PlanCardProps) {
         <div>
           <h3 className="text-sm font-semibold text-[#d4d4d4]">{PLAN_NAMES[plan]}</h3>
           <p className="text-xs text-[#969696]">
-            {remaining}/{limit} prompts restantes
+            {formatTokenCount(remaining)} de {formatTokenCount(limit.daily)} tokens disponibles hoy
           </p>
         </div>
 
@@ -62,19 +65,19 @@ export function PlanCard({ className = "" }: PlanCardProps) {
         </span>
       </div>
 
-      {/* Límite de prompts */}
+      {/* Barra de tokens */}
       <div className="mb-3">
         <div className="mb-1 flex items-center justify-between text-xs">
-          <span className="text-[#969696]">Prompts este mes</span>
+          <span className="text-[#969696]">Tokens hoy</span>
           <span className="text-[#d4d4d4]">
-            {tokenUsage.promptsUsed}/{limit}
+            {formatTokenCount(tokenUsage.tokensUsedToday)}/{formatTokenCount(limit.daily)}
           </span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-[#333]">
           <div
             className="h-full rounded-full bg-[#4ec9b0] transition-all"
             style={{
-              width: `${Math.min(100, (tokenUsage.promptsUsed / limit) * 100)}%`,
+              width: `${Math.min(100, percent)}%`,
             }}
           />
         </div>
@@ -113,8 +116,8 @@ export function PlanCard({ className = "" }: PlanCardProps) {
         </button>
       )}
 
-      {/* Fecha de renovación */}
-      <p className="mt-3 text-[10px] text-[#616161]">Se renueva el {renewalDate}</p>
+      {/* Tiempo de renovación */}
+      <p className="mt-3 text-[10px] text-[#616161]">Se renueva en {hoursUntilReset}h</p>
     </div>
   );
 }

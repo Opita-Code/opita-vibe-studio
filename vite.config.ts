@@ -4,9 +4,9 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
-  // ── La app se sirve desde vibe.opitacode.com/app/
-  //    El landing page vive en la raíz del mismo bucket S3
-  base: "/app/",
+  // ── Tauri sirve assets locales → base relativo
+  //    Web se sirve desde vibe.opitacode.com/app/
+  base: process.env.TAURI_ENV_PLATFORM ? "./" : "/app/",
 
   plugins: [react()],
 

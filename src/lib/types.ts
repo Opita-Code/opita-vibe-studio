@@ -75,10 +75,13 @@ export interface ProviderConfig {
 // ─── Token Usage & Plans ───────────────────────────────────────
 
 export interface TokenUsage {
-  promptsUsed: number;
-  promptsLimit: number;
-  billingPeriodStart: string;
-  billingPeriodEnd: string;
+  tokensUsedToday: number;
+  tokensLimitDaily: number;
+  tokensUsedThisHour: number;
+  tokensLimitHourly: number;
+  plan: UserPlan;
+  resetDailyAt: string;
+  resetHourlyAt: string;
 }
 
 export type UserPlan = "free" | "estudiante" | "pro";

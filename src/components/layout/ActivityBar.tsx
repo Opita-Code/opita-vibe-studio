@@ -1,6 +1,7 @@
 import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
+import { useState, useRef, useEffect } from "react";
 
 export function ActivityBar() {
   const { 
@@ -12,6 +13,22 @@ export function ActivityBar() {
     setBugReportVisible
   } = useUIStore();
   const { authMode, user, logout } = useAuthStore();
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    }
+    if (showProfileMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showProfileMenu]);
 
   if (!activityBarVisible) return null;
 
@@ -140,7 +157,7 @@ export function ActivityBar() {
         </a>
 
         {/* User Account */}
-        <div className="w-full flex justify-center py-2 relative mb-2">
+        <div className="w-full flex justify-center py-2 relative mb-2" ref={menuRef}>
           {authMode === "unauthenticated" ? (
             <button
               onClick={() => useAuthStore.getState().setLoginModalOpen(true)}
@@ -154,19 +171,75 @@ export function ActivityBar() {
               </svg>
             </button>
           ) : (
-            <button
-              onClick={logout}
-              className="group w-8 h-8 rounded-full bg-aura-purple/20 border border-aura-purple/30 text-aura-purple hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-400 flex items-center justify-center transition-all"
-              title={`${user?.email || "Usuario"} (Click para cerrar sesión)`}
-              aria-label={`Cerrar sesión de ${user?.email || "Usuario"}`}
-            >
-              <span className="text-[12px] font-bold group-hover:hidden">
-                {user?.email ? user.email.charAt(0).toUpperCase() : "U"}
-              </span>
-              <svg className="w-4 h-4 hidden group-hover:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-            </button>
+            <>
+              <button
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${
+                  showProfileMenu 
+                    ? "bg-aura-purple/40 border-aura-purple text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]" 
+                    : "bg-aura-purple/20 border-aura-purple/30 text-aura-purple hover:bg-aura-purple/30 hover:text-white"
+                }`}
+                title="Perfil y Cuenta"
+                aria-label="Perfil y Cuenta"
+              >
+                <span className="text-[12px] font-bold">
+                  {user?.email ? user.email.charAt(0).toUpperCase() : "U"}
+                </span>
+              </button>
+
+              {/* Profile Popover Menu */}
+              {showProfileMenu && (
+                <div className="absolute left-14 bottom-0 w-64 bg-obsidian-900 border border-white/10 rounded-xl shadow-2xl p-4 z-50 flex flex-col gap-3 animate-fade-in-up origin-bottom-left">
+                  {/* User Info Header */}
+                  <div className="flex flex-col gap-1 border-b border-white/5 pb-3">
+                    <span className="text-sm font-medium text-white/90 truncate" title={user?.email}>{user?.email}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-white/50">Plan:</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium tracking-wide ${
+                        user?.plan === 'pro' || user?.plan === 'estudiante' 
+                          ? 'bg-gradient-to-r from-aura-cyan to-aura-purple text-white' 
+                          : 'bg-white/10 text-white/70'
+                      }`}>
+                        {user?.plan === 'pro' ? 'Vibe Pro' : user?.plan === 'estudiante' ? 'Estudiante' : 'Básico'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-1">
+                    <a
+                      href="https://cuenta.opitacode.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-white/70 hover:text-white hover:bg-white/5 px-2 py-2 rounded-lg transition-colors"
+                      onClick={() => setShowProfileMenu(false)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                      </svg>
+                      Gestionar cuenta
+                    </a>
+                    
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        logout();
+                      }}
+                      className="flex items-center gap-2 text-sm text-red-400/80 hover:text-red-400 hover:bg-red-500/10 px-2 py-2 rounded-lg transition-colors text-left"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                      </svg>
+                      Cerrar sesión
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
