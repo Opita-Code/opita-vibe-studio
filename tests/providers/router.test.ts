@@ -105,10 +105,10 @@ describe("Provider Router", () => {
       chunks.push(chunk);
     }
 
-    const textChunks = chunks.filter((c) => c.type === "text");
-    expect(textChunks.length).toBeGreaterThan(0);
+    const errorChunks = chunks.filter((c) => c.type === "error");
+    expect(errorChunks.length).toBeGreaterThan(0);
     // Should contain the fallback message
-    const fullText = textChunks.map((c) => c.content).join("");
+    const fullText = errorChunks.map((c) => c.content).join("");
     expect(fullText).toContain("Configurá una API key");
   });
 
@@ -200,8 +200,8 @@ describe("Provider Router", () => {
       chunks.push(chunk);
     }
 
-    const textChunks = chunks.filter((c) => c.type === "text");
-    const fullText = textChunks.map((c) => c.content).join("");
+    const errorChunks = chunks.filter((c) => c.type === "error");
+    const fullText = errorChunks.map((c) => c.content).join("");
     expect(fullText).toContain("Configurá una API key");
   });
 
@@ -211,11 +211,10 @@ describe("Provider Router", () => {
     resetRegistry();
     registerProvider(makeTestProvider("provider-a", "Provider A", "free", true));
 
-    const context = [makeMsg("mensaje anterior")];
+    const context = [makeMsg("mensaje anterior"), makeMsg("nuevo prompt")];
     const chunks: ChatChunk[] = [];
 
     for await (const chunk of streamFromProvider(
-      "nuevo prompt",
       context,
       "provider-a",
     )) {
@@ -230,13 +229,60 @@ describe("Provider Router", () => {
     resetRegistry();
     registerProvider(makeTestProvider("provider-a", "Provider A", "free", true));
 
+    const context = [makeMsg("solo prompt")];
     const chunks: ChatChunk[] = [];
 
-    for await (const chunk of streamFromProvider("solo prompt", [])) {
+    for await (const chunk of streamFromProvider(context)) {
       chunks.push(chunk);
     }
 
     const textChunks = chunks.filter((c) => c.type === "text");
     expect(textChunks.length).toBeGreaterThan(0);
+  });
+
+  it("streamFromProvider should inject UI Navigation system prompt", async () => {
+    resetRegistry();
+    let capturedContext: Message[] = [];
+    const testProvider = makeTestProvider("provider-a", "Provider A", "free", true);
+    testProvider.chat = async function* (messages: Message[]) {
+      capturedContext = messages;
+      yield { type: "done", content: "" };
+    };
+    registerProvider(testProvider);
+
+    const context = [makeMsg("solo prompt")];
+    const chunks: ChatChunk[] = [];
+    for await (const chunk of streamFromProvider(context, "provider-a")) {
+      chunks.push(chunk);
+    }
+
+    const systemMessage = capturedContext.find(m => m.role === "system");
+    expect(systemMessage).toBeDefined();
+    expect(systemMessage!.content).toContain("[SISTEMA: Herramientas de Navegación UI]");
+    expect(systemMessage!.content).toContain("<vibe-action");
+  });
+
+  it("streamFromProvider should propagate action and subagentId options", async () => {
+    resetRegistry();
+    let capturedOptions: ChatOptions | undefined;
+    const testProvider = makeTestProvider("provider-a", "Provider A", "free", true);
+    testProvider.chat = async function* (messages: Message[], options?: ChatOptions) {
+      capturedOptions = options;
+      yield { type: "done", content: "" };
+    };
+    registerProvider(testProvider);
+
+    const context = [makeMsg("solo prompt")];
+    const chunks: ChatChunk[] = [];
+    for await (const chunk of streamFromProvider(context, "provider-a", {
+      action: "subagent",
+      subagentId: "sdd-explore"
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(capturedOptions).toBeDefined();
+    expect(capturedOptions!.action).toBe("subagent");
+    expect(capturedOptions!.subagentId).toBe("sdd-explore");
   });
 });

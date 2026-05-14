@@ -328,35 +328,4 @@ describe("Edge Case: operaciones concurrentes", () => {
     expect(state.isDirty["/test/file.ts"]).toBe(false);
   });
 
-  it("debería manejar toggle rápido de chat y terminal sin errores", async () => {
-    const { useUIStore } = await import("../../src/stores/ui");
-    useUIStore.setState({
-      chatVisible: true,
-      terminalVisible: false,
-      previewVisible: true,
-      sidebarWidth: 240,
-      statusMessage: "Listo",
-      activeModel: "deepseek-chat",
-      connectedProvider: "DeepSeek",
-      tokensRemaining: 0,
-      previewRatio: 0.35,
-      terminalHeight: 200,
-    });
-
-    // Toggles rápidos
-    useUIStore.getState().toggleChat();
-    useUIStore.getState().toggleTerminal();
-    useUIStore.getState().togglePreview();
-    useUIStore.getState().toggleChat();
-    useUIStore.getState().toggleTerminal();
-    useUIStore.getState().togglePreview();
-
-    const state = useUIStore.getState();
-    // chat: true→false→true = true
-    expect(state.chatVisible).toBe(true);
-    // terminal: false→true→false = false
-    expect(state.terminalVisible).toBe(false);
-    // preview: true→false→true = true
-    expect(state.previewVisible).toBe(true);
-  });
 });

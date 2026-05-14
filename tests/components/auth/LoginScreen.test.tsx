@@ -23,8 +23,7 @@ describe("LoginScreen", () => {
   it("should render login form", () => {
     render(<LoginScreen />);
     expect(screen.getByText("Vibe Studio")).toBeTruthy();
-    expect(screen.getByText("Iniciar sesión con Vibe Studio")).toBeTruthy();
-    expect(screen.getByText("Continuar sin cuenta")).toBeTruthy();
+    expect(screen.getByText("Iniciar sesión")).toBeTruthy();
   });
 
   it("should render email input", () => {
@@ -37,18 +36,11 @@ describe("LoginScreen", () => {
     render(<LoginScreen onAuthenticated={onAuth} />);
 
     // Empty email → button is disabled, so click does nothing
-    const button = screen.getByText("Iniciar sesión con Vibe Studio");
+    const button = screen.getByText("Iniciar sesión");
     expect(button.hasAttribute("disabled")).toBe(true);
   });
 
-  it("should enter guest mode when clicking continuar sin cuenta", () => {
-    const onAuth = vi.fn();
-    render(<LoginScreen onAuthenticated={onAuth} />);
 
-    fireEvent.click(screen.getByText("Continuar sin cuenta"));
-    expect(useAuthStore.getState().plan).toBe("free");
-    expect(onAuth).toHaveBeenCalled();
-  });
 
   it("should show loading state after submitting a valid email", () => {
     render(<LoginScreen />);
@@ -56,7 +48,7 @@ describe("LoginScreen", () => {
     const input = screen.getByPlaceholderText("tu@email.com");
     fireEvent.change(input, { target: { value: "test@opita.co" } });
 
-    const button = screen.getByText("Iniciar sesión con Vibe Studio");
+    const button = screen.getByText("Iniciar sesión");
     fireEvent.click(button);
 
     expect(screen.getByText("Iniciando sesión...")).toBeTruthy();

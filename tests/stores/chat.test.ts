@@ -9,16 +9,24 @@ import type { Message } from "../../src/lib/types";
 
 beforeEach(() => {
   useChatStore.setState({
-    messages: [],
+    sessions: {
+      "default": { id: "default", title: "Test", messages: [], updatedAt: Date.now() }
+    },
+    activeSessionId: "default",
     isStreaming: false,
     activeProvider: "deepseek",
     pipelinePhase: null,
   });
 });
 
+const getMessages = () => {
+  const state = useChatStore.getState();
+  return state.sessions[state.activeSessionId]?.messages || [];
+};
+
 describe("ChatStore", () => {
   it("should start with empty messages", () => {
-    expect(useChatStore.getState().messages).toHaveLength(0);
+    expect(getMessages()).toHaveLength(0);
   });
 
   it("should add a message", () => {
@@ -29,8 +37,8 @@ describe("ChatStore", () => {
       timestamp: Date.now(),
     };
     useChatStore.getState().addMessage(msg);
-    expect(useChatStore.getState().messages).toHaveLength(1);
-    expect(useChatStore.getState().messages[0].content).toBe("Hola");
+    expect(getMessages()).toHaveLength(1);
+    expect(getMessages()[0].content).toBe("Hola");
   });
 
   it("should toggle streaming state", () => {
@@ -61,7 +69,7 @@ describe("ChatStore", () => {
     };
     useChatStore.getState().addMessage(msg);
     useChatStore.getState().appendToLastMessage(", ¿cómo estás?");
-    expect(useChatStore.getState().messages[0].content).toBe("Hola, ¿cómo estás?");
+    expect(getMessages()[0].content).toBe("Hola, ¿cómo estás?");
   });
 
   it("should clear all messages", () => {
@@ -72,7 +80,7 @@ describe("ChatStore", () => {
       timestamp: Date.now(),
     });
     useChatStore.getState().clearMessages();
-    expect(useChatStore.getState().messages).toHaveLength(0);
+    expect(getMessages()).toHaveLength(0);
   });
 
   // ── replaceLastMessageContent ─────────────────────────────
@@ -86,14 +94,14 @@ describe("ChatStore", () => {
     };
     useChatStore.getState().addMessage(msg);
     useChatStore.getState().replaceLastMessageContent("Chau");
-    expect(useChatStore.getState().messages[0].content).toBe("Chau");
+    expect(getMessages()[0].content).toBe("Chau");
   });
 
   it("should not fail when replacing on empty messages", () => {
     expect(() => {
       useChatStore.getState().replaceLastMessageContent("nada");
     }).not.toThrow();
-    expect(useChatStore.getState().messages).toHaveLength(0);
+    expect(getMessages()).toHaveLength(0);
   });
 
   // ── Context eviction ──────────────────────────────────────
@@ -109,11 +117,11 @@ describe("ChatStore", () => {
       });
     }
 
-    const state = useChatStore.getState();
-    expect(state.messages.length).toBe(MAX_CONTEXT_MESSAGES);
+    const messages = getMessages();
+    expect(messages.length).toBe(MAX_CONTEXT_MESSAGES);
     // Los mensajes más viejos deberían haberse descartado
-    expect(state.messages[0].id).toBe(`msg-${5}`);
-    expect(state.messages[state.messages.length - 1].id).toBe(
+    expect(messages[0].id).toBe(`msg-${5}`);
+    expect(messages[messages.length - 1].id).toBe(
       `msg-${MAX_CONTEXT_MESSAGES + 4}`,
     );
   });
@@ -129,14 +137,14 @@ describe("ChatStore", () => {
       });
     }
 
-    expect(useChatStore.getState().messages.length).toBe(5);
+    expect(getMessages().length).toBe(5);
   });
 
   // ── Selectors ─────────────────────────────────────────────
 
   it("getContextMessages should return last MAX_CONTEXT_MESSAGES", () => {
     const messages: Message[] = [];
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < MAX_CONTEXT_MESSAGES + 10; i++) {
       messages.push({
         id: `msg-${i}`,
         role: "user",
@@ -147,7 +155,7 @@ describe("ChatStore", () => {
 
     const context = getContextMessages(messages);
     expect(context.length).toBe(MAX_CONTEXT_MESSAGES);
-    expect(context[0].id).toBe("msg-5");
+    expect(context[0].id).toBe("msg-10");
   });
 
   it("getContextMessages should return all when under limit", () => {
@@ -166,7 +174,7 @@ describe("ChatStore", () => {
 
   it("getContextCount should return count capped at MAX_CONTEXT_MESSAGES", () => {
     const messages: Message[] = [];
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < MAX_CONTEXT_MESSAGES + 10; i++) {
       messages.push({
         id: `msg-${i}`,
         role: "user",
@@ -198,6 +206,6 @@ describe("ChatStore", () => {
     expect(() => {
       useChatStore.getState().appendToLastMessage("más contenido");
     }).not.toThrow();
-    expect(useChatStore.getState().messages).toHaveLength(0);
+    expect(getMessages()).toHaveLength(0);
   });
 });

@@ -14,19 +14,10 @@ function makeMsg(
   };
 }
 
-function makeSSEData(chunks: string[]): string {
-  return chunks
-    .map((c) => `data: {"choices":[{"delta":{"content":"${c}"},"index":0}]}\n\n`)
-    .join("");
-}
-
-function makeMockResponse(chunks: string[], status = 200) {
-  const body = makeSSEData(chunks) + "data: [DONE]\n\n";
-  return new Response(body, {
-    status,
-    headers: { "Content-Type": "text/event-stream" },
-  });
-}
+const mockStreamAwsSse = vi.fn();
+vi.mock("../../src/services/aiService", () => ({
+  streamAwsSse: (...args: any[]) => mockStreamAwsSse(...args),
+}));
 
 describe("DeepSeek Provider", () => {
   let originalFetch: typeof globalThis.fetch;
@@ -48,9 +39,12 @@ describe("DeepSeek Provider", () => {
   });
 
   it("should stream text chunks from SSE response", async () => {
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValue(makeMockResponse(["Hola", ", ¿", "cómo", " estás?"]));
+    mockStreamAwsSse.mockImplementation(async function* () {
+      yield { type: "text", content: "Hola" };
+      yield { type: "text", content: ", ¿" };
+      yield { type: "text", content: "cómo" };
+      yield { type: "text", content: " estás?" };
+    });
 
     const provider = createDeepSeekProvider("sk-test-key");
     const messages = [makeMsg("Dime hola")];
@@ -68,7 +62,9 @@ describe("DeepSeek Provider", () => {
   });
 
   it("should yield done chunk at the end", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(makeMockResponse(["Hola"]));
+    mockStreamAwsSse.mockImplementation(async function* () {
+      yield { type: "text", content: "Hola" };
+    });
 
     const provider = createDeepSeekProvider("sk-test-key");
     let lastChunk: ChatChunk | undefined;
@@ -94,12 +90,9 @@ describe("DeepSeek Provider", () => {
   });
 
   it("should yield error chunk on non-ok response", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response("Unauthorized", {
-        status: 401,
-        statusText: "Unauthorized",
-      }),
-    );
+    mockStreamAwsSse.mockImplementation(async function* () {
+      throw new Error("Unauthorized");
+    });
 
     const provider = createDeepSeekProvider("sk-bad-key");
     const chunks: ChatChunk[] = [];
@@ -110,7 +103,7 @@ describe("DeepSeek Provider", () => {
 
     expect(chunks.length).toBeGreaterThan(0);
     expect(chunks[0].type).toBe("error");
-    expect(chunks[0].content).toContain("401");
+    expect(chunks[0].content).toContain("Unauthorized");
   });
 
   it("should count tokens as chars/4", () => {
@@ -154,12 +147,9 @@ describe("DeepSeek Provider", () => {
   // ── SseError handling ─────────────────────────────────────
 
   it("should yield error chunk on 500 server error", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response("Internal Server Error", {
-        status: 500,
-        statusText: "Internal Server Error",
-      }),
-    );
+    mockStreamAwsSse.mockImplementation(async function* () {
+      throw new Error("Internal Server Error");
+    });
 
     const provider = createDeepSeekProvider("sk-test-key");
     const chunks: ChatChunk[] = [];
@@ -170,11 +160,13 @@ describe("DeepSeek Provider", () => {
 
     expect(chunks.length).toBeGreaterThan(0);
     expect(chunks[0].type).toBe("error");
-    expect(chunks[0].content).toContain("500");
+    expect(chunks[0].content).toContain("Internal Server Error");
   });
 
   it("should yield error chunk on network error (SseError)", async () => {
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error("fetch failed"));
+    mockStreamAwsSse.mockImplementation(async function* () {
+      throw new Error("fetch failed");
+    });
 
     const provider = createDeepSeekProvider("sk-test-key");
     const chunks: ChatChunk[] = [];
@@ -208,9 +200,12 @@ describe("DeepSeek Provider", () => {
   // ── Streaming options ─────────────────────────────────────
 
   it("should handle multiple chunks from SSE", async () => {
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValue(makeMockResponse(["Uno ", "dos ", "tres ", "cuatro"]));
+    mockStreamAwsSse.mockImplementation(async function* () {
+      yield { type: "text", content: "Uno " };
+      yield { type: "text", content: "dos " };
+      yield { type: "text", content: "tres " };
+      yield { type: "text", content: "cuatro" };
+    });
 
     const provider = createDeepSeekProvider("sk-test-key");
     const chunks: ChatChunk[] = [];

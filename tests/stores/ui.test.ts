@@ -23,6 +23,26 @@ describe("UIStore", () => {
     expect(state.sidebarWidth).toBe(240);
     expect(state.activeView).toBe("preview");
     expect(state.chatWidth).toBe(320);
+    expect(state.previewTarget).toBeNull();
+  });
+
+  it("should set preview target", () => {
+    useUIStore.getState().setPreviewTarget("src/components/Button.tsx");
+    expect(useUIStore.getState().previewTarget).toBe("src/components/Button.tsx");
+    useUIStore.getState().setPreviewTarget(null);
+    expect(useUIStore.getState().previewTarget).toBeNull();
+  });
+
+  it("should toggle vibeLensEnabled and clear previewTarget when disabled", () => {
+    useUIStore.getState().setVibeLensEnabled(true);
+    expect(useUIStore.getState().vibeLensEnabled).toBe(true);
+
+    useUIStore.getState().setPreviewTarget("src/test.tsx");
+    expect(useUIStore.getState().previewTarget).toBe("src/test.tsx");
+
+    useUIStore.getState().setVibeLensEnabled(false);
+    expect(useUIStore.getState().vibeLensEnabled).toBe(false);
+    expect(useUIStore.getState().previewTarget).toBeNull();
   });
 
   it("should set sidebar width within bounds", () => {

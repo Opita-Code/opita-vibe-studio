@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { detectLanguage } from "../../src/lib/language";
 
-// Mock Tauri IPC at the module level
+import { setFileSystemBackend } from "../../src/lib/fs-backend/factory";
+
+// Mock backend functions
 const mockReadFile = vi.fn();
 const mockWriteFile = vi.fn();
 const mockListDir = vi.fn();
@@ -9,18 +11,23 @@ const mockCreateDir = vi.fn();
 const mockDeleteEntry = vi.fn();
 const mockExecShell = vi.fn();
 
-vi.mock("../../src/lib/ipc", () => ({
-  readFile: mockReadFile,
-  writeFile: mockWriteFile,
-  listDir: mockListDir,
-  createDir: mockCreateDir,
-  deleteEntry: mockDeleteEntry,
-  execShell: mockExecShell,
-}));
-
 describe("fs helpers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setFileSystemBackend({
+      isAvailable: () => true,
+      readFile: mockReadFile,
+      writeFile: mockWriteFile,
+      listDirectory: mockListDir,
+      createDirectory: mockCreateDir,
+      deleteEntry: mockDeleteEntry,
+      execShell: mockExecShell,
+      selectDirectory: vi.fn(),
+      openInExternalTerminal: vi.fn(),
+      startWatcher: vi.fn(),
+      stopWatcher: vi.fn(),
+      onFileChange: vi.fn(),
+    } as any);
   });
 
   it("should detect language from file extension", () => {
@@ -41,14 +48,8 @@ describe("fs helpers", () => {
 
     // First call: root with src dir + index.html
     mockListDir.mockResolvedValueOnce([
-      { name: "src", path: "/test/src", is_dir: true, size: 0, modified_at: 1000000 },
-      {
-        name: "index.html",
-        path: "/test/index.html",
-        is_dir: false,
-        size: 100,
-        modified_at: 1000000,
-      },
+      { name: "src", path: "/test/src", type: "directory" },
+      { name: "index.html", path: "/test/index.html", type: "file", extension: "html" },
     ]);
     // Second call: src directory (empty)
     mockListDir.mockResolvedValueOnce([]);
@@ -68,7 +69,7 @@ describe("fs helpers", () => {
     const { isGitRepo } = await import("../../src/lib/fs");
 
     mockListDir.mockResolvedValue([
-      { name: ".git", path: "/test/.git", is_dir: true, size: 0, modified_at: 1000000 },
+      { name: ".git", path: "/test/.git", type: "directory" },
     ]);
 
     const result = await isGitRepo("/test");
@@ -79,13 +80,7 @@ describe("fs helpers", () => {
     const { isGitRepo } = await import("../../src/lib/fs");
 
     mockListDir.mockResolvedValue([
-      {
-        name: "index.html",
-        path: "/test/index.html",
-        is_dir: false,
-        size: 100,
-        modified_at: 1000000,
-      },
+      { name: "index.html", path: "/test/index.html", type: "file" },
     ]);
 
     const result = await isGitRepo("/test");

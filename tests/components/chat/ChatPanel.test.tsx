@@ -61,6 +61,8 @@ const mockChatState = {
   replaceLastMessageContent: vi.fn(),
   setStreaming: vi.fn(),
   setPipelinePhase: vi.fn(),
+  sessions: { "default": { messages: [] as { id: string; content: string; role: string }[] } },
+  activeSessionId: "default",
 };
 
 vi.mock("../../../src/stores/chat", () => ({
@@ -99,6 +101,7 @@ describe("ChatPanel — voseo compliance", () => {
     });
 
     mockChatState.messages = [];
+    mockChatState.sessions["default"].messages = [];
     mockChatState.isStreaming = false;
   });
 

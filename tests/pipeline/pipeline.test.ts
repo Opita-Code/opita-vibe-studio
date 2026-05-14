@@ -385,6 +385,14 @@ describe("buildConstruirMessages", () => {
     expect(msgs[1].content).toContain("Crear index.html");
     expect(msgs[1].content).toContain("Quiero una página");
   });
+
+  it("should conditionally include vibeLens instruction based on flag", () => {
+    const msgsOn = buildConstruirMessages("a", "b", true);
+    expect(msgsOn[0].content).toContain("vibe-action type=\"preview-component\"");
+
+    const msgsOff = buildConstruirMessages("a", "b", false);
+    expect(msgsOff[0].content).not.toContain("vibe-action type=\"preview-component\"");
+  });
 });
 
 describe("buildVerificarMessages", () => {
@@ -510,6 +518,50 @@ describe("Pipeline Integration (with mock provider)", () => {
     expect(resultEvent.content).toContain("index.html");
     expect(resultEvent.files).toHaveLength(1);
     expect(resultEvent.files[0].path).toBe("index.html");
+  });
+
+  it("should parse <vibe-action type=\"preview-component\"> and update UI store", async () => {
+    const mockProvider = createMockPipelineProvider(
+      ["## Plan", "Crear componente", "## Archivos", "- btn.js"].join("\n"),
+      ["```file:btn.js", "const b = 1;", "```", '<vibe-action type="preview-component" value="btn.js" />'].join("\n"),
+      "ok",
+    );
+
+    registerProvider(mockProvider);
+    const { useUIStore } = await import("../../src/stores/ui");
+    useUIStore.getState().setPreviewTarget(null);
+    useUIStore.getState().setVibeLensEnabled(true);
+
+    const context = [makeMsg("Hola")];
+    const { runPipeline } = await import("../../src/pipeline/engine");
+
+    for await (const _event of runPipeline("aisla btn", context, "pipeline-test")) {
+      // Consume stream
+    }
+
+    expect(useUIStore.getState().previewTarget).toBe("btn.js");
+  });
+
+  it("should ignore <vibe-action type=\"preview-component\"> when vibeLensEnabled is false", async () => {
+    const mockProvider = createMockPipelineProvider(
+      ["## Plan", "Crear componente", "## Archivos", "- foo.js"].join("\n"),
+      ["```file:foo.js", "const f = 1;", "```", '<vibe-action type="preview-component" value="foo.js" />'].join("\n"),
+      "ok",
+    );
+
+    registerProvider(mockProvider);
+    const { useUIStore } = await import("../../src/stores/ui");
+    useUIStore.getState().setPreviewTarget(null);
+    useUIStore.getState().setVibeLensEnabled(false);
+
+    const context = [makeMsg("Ignora acción")];
+    const { runPipeline } = await import("../../src/pipeline/engine");
+
+    for await (const _event of runPipeline("aisla foo", context, "pipeline-test")) {
+      // Consume stream
+    }
+
+    expect(useUIStore.getState().previewTarget).toBeNull();
   });
 
   it("should retry construir when verificar returns reintentar", async () => {

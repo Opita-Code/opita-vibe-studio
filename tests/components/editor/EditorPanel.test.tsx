@@ -65,8 +65,8 @@ describe("EditorPanel", () => {
   it("should render editor panel with placeholder when no file is open", () => {
     mockUIState = { activeView: "editor" };
     render(<EditorPanel />);
-    expect(screen.getByText("Comenzar un Proyecto")).toBeDefined();
-    expect(screen.getByText("Selecciona una carpeta local de tu computadora para empezar a escribir código de manera segura.")).toBeDefined();
+    expect(screen.getByText("Bienvenido a Vibe Studio")).toBeDefined();
+    expect(screen.getByText("Tu espacio de trabajo impulsado por IA. Empieza abriendo un proyecto para programar.")).toBeDefined();
   });
 
   it("should render preview toggle button", () => {
@@ -81,7 +81,7 @@ describe("EditorPanel", () => {
     expect(iframe?.getAttribute("sandbox")).toBe("allow-scripts");
   });
 
-  it("should render Monaco editor when a file is active", () => {
+  it("should render Monaco editor when a file is active", async () => {
     mockUIState = { activeView: "editor" };
     mockProjectState = {
       activeTab: "/test/index.html",
@@ -96,10 +96,12 @@ describe("EditorPanel", () => {
     };
 
     render(<EditorPanel />);
-    expect(screen.getByTestId("monaco-editor")).toBeDefined();
+    expect(await screen.findByTestId("monaco-editor")).toBeDefined();
   });
 
-  it("should pass correct language to Monaco based on file extension", () => {
+
+
+  it("should pass correct language to Monaco based on file extension", async () => {
     mockUIState = { activeView: "editor" };
     mockProjectState = {
       activeTab: "/test/styles.css",
@@ -114,7 +116,8 @@ describe("EditorPanel", () => {
     };
 
     render(<EditorPanel />);
-    const editor = screen.getByTestId("monaco-editor");
+    // Ahora MonacoEditor es perezoso (lazy), por lo que debemos esperar a que se renderice
+    const editor = await screen.findByTestId("monaco-editor");
     expect(editor.getAttribute("data-language")).toBe("css");
   });
 

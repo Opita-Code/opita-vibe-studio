@@ -2,6 +2,15 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { initiateSSO, restoreSession, logout } from "../../src/auth/sso";
 import { useAuthStore } from "../../src/stores/auth";
 
+vi.mock("jose", () => ({
+  SignJWT: vi.fn().mockImplementation(() => ({
+    setProtectedHeader: vi.fn().mockReturnThis(),
+    setIssuedAt: vi.fn().mockReturnThis(),
+    setExpirationTime: vi.fn().mockReturnThis(),
+    sign: vi.fn().mockResolvedValue("mock-jwt-token"),
+  })),
+}));
+
 beforeEach(() => {
   useAuthStore.setState({
     user: null,

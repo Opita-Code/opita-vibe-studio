@@ -39,7 +39,7 @@ describe("LivePreview", () => {
     const iframe = document.querySelector("iframe");
     expect(iframe).not.toBeNull();
     // srcdoc should contain the placeholder text
-    expect(iframe?.getAttribute("srcdoc")).toContain("Sin contenido para mostrar");
+    expect(iframe?.getAttribute("srcdoc")).toContain("Vibe Studio");
   });
 
   it("should have CSP meta tag injected in srcdoc", () => {
@@ -210,8 +210,8 @@ describe("LivePreview", () => {
 describe("buildPreviewContent", () => {
   it("should return placeholder for empty content", () => {
     const result = buildPreviewContent("", null);
-    expect(result.html).toContain("Sin contenido para mostrar");
-    expect(result.isFullDocument).toBe(false);
+    expect(result.html).toContain("Vibe Studio");
+    expect(result.isFullDocument).toBe(true);
   });
 
   it("should detect HTML content as full document when it starts with DOCTYPE", () => {

@@ -24,7 +24,7 @@ describe("ChatInput — ARIA labels y roles", () => {
   it("debería tener placeholder descriptivo en el textarea", () => {
     render(<ChatInput onSend={() => {}} disabled={false} />);
     const textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
+      "Escribe, pega imágenes o arrastra archivos aquí...",
     );
     expect(textarea).toBeDefined();
   });
@@ -36,7 +36,7 @@ describe("ChatInput — navegación por teclado", () => {
   it("debería poder tabear al botón de envío", () => {
     render(<ChatInput onSend={() => {}} disabled={false} />);
     const textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
+      "Escribe, pega imágenes o arrastra archivos aquí...",
     ) as HTMLTextAreaElement;
     const button = screen.getByRole("button", { name: "Enviar mensaje" });
 
@@ -57,13 +57,13 @@ describe("ChatInput — navegación por teclado", () => {
     render(<ChatInput onSend={onSend} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
+      "Escribe, pega imágenes o arrastra archivos aquí...",
     ) as HTMLTextAreaElement;
 
     textarea.focus();
     fireEvent.change(textarea, { target: { value: "Hola" } });
     fireEvent.keyDown(textarea, { key: "Enter" });
-    expect(onSend).toHaveBeenCalledWith("Hola");
+    expect(onSend).toHaveBeenCalledWith("Hola", undefined);
 
     // Después de enviar, el textarea se limpia
     expect(textarea.value).toBe("");
@@ -73,7 +73,7 @@ describe("ChatInput — navegación por teclado", () => {
     render(<ChatInput onSend={() => {}} disabled={true} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
+      "Escribe, pega imágenes o arrastra archivos aquí...",
     ) as HTMLTextAreaElement;
     const button = screen.getByRole("button", { name: "Enviar mensaje" });
 

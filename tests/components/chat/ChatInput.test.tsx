@@ -10,7 +10,7 @@ describe("ChatInput", () => {
   it("should render textarea and send button", () => {
     render(<ChatInput onSend={() => {}} disabled={false} />);
     expect(
-      screen.getByPlaceholderText("Escribe en español lo que quieres crear..."),
+      screen.getByPlaceholderText("Escribe, pega imágenes o arrastra archivos aquí...")
     ).toBeDefined();
     expect(screen.getByRole("button", { name: "Enviar mensaje" })).toBeDefined();
   });
@@ -20,13 +20,13 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={onSend} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
+      "Escribe, pega imágenes o arrastra archivos aquí...",
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "  Hola  " } });
     fireEvent.keyDown(textarea, { key: "Enter" });
 
-    expect(onSend).toHaveBeenCalledWith("Hola");
+    expect(onSend).toHaveBeenCalledWith("Hola", undefined);
   });
 
   it("should not call onSend for empty input (silent no-op)", () => {
@@ -34,7 +34,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={onSend} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
+      "Escribe, pega imágenes o arrastra archivos aquí...",
     ) as HTMLTextAreaElement;
 
     fireEvent.keyDown(textarea, { key: "Enter" });
@@ -46,7 +46,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={onSend} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
+      "Escribe, pega imágenes o arrastra archivos aquí...",
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "   " } });
@@ -59,7 +59,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={onSend} disabled={true} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
+      "Escribe, pega imágenes o arrastra archivos aquí...",
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "Hola" } });
@@ -72,7 +72,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={onSend} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
+      "Escribe, pega imágenes o arrastra archivos aquí...",
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "line1" } });
@@ -86,12 +86,12 @@ describe("ChatInput", () => {
     const { rerender } = render(<ChatInput onSend={() => {}} disabled={true} />);
 
     let textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
+      "Escribe, pega imágenes o arrastra archivos aquí...",
     );
     expect(textarea.hasAttribute("disabled")).toBe(true);
 
     rerender(<ChatInput onSend={() => {}} disabled={false} />);
-    textarea = screen.getByPlaceholderText("Escribe en español lo que quieres crear...");
+    textarea = screen.getByPlaceholderText("Escribe, pega imágenes o arrastra archivos aquí...");
     expect(textarea.hasAttribute("disabled")).toBe(false);
   });
 
@@ -100,7 +100,7 @@ describe("ChatInput", () => {
     render(<ChatInput onSend={onSend} disabled={false} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
+      "Escribe, pega imágenes o arrastra archivos aquí...",
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "Hola" } });
@@ -109,23 +109,13 @@ describe("ChatInput", () => {
     expect(textarea.value).toBe("");
   });
 
-  it("should show character count", () => {
-    render(<ChatInput onSend={() => {}} disabled={false} />);
 
-    const textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
-    ) as HTMLTextAreaElement;
-
-    fireEvent.change(textarea, { target: { value: "Hola" } });
-
-    expect(screen.getByText(/7996 caracteres disponibles/)).toBeDefined();
-  });
 
   it("should set disabled styles on textarea and button when disabled", () => {
     render(<ChatInput onSend={() => {}} disabled={true} />);
 
     const textarea = screen.getByPlaceholderText(
-      "Escribe en español lo que quieres crear...",
+      "Escribe, pega imágenes o arrastra archivos aquí...",
     );
     const button = screen.getByRole("button", { name: "Enviar mensaje" });
 

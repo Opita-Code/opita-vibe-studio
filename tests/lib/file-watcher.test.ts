@@ -10,6 +10,10 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
   watch: (...args: unknown[]) => mockWatch(...args),
 }));
 
+vi.mock("@tauri-apps/api/core", () => ({
+  isTauri: () => true,
+}));
+
 // ─── Mock fs.ts ────────────────────────────────────────────────
 
 const mockLoadProject = vi.fn();

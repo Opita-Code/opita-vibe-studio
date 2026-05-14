@@ -7,7 +7,7 @@ beforeEach(() => {
     user: null,
     session: null,
     plan: "free",
-    isAuthenticated: false,
+    authMode: "unauthenticated",
     isLoading: false,
     tokenUsage: {
       promptsUsed: 0,
@@ -33,14 +33,14 @@ describe("AuthStore", () => {
   };
 
   it("should start unauthenticated", () => {
-    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    expect(useAuthStore.getState().authMode).toBe("unauthenticated");
     expect(useAuthStore.getState().user).toBeNull();
   });
 
   it("should login and set user + session", () => {
     useAuthStore.getState().login(user, session);
     const state = useAuthStore.getState();
-    expect(state.isAuthenticated).toBe(true);
+    expect(state.authMode).toBe("authenticated");
     expect(state.user?.name).toBe("Test User");
     expect(state.session?.token).toBe("jwt-token");
     expect(state.plan).toBe("estudiante");
@@ -50,7 +50,7 @@ describe("AuthStore", () => {
     useAuthStore.getState().login(user, session);
     useAuthStore.getState().logout();
     const state = useAuthStore.getState();
-    expect(state.isAuthenticated).toBe(false);
+    expect(state.authMode).toBe("unauthenticated");
     expect(state.user).toBeNull();
     expect(state.session).toBeNull();
     expect(state.plan).toBe("free");
