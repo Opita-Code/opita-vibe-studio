@@ -52,13 +52,152 @@ const docClient = DynamoDBDocumentClient.from(ddbClient);
 
 
 
-const sendMagicLinkEmail = async (email: string, token: string) => {
-  const fromEmail = process.env.SES_FROM_EMAIL || "auth@opitacode.com";
-  const apiDomain = process.env.API_URL || "http://localhost:3000"; // We should pass AuthApiUrl if we can, but it's cyclic.
-  // Actually, we can use the request context to reconstruct the API URL, or just pass it in env.
-  // We'll rely on the event requestContext or a FRONTEND_URL.
-  return; // Implement later
+// ─── Service Config ─────────────────────────────────────────────
+
+type ServiceId = "vibe-studio" | "opita-code" | "default";
+
+const SERVICE_CONFIG: Record<ServiceId, {
+  name: string;
+  subject: string;
+  brandColor: string;
+  accentColor: string;
+  logoUrl: string;
+  defaultRedirect: string;
+}> = {
+  "vibe-studio": {
+    name: "Vibe Studio",
+    subject: "Tu acceso a Vibe Studio",
+    brandColor: "#0ea5e9",
+    accentColor: "rgba(14, 165, 233, 0.4)",
+    logoUrl: "https://opitacode.com/opita-code-horizontal-white-v4.png",
+    defaultRedirect: "https://vibe.opitacode.com/app",
+  },
+  "opita-code": {
+    name: "Opita Code",
+    subject: "Tu enlace mágico - Opita Code",
+    brandColor: "#6366f1",
+    accentColor: "rgba(99, 102, 241, 0.4)",
+    logoUrl: "https://opitacode.com/opita-code-horizontal-white-v4.png",
+    defaultRedirect: "https://opitacode.com/projects",
+  },
+  "default": {
+    name: "Opita Code",
+    subject: "Tu enlace mágico de acceso",
+    brandColor: "#0ea5e9",
+    accentColor: "rgba(14, 165, 233, 0.4)",
+    logoUrl: "https://opitacode.com/opita-code-horizontal-white-v4.png",
+    defaultRedirect: "https://opitacode.com",
+  },
 };
+
+function resolveService(raw: unknown): ServiceId {
+  if (raw === "vibe-studio" || raw === "opita-code") return raw;
+  return "default";
+}
+
+function buildMagicLinkEmail(service: ServiceId, verifyUrl: string): string {
+  const cfg = SERVICE_CONFIG[service];
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #020617;
+      color: #f8fafc;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 560px;
+      margin: 48px auto;
+      background-color: #0f172a;
+      border-radius: 16px;
+      border: 1px solid #1e293b;
+      padding: 48px 40px;
+      box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.6);
+    }
+    .logo { text-align: center; margin-bottom: 36px; }
+    .logo img { height: 40px; }
+    .badge {
+      display: inline-block;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 12px;
+      color: #94a3b8;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin: 0 0 12px 0;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.65;
+      color: #94a3b8;
+      margin: 0 0 24px 0;
+    }
+    .button-wrap { text-align: center; margin: 36px 0; }
+    .button {
+      background-color: ${cfg.brandColor};
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 15px 32px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 16px;
+      display: inline-block;
+      box-shadow: 0 0 20px ${cfg.accentColor};
+      letter-spacing: 0.01em;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid #1e293b;
+      margin: 32px 0;
+    }
+    .link-fallback {
+      font-size: 13px;
+      color: #64748b;
+      word-break: break-all;
+    }
+    .link-fallback a { color: #94a3b8; }
+    .footer {
+      font-size: 12px;
+      color: #475569;
+      text-align: center;
+      margin-top: 32px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <img src="${cfg.logoUrl}" alt="${cfg.name}">
+    </div>
+    <div style="text-align:center">
+      <span class="badge">${cfg.name}</span>
+    </div>
+    <h1>Accede a tu cuenta</h1>
+    <p>Hemos recibido una solicitud para iniciar sesi&oacute;n. Haz clic en el bot&oacute;n para acceder&mdash;el enlace expira en <strong>15 minutos</strong>.</p>
+    <div class="button-wrap">
+      <a href="${verifyUrl}" class="button">Iniciar Sesi&oacute;n &rarr;</a>
+    </div>
+    <hr class="divider">
+    <p class="link-fallback">Si el bot&oacute;n no funciona, copia y pega este enlace en tu navegador:<br><a href="${verifyUrl}">${verifyUrl}</a></p>
+    <p style="font-size:13px;color:#475569;margin:16px 0 0">Si no solicitaste este acceso, ignora este correo. Tu cuenta est&aacute; segura.</p>
+    <div class="footer">&copy; ${new Date().getFullYear()} Opita Code &mdash; El c&oacute;digo fluye.</div>
+  </div>
+</body>
+</html>`;
+}
 
 function getCorsHeaders(event: any) {
   const origin = event.headers?.origin || event.headers?.Origin || "";
@@ -93,22 +232,31 @@ export const handler = async (event: any) => {
         return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Invalid email" }) };
       }
 
-      let redirectTo = body.redirectTo || "https://opitacode.com";
-      if (!redirectTo.startsWith("http://localhost:") && !redirectTo.startsWith("https://opitacode.com") && !redirectTo.includes(".opitacode.com")) {
-        redirectTo = "https://opitacode.com";
+      // Resolve which service is requesting auth — drives email template and redirect fallback
+      const service = resolveService(body.service);
+      const serviceCfg = SERVICE_CONFIG[service];
+
+      // The caller provides the exact post-auth destination (e.g. "/app" or "/projects").
+      // We validate it stays within opitacode.com to prevent open-redirect attacks.
+      let redirectTo: string = body.redirectTo || serviceCfg.defaultRedirect;
+      const isAllowedRedirect = (
+        redirectTo.startsWith("http://localhost:") ||
+        redirectTo.startsWith("https://opitacode.com") ||
+        redirectTo.includes(".opitacode.com")
+      );
+      if (!isAllowedRedirect) {
+        redirectTo = serviceCfg.defaultRedirect;
       }
 
       const token = signJWT(
-        { email, type: "magic_link", redirectTo },
-        process.env.JWT_SECRET || "opita_secret_for_dev_only_123",
+        { email, type: "magic_link", service, redirectTo },
+        process.env.JWT_SECRET || "",
         15
       );
 
-      const frontendUrl = process.env.FRONTEND_URL || "https://opitacode.com";
       const apiHost = event.requestContext?.domainName || "localhost";
       const protocol = apiHost.includes("localhost") ? "http" : "https";
       const verifyUrl = `${protocol}://${apiHost}/auth/verify?token=${token}`;
-
       const fromEmail = process.env.SES_FROM_EMAIL || "auth@opitacode.com";
 
       try {
@@ -116,26 +264,16 @@ export const handler = async (event: any) => {
           Source: fromEmail,
           Destination: { ToAddresses: [email] },
           Message: {
-            Subject: { Data: "Tu enlace mágico de acceso - Opita Code" },
+            Subject: { Data: serviceCfg.subject },
             Body: {
-              Html: {
-                Data: `
-                <div style="font-family: Arial, sans-serif; padding: 20px; color: #111;">
-                  <h2>¡Hola!</h2>
-                  <p>Haz clic en el botón de abajo para iniciar sesión de forma segura.</p>
-                  <a href="${verifyUrl}" style="display: inline-block; padding: 12px 24px; background-color: #0F172A; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold;">Iniciar Sesión</a>
-                  <p style="margin-top: 20px; font-size: 12px; color: #666;">Si no solicitaste este correo, puedes ignorarlo.</p>
-                </div>
-                `
-              }
-            }
-          }
+              Html: { Data: buildMagicLinkEmail(service, verifyUrl) },
+            },
+          },
         }));
       } catch (e: any) {
         console.error("SES Error:", e.message || e);
-        // Fallback para dev: si falla SES, imprimir en consola
+        // Dev fallback: print link to logs; still return 200 to prevent email enumeration
         console.log("MAGIC_LINK_URL_DEV_FALLBACK:", verifyUrl);
-        // Si estamos en AWS, igual devolvemos 200 para prevenir email enumeration
       }
 
       return {
@@ -154,7 +292,7 @@ export const handler = async (event: any) => {
 
       let payload: any;
       try {
-        payload = verifyJWT(token, process.env.JWT_SECRET || "opita_secret_for_dev_only_123");
+        payload = verifyJWT(token, process.env.JWT_SECRET || "");
         if (payload.type !== "magic_link") throw new Error("Invalid token type");
 
         // Prevenir Replay Attacks: Quemar el token JTI
@@ -173,9 +311,18 @@ export const handler = async (event: any) => {
         return { statusCode: 302, headers: { Location: `${process.env.FRONTEND_URL || "https://opitacode.com/projects"}?error=invalid_token` } };
       }
 
-      let frontendUrl = payload.redirectTo || process.env.FRONTEND_URL || "https://opitacode.com/projects";
-      if (!frontendUrl.startsWith("http://localhost:") && !frontendUrl.startsWith("https://opitacode.com") && !frontendUrl.includes(".opitacode.com")) {
-        frontendUrl = "https://opitacode.com/projects";
+      // Resolve the canonical redirect: prefer the one baked into the token,
+      // then fall back to the service's default, then to FRONTEND_URL.
+      const tokenService = resolveService(payload.service);
+      const canonicalDefault = SERVICE_CONFIG[tokenService].defaultRedirect;
+      let frontendUrl: string = payload.redirectTo || canonicalDefault || process.env.FRONTEND_URL || "https://opitacode.com/projects";
+      const isAllowedVerifyRedirect = (
+        frontendUrl.startsWith("http://localhost:") ||
+        frontendUrl.startsWith("https://opitacode.com") ||
+        frontendUrl.includes(".opitacode.com")
+      );
+      if (!isAllowedVerifyRedirect) {
+        frontendUrl = canonicalDefault;
       }
       
       const email = payload.email as string;
@@ -192,7 +339,7 @@ export const handler = async (event: any) => {
       // Generate Session Token
       const sessionToken = signJWT(
         { email, role: "authenticated" },
-        process.env.JWT_SECRET || "opita_secret_for_dev_only_123",
+        process.env.JWT_SECRET || "",
         7 * 24 * 60 // 7 days in minutes
       );
 
@@ -236,7 +383,7 @@ export const handler = async (event: any) => {
       }
 
       try {
-        const payload = verifyJWT(sessionToken, process.env.JWT_SECRET || "opita_secret_for_dev_only_123") as any;
+        const payload = verifyJWT(sessionToken, process.env.JWT_SECRET || "") as any;
         
         const userDb = await docClient.send(new GetCommand({
           TableName: Resource.Users.name,
@@ -292,7 +439,7 @@ export const handler = async (event: any) => {
 
       let payload: any;
       try {
-        payload = verifyJWT(sessionToken, process.env.JWT_SECRET || "opita_secret_for_dev_only_123");
+        payload = verifyJWT(sessionToken, process.env.JWT_SECRET || "");
       } catch (e) {
         return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized" }) };
       }
@@ -392,7 +539,7 @@ export const handler = async (event: any) => {
       // Generate session (same as magic link flow)
       const sessionToken = signJWT(
         { email, role: "authenticated" },
-        process.env.JWT_SECRET || "opita_secret_for_dev_only_123",
+        process.env.JWT_SECRET || "",
         7 * 24 * 60
       );
 
@@ -448,7 +595,7 @@ export const handler = async (event: any) => {
 
       const sessionToken = signJWT(
         { email, role: "authenticated" },
-        process.env.JWT_SECRET || "opita_secret_for_dev_only_123",
+        process.env.JWT_SECRET || "",
         7 * 24 * 60
       );
 
@@ -463,6 +610,96 @@ export const handler = async (event: any) => {
           "Set-Cookie": setCookie,
         },
         body: JSON.stringify({ message: "Login exitoso", user: { email, name: userResult.Item.name || email.split("@")[0], plan: userResult.Item.plan || "free" } }),
+      };
+    }
+
+    // ─── Token Usage Endpoint ────────────────────────────────────
+    if (path === "/usage" && method === "GET") {
+      const cookies = event.cookies || [];
+      const cookieHeader = event.headers.cookie || "";
+      let sessionToken = null;
+
+      const match = cookieHeader.match(/opita_session=([^;]+)/);
+      if (match) {
+        sessionToken = match[1];
+      } else {
+        for (const c of cookies) {
+          if (c.startsWith("opita_session=")) {
+            sessionToken = c.split("=")[1];
+            break;
+          }
+        }
+      }
+
+      if (!sessionToken) {
+        return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      }
+
+      let payload: any;
+      try {
+        payload = verifyJWT(sessionToken, process.env.JWT_SECRET || "");
+      } catch (e) {
+        return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Invalid session" }) };
+      }
+
+      const email = payload.email as string;
+
+      // Get user plan
+      const userDb = await docClient.send(new GetCommand({
+        TableName: Resource.Users.name,
+        Key: { email }
+      }));
+      const plan = userDb.Item?.plan || "free";
+
+      // Token quota constants (must match chat.ts)
+      const TOKEN_QUOTAS: Record<string, { daily: number; hourly: number }> = {
+        free:       { daily: 150_000,   hourly: 30_000 },
+        estudiante: { daily: 250_000,   hourly: 60_000 },
+        pro:        { daily: 1_000_000, hourly: 200_000 },
+      };
+      const quota = TOKEN_QUOTAS[plan] || TOKEN_QUOTAS.pro;
+
+      // Read current counters
+      const now = new Date();
+      const dailyKey = `daily#${now.toISOString().split("T")[0]}`;
+      const hourlyKey = `hourly#${now.toISOString().slice(0, 13)}`;
+      const pk = `user#${email}`;
+
+      const [dailyResult, hourlyResult] = await Promise.all([
+        docClient.send(new GetCommand({
+          TableName: Resource.TokenUsage.name,
+          Key: { pk, sk: dailyKey },
+        })),
+        docClient.send(new GetCommand({
+          TableName: Resource.TokenUsage.name,
+          Key: { pk, sk: hourlyKey },
+        })),
+      ]);
+
+      const tokensUsedToday = (dailyResult.Item?.tokensUsed as number) || 0;
+      const tokensUsedThisHour = (hourlyResult.Item?.tokensUsed as number) || 0;
+
+      // Calculate reset times
+      const resetHourly = new Date(now);
+      resetHourly.setMinutes(0, 0, 0);
+      resetHourly.setHours(resetHourly.getHours() + 1);
+
+      const resetDaily = new Date(now);
+      resetDaily.setUTCHours(0, 0, 0, 0);
+      resetDaily.setUTCDate(resetDaily.getUTCDate() + 1);
+
+      return {
+        statusCode: 200,
+        headers: getCorsHeaders(event),
+        body: JSON.stringify({
+          tokensUsedToday,
+          tokensLimitDaily: quota.daily,
+          tokensUsedThisHour,
+          tokensLimitHourly: quota.hourly,
+          plan,
+          resetDailyAt: resetDaily.toISOString(),
+          resetHourlyAt: resetHourly.toISOString(),
+        }),
       };
     }
 

@@ -66,7 +66,7 @@ export default $config({
       handler: "packages/vibe-ai-backend/src/api/chat.handler",
       link: [table, keysTable, usersTable, tokenUsageTable], // Grants IAM permissions automatically
       environment: {
-        JWT_SECRET: process.env.JWT_SECRET || "opita_secret_for_dev_only_123",
+        JWT_SECRET: process.env.JWT_SECRET || "",
         DEEP_SEEK_KEY: process.env.DEEP_SEEK_KEY || "",
         OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
         GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
@@ -90,7 +90,7 @@ export default $config({
       handler: "packages/vibe-ai-backend/src/api/storage.handler",
       link: [storageBucket], // Grants S3 permissions automatically
       environment: {
-        JWT_SECRET: process.env.JWT_SECRET || "opita_secret_for_dev_only_123",
+        JWT_SECRET: process.env.JWT_SECRET || "",
       },
     });
 
@@ -118,7 +118,7 @@ export default $config({
         },
       ],
       environment: {
-        JWT_SECRET: process.env.JWT_SECRET || "opita_secret_for_dev_only_123",
+        JWT_SECRET: process.env.JWT_SECRET || "",
         FRONTEND_URL: process.env.FRONTEND_URL || ($app.stage === "production" ? "https://vibe.opitacode.com" : "http://localhost:3000"),
         SES_FROM_EMAIL: process.env.SES_FROM_EMAIL || "owner@opitacode.com",
       },

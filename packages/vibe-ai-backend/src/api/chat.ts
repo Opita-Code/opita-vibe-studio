@@ -5,7 +5,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import crypto from "crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { Resource as SSTResource } from "sst";
 
 const Resource = SSTResource as unknown as Record<string, { name: string }>;
@@ -61,7 +61,7 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 // ─── Encryption Helpers ────────────────────────────────────────
 
-const ENCRYPTION_KEY = process.env.JWT_SECRET || "opita_secret_for_dev_only_123";
+const ENCRYPTION_KEY = process.env.JWT_SECRET || "";
 const getEncryptionKey = () => crypto.createHash("sha256").update(ENCRYPTION_KEY).digest();
 
 function encrypt(text: string) {
@@ -80,6 +80,121 @@ function decrypt(text: string) {
   let decrypted = decipher.update(encryptedText);
   decrypted = Buffer.concat([decrypted, decipher.final()]);
   return decrypted.toString("utf8");
+}
+
+// ─── Token Quota System ───────────────────────────────────────
+
+const TOKEN_QUOTAS: Record<string, { daily: number; hourly: number }> = {
+  free:       { daily: 150_000,   hourly: 30_000 },
+  estudiante: { daily: 250_000,   hourly: 60_000 },
+  pro:        { daily: 1_000_000, hourly: 200_000 },
+};
+
+interface QuotaResult {
+  allowed: boolean;
+  degraded?: boolean;       // true = Pro forced to V4-Flash
+  dailyUsed: number;
+  hourlyUsed: number;
+  dailyLimit: number;
+  hourlyLimit: number;
+  cooldownSeconds?: number; // seconds until next window reset
+  exceededWindow?: "hourly" | "daily";
+}
+
+async function checkQuota(userId: string, plan: string): Promise<QuotaResult> {
+  const quota = TOKEN_QUOTAS[plan] || TOKEN_QUOTAS.pro;
+  const now = new Date();
+  const dailyKey = `daily#${now.toISOString().split("T")[0]}`;
+  const hourlyKey = `hourly#${now.toISOString().slice(0, 13)}`; // "2026-05-14T22"
+  const pk = `user#${userId}`;
+
+  // Batch read daily + hourly counters
+  const [dailyResult, hourlyResult] = await Promise.all([
+    docClient.send(new GetCommand({
+      TableName: Resource.TokenUsage.name,
+      Key: { pk, sk: dailyKey },
+    })),
+    docClient.send(new GetCommand({
+      TableName: Resource.TokenUsage.name,
+      Key: { pk, sk: hourlyKey },
+    })),
+  ]);
+
+  const dailyUsed = (dailyResult.Item?.tokensUsed as number) || 0;
+  const hourlyUsed = (hourlyResult.Item?.tokensUsed as number) || 0;
+
+  const base: Omit<QuotaResult, "allowed"> = {
+    dailyUsed,
+    hourlyUsed,
+    dailyLimit: quota.daily,
+    hourlyLimit: quota.hourly,
+  };
+
+  // Check hourly limit first (tighter window)
+  if (hourlyUsed >= quota.hourly) {
+    if (plan === "pro") {
+      return { ...base, allowed: true, degraded: true };
+    }
+    const nextHour = new Date(now);
+    nextHour.setMinutes(0, 0, 0);
+    nextHour.setHours(nextHour.getHours() + 1);
+    return {
+      ...base,
+      allowed: false,
+      exceededWindow: "hourly",
+      cooldownSeconds: Math.ceil((nextHour.getTime() - now.getTime()) / 1000),
+    };
+  }
+
+  // Check daily limit
+  if (dailyUsed >= quota.daily) {
+    if (plan === "pro") {
+      return { ...base, allowed: true, degraded: true };
+    }
+    const tomorrow = new Date(now);
+    tomorrow.setUTCHours(0, 0, 0, 0);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    return {
+      ...base,
+      allowed: false,
+      exceededWindow: "daily",
+      cooldownSeconds: Math.ceil((tomorrow.getTime() - now.getTime()) / 1000),
+    };
+  }
+
+  return { ...base, allowed: true };
+}
+
+async function recordUsage(userId: string, tokensUsed: number): Promise<void> {
+  const now = new Date();
+  const dailyKey = `daily#${now.toISOString().split("T")[0]}`;
+  const hourlyKey = `hourly#${now.toISOString().slice(0, 13)}`;
+  const pk = `user#${userId}`;
+
+  // TTL: daily = 7 days from now, hourly = 25 hours from now
+  const dailyTTL = Math.floor(now.getTime() / 1000) + 7 * 24 * 60 * 60;
+  const hourlyTTL = Math.floor(now.getTime() / 1000) + 25 * 60 * 60;
+
+  await Promise.all([
+    docClient.send(new UpdateCommand({
+      TableName: Resource.TokenUsage.name,
+      Key: { pk, sk: dailyKey },
+      UpdateExpression: "ADD tokensUsed :tokens SET expiresAt = if_not_exists(expiresAt, :ttl)",
+      ExpressionAttributeValues: {
+        ":tokens": tokensUsed,
+        ":ttl": dailyTTL,
+      },
+    })),
+    docClient.send(new UpdateCommand({
+      TableName: Resource.TokenUsage.name,
+      Key: { pk, sk: hourlyKey },
+      UpdateExpression: "ADD tokensUsed :tokens SET expiresAt = if_not_exists(expiresAt, :ttl)",
+      ExpressionAttributeValues: {
+        ":tokens": tokensUsed,
+        ":ttl": hourlyTTL,
+      },
+    })),
+  ]);
 }
 
 // ─── Provider Setup ────────────────────────────────────────────
@@ -177,7 +292,7 @@ export const handler = awslambda.streamifyResponse(
       return;
     }
 
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || "opita_secret_for_dev_only_123");
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET || "");
     let userId = "guest";
     let plan = "free";
     try {
@@ -206,12 +321,23 @@ export const handler = awslambda.streamifyResponse(
     const subagentId = body.subagentId || "sdd-apply";
     let modelId = body.modelId;
 
-    // ─── CHAR LIMIT GUARD (PER-PLAN) ───
-    const charLimits: Record<string, number> = { free: 8000, estudiante: 32000 };
-    const maxChars = charLimits[plan] || Infinity;
-    if (requestBytes > maxChars) {
+    // ─── TOKEN QUOTA GUARD ───
+    const quotaCheck = await checkQuota(userId, plan);
+
+    if (!quotaCheck.allowed) {
+      const windowLabel = quotaCheck.exceededWindow === "hourly" ? "por hora" : "diario";
+      const minutes = Math.ceil((quotaCheck.cooldownSeconds || 0) / 60);
+      const timeLabel = minutes >= 60 
+        ? `${Math.ceil(minutes / 60)} hora${Math.ceil(minutes / 60) > 1 ? "s" : ""}`
+        : `${minutes} minuto${minutes !== 1 ? "s" : ""}`;
       responseStream.setContentType("application/json");
-      responseStream.write(JSON.stringify({ error: `Límite de caracteres excedido (Max ${maxChars.toLocaleString()}). Reduce tu prompt o mejora tu plan.` }));
+      responseStream.write(JSON.stringify({
+        error: "quota_exceeded",
+        message: `Has alcanzado tu límite ${windowLabel} de tokens. Se renueva en ${timeLabel}.`,
+        cooldownSeconds: quotaCheck.cooldownSeconds,
+        tokensUsed: quotaCheck.exceededWindow === "hourly" ? quotaCheck.hourlyUsed : quotaCheck.dailyUsed,
+        tokensLimit: quotaCheck.exceededWindow === "hourly" ? quotaCheck.hourlyLimit : quotaCheck.dailyLimit,
+      }));
       responseStream.end();
       return;
     }
@@ -329,45 +455,9 @@ export const handler = awslambda.streamifyResponse(
         return { role: msg.role, content: msg.content || "" };
       });
 
-      // ─── RATE LIMIT GUARD (PER-PLAN) ───
-      const promptLimits: Record<string, number> = { free: 20, estudiante: 100 };
-      const dailyPromptLimit = promptLimits[plan] || Infinity;
-
-      if (dailyPromptLimit !== Infinity) {
-        const today = new Date().toISOString().split("T")[0];
-        try {
-          const userResult = await docClient.send(new GetCommand({
-            TableName: Resource.Users.name,
-            Key: { email: userId }
-          }));
-          const userData = userResult.Item || { daily_count: 0, last_reset_date: today };
-          if (userData.last_reset_date !== today) {
-            userData.daily_count = 0;
-            userData.last_reset_date = today;
-          }
-          if (userData.daily_count >= dailyPromptLimit) {
-             const upgradeMsg = plan === "free" 
-               ? "Mejora a Vibe Estudiante o Vibe Pro para más mensajes."
-               : "Mejora a Vibe Pro para uso ilimitado.";
-             responseStream.write(`data: ${JSON.stringify({ content: `\n\n⛔ **Has alcanzado tu límite de ${dailyPromptLimit} mensajes diarios.** ${upgradeMsg}` })}\n\n`);
-             responseStream.write(`data: [DONE]\n\n`);
-             responseStream.end();
-             return;
-          }
-          
-          await docClient.send(new UpdateCommand({
-            TableName: Resource.Users.name,
-            Key: { email: userId },
-            UpdateExpression: "SET daily_count = :count, last_reset_date = :date",
-            ExpressionAttributeValues: {
-              ":count": userData.daily_count + 1,
-              ":date": today
-            }
-          }));
-        } catch (err) {
-           console.error("Error validando Rate Limit:", err);
-        }
-      }
+      // Token quota pre-check ya se realizó arriba (quotaCheck)
+      // Si Pro fue degradado, forzar V4-Flash
+      let quotaDegraded = quotaCheck.degraded || false;
 
       // ─── INTELLIGENT BACKEND ROUTING (PROPUESTA 1) ───
       // Forzamos DeepSeek siempre si el usuario está en el entorno gestionado de AWS
@@ -378,23 +468,26 @@ export const handler = awslambda.streamifyResponse(
       if (plan === "free") {
          providerId = "deepseek";
          modelId = "deepseek-chat-v4";
+      } else if (quotaDegraded) {
+         // Pro degradado por quota: forzar V4-Flash
+         providerId = "deepseek";
+         modelId = "deepseek-chat-v4";
       } else if (action === "subagent") {
          providerId = "deepseek";
          // Lógica SDD Inteligente Híbrida Cognitiva
          const highCognitivePhases = ["sdd-explore", "sdd-propose", "sdd-design", "sdd-verify"];
          
-         if (highCognitivePhases.includes(subagentId)) {
-            // Estudiantes y Pro usan R1 (v4) para pensar arquitectura profunda
+         if (plan === "pro" && highCognitivePhases.includes(subagentId)) {
+            // Solo Pro usa R1 (v4) para pensar arquitectura profunda
             modelId = "deepseek-reasoner-v4";
          } else {
-            // Fases mecánicas: sdd-spec, sdd-tasks, sdd-apply, sdd-archive
-            // V3/V4 es rapidísimo y evita problemas de tags <think> en los diffs
+            // Estudiantes y fases mecánicas: V4-Flash
             modelId = "deepseek-chat-v4";
          }
       } else if (!modelId && activeKey !== "aws-managed") {
          // Chat general: inferencia basada en el contenido si no hay modelo explícito
          const contextStr = JSON.stringify(messages).toLowerCase();
-         if (contextStr.includes(".go") || contextStr.includes(".py") || contextStr.includes(".ts") || contextStr.includes(".sql") || contextStr.includes("backend") || contextStr.includes("database")) {
+         if (plan === "pro" && (contextStr.includes(".go") || contextStr.includes(".py") || contextStr.includes(".ts") || contextStr.includes(".sql") || contextStr.includes("backend") || contextStr.includes("database"))) {
             providerId = "deepseek";
             modelId = "deepseek-reasoner-v4";
          } else {
@@ -408,6 +501,11 @@ export const handler = awslambda.streamifyResponse(
         
         if (action === "subagent" && body.customInstructions) {
           selectedSystemPrompt += `\n\nINSTRUCCIONES PERSONALIZADAS DEL USUARIO:\n${body.customInstructions}`;
+        }
+
+        // Enviar warning de degradación si aplica
+        if (quotaDegraded) {
+          selectedSystemPrompt += "\n\n[SISTEMA: Estás operando en modo optimizado por límite de quota del usuario. Usa respuestas concisas.]";
         }
 
         const tools: Record<string, unknown> = {
@@ -507,15 +605,31 @@ export const handler = awslambda.streamifyResponse(
             chunkStr = `data: ${mcpPayload}\n\n`;
             responseStream.write(chunkStr);
           } else if (chunk.type === 'finish') {
+            // Calcular tokens totales y registrar en TokenUsage
+            const usage = (chunk.totalUsage || chunk.usage) as { totalTokens?: number; promptTokens?: number; completionTokens?: number } | undefined;
+            const totalTokens = usage?.totalTokens || ((usage?.promptTokens || 0) + (usage?.completionTokens || 0));
+            
+            if (totalTokens > 0) {
+              try {
+                await recordUsage(userId, totalTokens);
+              } catch (err) {
+                console.error("Error registrando uso de tokens:", err);
+              }
+            }
+
             // Monitoreo: Registrar métricas de token y ancho de banda en CloudWatch Logs
             console.info(JSON.stringify({
               type: "VIBE_METRICS",
               action,
               providerId,
+              modelId,
               userId,
+              plan,
               requestBytes,
               responseBytes,
-              usage: chunk.totalUsage || chunk.usage
+              totalTokens,
+              quotaDegraded,
+              usage,
             }));
           }
           responseBytes += Buffer.byteLength(chunkStr, 'utf8');

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guía de Instalación — Vibe Studio</title>
+  
+  <meta name="description" content="Cómo instalar Vibe Studio en Windows. Si Windows SmartScreen muestra un aviso, sigue estos 2 pasos rápidos.">
+  <link rel="icon" type="image/svg+xml" href="/vibe-logo.svg" />
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Geist', 'sans-serif'] },
+          colors: {
+            obsidian: { 900: '#09090b', 800: '#121217', 700: '#1c1c21' },
+            aura: { cyan: '#06b6d4', blue: '#3b82f6', purple: '#a855f7' }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    html { scroll-behavior: smooth; }
+    body { background-color: #09090b; color: #fafafa; margin: 0; min-height: 100vh; }
+    .text-aura {
+      background: linear-gradient(135deg, #06b6d4, #a855f7);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .glass-surface {
+      background: rgba(18, 18, 23, 0.4);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+  </style>
+</head>
+
+<body class="antialiased selection:bg-aura-purple/30 selection:text-white">
+
+  <!-- NAV -->
+  <nav class="w-full px-6 py-6 md:px-12 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-3">
+      <img src="/vibe-logo.svg" alt="Vibe Studio" class="w-8 h-8" />
+      <span class="text-xl font-medium tracking-tight text-white/90">Vibe Studio</span>
+    </a>
+    <a href="/" class="text-sm font-medium text-white/50 hover:text-white transition-colors">← Volver al inicio</a>
+  </nav>
+
+  <main class="max-w-3xl mx-auto px-6 py-12">
+
+    <!-- HEADER -->
+    <h1 class="text-3xl md:text-4xl font-semibold tracking-tight mb-4">Guía de instalación en <span class="text-aura">Windows</span></h1>
+    <p class="text-white/50 text-lg mb-12 leading-relaxed">Si Windows SmartScreen muestra un aviso al abrir el instalador, sigue estos 2 pasos. Toma menos de 10 segundos.</p>
+
+    <!-- WHY IT HAPPENS -->
+    <div class="rounded-2xl bg-amber-500/5 border border-amber-500/15 p-6 mb-12">
+      <div class="flex items-start gap-3 mb-3">
+        <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
+          <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <h2 class="text-lg font-medium text-white/90">¿Por qué aparece este aviso?</h2>
+      </div>
+      <p class="text-sm text-white/60 leading-relaxed mb-3">
+        Windows muestra este aviso con <strong class="text-white/80">todas las aplicaciones nuevas</strong> que no tienen un certificado de firma digital. Este certificado cuesta más de $400 USD al año.
+      </p>
+      <p class="text-sm text-white/60 leading-relaxed">
+        Vibe Studio es un proyecto independiente y de <strong class="text-white/80">código abierto</strong> — cada línea es verificable. Los instaladores se compilan automáticamente en GitHub Actions sin intervención humana. <strong class="text-white/80">No hay nada oculto.</strong>
+      </p>
+    </div>
+
+    <!-- STEPS -->
+    <div class="space-y-12 mb-16">
+      <!-- Step 1 -->
+      <div>
+        <div class="flex items-center gap-4 mb-4">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-r from-aura-cyan to-aura-purple flex items-center justify-center text-sm font-bold text-white shrink-0">1</div>
+          <div>
+            <div class="text-base font-semibold text-white/90">Haz clic en "Más información"</div>
+            <div class="text-sm text-white/50">Windows mostrará una ventana azul. Busca el enlace y haz clic.</div>
+          </div>
+        </div>
+        <div class="rounded-xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50">
+          <img src="/assets/install/smartscreen-paso1.png" alt="Paso 1: Haz clic en Más información" class="w-full h-auto" loading="lazy" />
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div>
+        <div class="flex items-center gap-4 mb-4">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-r from-aura-cyan to-aura-purple flex items-center justify-center text-sm font-bold text-white shrink-0">2</div>
+          <div>
+            <div class="text-base font-semibold text-white/90">Haz clic en "Ejecutar de todos modos"</div>
+            <div class="text-sm text-white/50">Aparecerá un botón nuevo. Haz clic y la instalación continuará.</div>
+          </div>
+        </div>
+        <div class="rounded-xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50">
+          <img src="/assets/install/smartscreen-paso2.png" alt="Paso 2: Haz clic en Ejecutar de todos modos" class="w-full h-auto" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- SUCCESS -->
+    <div class="text-center glass-surface rounded-2xl p-8 mb-12">
+      <div class="text-4xl mb-3">🎉</div>
+      <h3 class="text-xl font-medium text-white/90 mb-2">¡Listo!</h3>
+      <p class="text-sm text-white/50">La instalación continuará normalmente. Bienvenido a Vibe Studio.</p>
+    </div>
+
+    <!-- macOS note -->
+    <details class="group mb-12">
+      <summary class="cursor-pointer text-sm font-medium text-aura-cyan hover:text-white transition-colors flex items-center gap-2 list-none">
+        <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        ¿Usas macOS? Instrucciones aquí
+      </summary>
+      <div class="mt-4 pl-6 text-sm text-white/50 leading-relaxed space-y-2 border-l border-white/10">
+        <p>Si Gatekeeper bloquea la app en macOS:</p>
+        <ol class="list-decimal list-inside space-y-1 text-white/60">
+          <li>Abre <strong class="text-white/70">Preferencias del Sistema</strong> → <strong class="text-white/70">Privacidad y Seguridad</strong></li>
+          <li>Busca el mensaje sobre Vibe Studio y haz clic en <strong class="text-white/70">"Abrir de todos modos"</strong></li>
+          <li>Confirma en el diálogo que aparece</li>
+        </ol>
+      </div>
+    </details>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-white/5 bg-obsidian-900/50 py-8 px-6 text-center">
+    <div class="flex flex-col md:flex-row items-center justify-center gap-6 text-sm text-white/40">
+      <span class="font-mono">© 2026 Opita Code</span>
+      <span class="hidden md:inline">•</span>
+      <a href="https://opitacode.com/legal/privacidad.html" class="hover:text-white transition-colors">Privacidad</a>
+      <span class="hidden md:inline">•</span>
+      <a href="https://opitacode.com/legal/terminos.html" class="hover:text-white transition-colors">Términos</a>
+    </div>
+  </footer>
+
+</body>
+</html>
