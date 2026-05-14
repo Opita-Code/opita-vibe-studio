@@ -38,7 +38,7 @@ export function MessageList({ messages, isStreaming, onSuggestionClick, onNewCha
   ];
 
   return (
-    <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-smooth">
+    <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-smooth" role="log" aria-live="polite" aria-label="Mensajes del chat">
       {messages.length > 0 && (
         <div className={`border-b px-4 py-2 sticky top-0 z-10 backdrop-blur-md flex items-center justify-between transition-colors duration-500 ${
           contextCount === MAX_CONTEXT_MESSAGES 
@@ -63,7 +63,7 @@ export function MessageList({ messages, isStreaming, onSuggestionClick, onNewCha
           </div>
           
           {contextCount >= MAX_CONTEXT_MESSAGES * 0.8 && onNewChat && (
-             <button onClick={onNewChat} className={`text-[10px] uppercase font-bold px-2 py-1 rounded transition-colors ${
+             <button onClick={onNewChat} aria-label="Iniciar nuevo chat" className={`text-[10px] uppercase font-bold px-2 py-1 rounded transition-colors ${
                contextCount === MAX_CONTEXT_MESSAGES 
                  ? 'bg-red-500/20 text-red-300 hover:bg-red-500/40 shadow-[0_0_10px_rgba(239,68,68,0.2)]' 
                  : 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/30'
@@ -91,6 +91,7 @@ export function MessageList({ messages, isStreaming, onSuggestionClick, onNewCha
               <button
                 key={i}
                 onClick={() => onSuggestionClick?.(prompt.text)}
+                aria-label={`Sugerencia: ${prompt.text}`}
                 className="flex items-center gap-3 w-full text-left p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-vibe-purple/30 hover:shadow-[0_0_15px_rgba(176,38,255,0.1)] transition-all duration-300 group"
               >
                 <span className="text-lg group-hover:scale-110 transition-transform">{prompt.icon}</span>

@@ -13,12 +13,13 @@ export function ChatHistoryPanel() {
   const sortedSessions = Object.values(sessions).sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
-    <div className="flex flex-col h-full bg-obsidian-950/80 backdrop-blur-xl border-r border-white/10 w-[240px] overflow-hidden flex-shrink-0 shadow-[4px_0_15px_rgba(0,0,0,0.5)] z-40 relative">
+    <div className="flex flex-col h-full bg-obsidian-950/80 backdrop-blur-xl border-r border-white/10 w-[240px] overflow-hidden flex-shrink-0 shadow-[4px_0_15px_rgba(0,0,0,0.5)] z-40 relative" role="navigation" aria-label="Historial de chats">
       <div className="p-3 border-b border-white/10 shrink-0 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
             onClick={toggleChatHistory}
             className="text-slate-400 hover:text-white hover:bg-white/10 p-1.5 rounded-md transition-colors"
+            aria-label="Ocultar historial de chats"
             title="Ocultar Historial"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -31,6 +32,7 @@ export function ChatHistoryPanel() {
         <button 
           onClick={createNewSession}
           className="text-aura-cyan hover:bg-aura-cyan/10 p-1.5 rounded-md transition-colors"
+          aria-label="Crear nuevo chat"
           title="Nuevo Chat"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -43,9 +45,12 @@ export function ChatHistoryPanel() {
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1">
         {sortedSessions.map((session) => (
           <div 
-            key={session.id} 
+            key={session.id}
+            role="button"
+            tabIndex={0}
             className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-colors group cursor-pointer"
             onClick={() => switchSession(session.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); switchSession(session.id); } }}  
           >
             <div className="overflow-hidden pr-2 flex-1">
               <h3 className="text-sm text-slate-200 truncate">{session.title}</h3>
@@ -59,6 +64,7 @@ export function ChatHistoryPanel() {
                 deleteSession(session.id);
               }}
               className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-red-500/10 rounded shrink-0"
+              aria-label={`Eliminar chat: ${session.title}`}
               title="Eliminar"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

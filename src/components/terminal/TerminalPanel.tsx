@@ -248,11 +248,13 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
       <div className="flex flex-col bg-obsidian-950/95 backdrop-blur-xl font-mono text-xs border-t border-white/10 md:shrink-0 fixed md:absolute bottom-16 md:bottom-0 left-0 right-0 z-[100] md:z-30 shadow-[0_-15px_40px_rgba(0,0,0,0.4)]" style={{ height: height || 300, maxHeight: '80dvh' }}>
       {/* ── Toolbar ─────────────────────────────────────────── */}
       <div className="flex items-center justify-between pl-0 pr-3 py-0 bg-obsidian-900/60 backdrop-blur-3xl border-b border-white/5 shrink-0 h-8">
-        <div className="flex h-full">
+        <div role="tablist" aria-label="Paneles de terminal" className="flex h-full">
           {(["terminal", "problems", "console", "git", "logs"] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTerminalTab(tab)}
+              role="tab"
+              aria-selected={activeTerminalTab === tab}
               className={`px-4 flex items-center text-[11px] uppercase tracking-wider font-semibold border-r border-white/5 transition-colors ${
                 activeTerminalTab === tab
                   ? "text-aura-cyan bg-white/5 border-b-2 border-b-aura-cyan"
@@ -281,11 +283,12 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
             </button>
 
             {showPresets && (
-              <div className="absolute right-0 bottom-full mb-1 z-50 bg-obsidian-800/90 backdrop-blur-3xl border border-white/10 rounded-lg shadow-2xl max-h-60 overflow-y-auto min-w-[200px] overflow-hidden">
+              <div role="menu" aria-label="Comandos predefinidos" className="absolute right-0 bottom-full mb-1 z-50 bg-obsidian-800/90 backdrop-blur-3xl border border-white/10 rounded-lg shadow-2xl max-h-60 overflow-y-auto min-w-[200px] overflow-hidden">
                 {PRESET_COMMANDS.map((preset) => (
                   <button
                     key={preset.command}
                     onClick={() => handlePresetSelect(preset)}
+                    role="menuitem"
                     className={`w-full text-left px-4 py-2 text-xs hover:bg-white/10 transition-colors flex items-center gap-2 ${
                       preset.dangerous ? "text-red-400" : "text-slate-200"
                     }`}
@@ -308,7 +311,7 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
             🗑️
           </button>
           
-          <div className="w-px h-3 bg-white/10 mx-1"></div>
+          <div className="w-px h-3 bg-white/10 mx-1" aria-hidden="true"></div>
 
           {/* Botón cerrar */}
           <button
@@ -347,8 +350,8 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
 
               {/* Spinner cuando está ejecutando */}
               {isRunning && (
-                <div className="flex items-center gap-3 text-[#888] mt-2">
-                  <span className="inline-block w-4 h-4 border-[3px] border-[#4ec9b0] border-t-transparent rounded-full animate-spin" />
+                <div className="flex items-center gap-3 text-[#888] mt-2" role="status" aria-label="Ejecutando comando">
+                  <span className="inline-block w-4 h-4 border-[3px] border-[#4ec9b0] border-t-transparent rounded-full animate-spin" aria-hidden="true" />
                   <span className="animate-pulse">Ejecutando...</span>
                 </div>
               )}
@@ -365,6 +368,7 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
                 placeholder="Escribe un comando..."
                 disabled={isRunning}
                 rows={1}
+                aria-label="Entrada de comando de terminal"
                 className="flex-1 bg-transparent text-slate-200 outline-none resize-none placeholder-slate-600 font-mono text-[13px] leading-relaxed tracking-wide"
                 style={{ minHeight: 24 }}
               />
@@ -381,7 +385,7 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
       {/* ── Diálogo de confirmación ─────────────────────────── */}
       {confirmCommand && (
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-obsidian-800/90 backdrop-blur-3xl border border-white/10 rounded-2xl p-6 max-w-sm mx-4 shadow-2xl">
+          <div role="alertdialog" aria-modal="true" aria-label="Confirmar comando peligroso" className="bg-obsidian-800/90 backdrop-blur-3xl border border-white/10 rounded-2xl p-6 max-w-sm mx-4 shadow-2xl">
             <p className="text-sm text-red-400 font-semibold mb-3">
               ⚠️ Comando peligroso
             </p>
