@@ -32,9 +32,76 @@ interface WompiEvent {
   timestamp: number;
 }
 
+const PRODUCTS: Record<string, { name: string; amountInCents: number; currency: string }> = {
+  VIBE_STUDENT: { name: "Vibe Estudiante", amountInCents: 1190000, currency: "COP" },
+  VIBE_PRO: { name: "Vibe Studio Pro", amountInCents: 4990000, currency: "COP" },
+};
+
 export async function handler(event: any) {
+  const method = event.requestContext.http.method;
+
+  // ── GET /checkout-sign ──────────────────────────────────────────
+  if (method === "GET") {
+    // CORS headers for cross-origin checkout page
+    const headers = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Content-Type": "application/json",
+    };
+
+    const params = event.queryStringParameters || {};
+    const productKey = params.product;
+    const userId = params.userId || "anon";
+
+    const product = PRODUCTS[productKey];
+    if (!product) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: "Producto inválido" }) };
+    }
+
+    const publicKey = process.env.WOMPI_PUBLIC_KEY;
+    const integritySecret = process.env.WOMPI_INTEGRITY_SECRET;
+
+    if (!publicKey || !integritySecret) {
+      console.error("Faltan WOMPI_PUBLIC_KEY o WOMPI_INTEGRITY_SECRET");
+      return { statusCode: 500, headers, body: JSON.stringify({ error: "Configuración incompleta" }) };
+    }
+
+    const reference = `${productKey}_${userId}_${Date.now()}`;
+
+    // Wompi integrity: SHA256(reference + amountInCents + currency + integritySecret)
+    const concatenation = `${reference}${product.amountInCents}${product.currency}${integritySecret}`;
+    const signature = crypto.createHash("sha256").update(concatenation).digest("hex");
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        publicKey,
+        reference,
+        amountInCents: product.amountInCents,
+        currency: product.currency,
+        productName: product.name,
+        signature,
+      }),
+    };
+  }
+
+  // ── OPTIONS (CORS preflight) ────────────────────────────────────
+  if (method === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+      body: "",
+    };
+  }
+
+  // ── POST /webhook (existing Wompi webhook handler) ──────────────
   try {
-    if (event.requestContext.http.method !== "POST") {
+    if (method !== "POST") {
       return { statusCode: 405, body: "Method Not Allowed" };
     }
 
@@ -139,3 +206,4 @@ export async function handler(event: any) {
     return { statusCode: 500, body: "Error procesando el webhook" };
   }
 }
+
