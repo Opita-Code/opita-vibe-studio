@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { initiateSSO } from "@/auth/sso";
+import { initiateSSO, loginWithPassword, registerWithPassword } from "@/auth/sso";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
 
 // ─── Props ──────────────────────────────────────────────────────
@@ -11,29 +11,22 @@ interface LoginScreenProps {
   onClose?: () => void;
 }
 
+type AuthMode = "magic" | "password";
+type PasswordView = "login" | "register";
+
 // ─── Component ──────────────────────────────────────────────────
 
-/**
- * Pantalla de inicio de sesión.
- *
- * Modo Supabase (cloudAuth.isReady()):
- * - Botón "Iniciar sesión con Google" que dispara OAuth redirect
- *   hacia Supabase Auth. El flujo vuelve via onAuthStateChange.
- *
- * Modo mock (sin env vars, dev):
- * - Campo de email + botón "Iniciar sesión" para mock auth.
- *
- * Ambos modos:
- * - "Continuar sin cuenta" para modo invitado (free)
- * - Enlaces a términos y política de privacidad
- *
- * Brand: símbolo SVG de Vibe Studio + nombre
- */
-export function LoginScreen({ onClose }: LoginScreenProps) {
+export function LoginScreen({ onClose, onAuthenticated }: LoginScreenProps) {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [mode, setMode] = useState<AuthMode>("password");
+  const [passwordView, setPasswordView] = useState<PasswordView>("login");
+
+  const clearError = () => setError(null);
 
   const handleMagicLinkLogin = useCallback(async () => {
     if (!email.trim()) {
@@ -42,7 +35,7 @@ export function LoginScreen({ onClose }: LoginScreenProps) {
     }
 
     setIsLoading(true);
-    setError(null);
+    clearError();
 
     try {
       await initiateSSO(email.trim());
@@ -54,14 +47,49 @@ export function LoginScreen({ onClose }: LoginScreenProps) {
     }
   }, [email]);
 
+  const handlePasswordAuth = useCallback(async () => {
+    if (!email.trim()) {
+      setError("Ingresa tu correo electrónico");
+      return;
+    }
+    if (!password) {
+      setError("Ingresa tu contraseña");
+      return;
+    }
+    if (passwordView === "register" && password.length < 8) {
+      setError("La contraseña debe tener mínimo 8 caracteres");
+      return;
+    }
+
+    setIsLoading(true);
+    clearError();
+
+    try {
+      if (passwordView === "register") {
+        await registerWithPassword(email.trim(), password, name.trim() || undefined);
+      } else {
+        await loginWithPassword(email.trim(), password);
+      }
+      // Auth store gets synced by restoreSession() inside the functions
+      onAuthenticated?.();
+    } catch (err: any) {
+      setError(err.message || String(err));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [email, password, name, passwordView]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter" && !isLoading && !success) {
-        handleMagicLinkLogin();
+        if (mode === "magic") {
+          handleMagicLinkLogin();
+        } else {
+          handlePasswordAuth();
+        }
       }
     },
-    [handleMagicLinkLogin, isLoading, success]
+    [handleMagicLinkLogin, handlePasswordAuth, isLoading, success, mode]
   );
 
   return (
@@ -120,14 +148,48 @@ export function LoginScreen({ onClose }: LoginScreenProps) {
           </div>
         ) : (
           <div className="w-full flex flex-col gap-4 animate-fade-up" style={{ animationDelay: "100ms" }}>
+            {/* ─── Auth Mode Tabs ─── */}
+            <div className="flex w-full rounded-xl bg-white/5 border border-white/5 p-1 gap-1">
+              <button
+                onClick={() => { setMode("password"); clearError(); }}
+                className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${
+                  mode === "password"
+                    ? "bg-white/10 text-white/90 shadow-sm"
+                    : "text-white/40 hover:text-white/60"
+                }`}
+              >
+                Contraseña
+              </button>
+              <button
+                onClick={() => { setMode("magic"); clearError(); }}
+                className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${
+                  mode === "magic"
+                    ? "bg-white/10 text-white/90 shadow-sm"
+                    : "text-white/40 hover:text-white/60"
+                }`}
+              >
+                Enlace Mágico
+              </button>
+            </div>
+
             <div className="flex w-full flex-col gap-3">
+              {/* Name field — only for register */}
+              {mode === "password" && passwordView === "register" && (
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => { setName(e.target.value); clearError(); }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Tu nombre"
+                  disabled={isLoading}
+                  className="w-full rounded-xl border border-white/5 bg-obsidian-800/80 px-4 py-3 text-sm text-white/90 placeholder-white/30 outline-none transition-all focus:border-aura-purple/50 focus:ring-1 focus:ring-aura-purple/50 focus:bg-white/5 disabled:opacity-50 shadow-inner"
+                />
+              )}
+
               <input
                 type="email"
                 value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setError(null);
-                }}
+                onChange={(e) => { setEmail(e.target.value); clearError(); }}
                 onKeyDown={handleKeyDown}
                 placeholder="tu@email.com"
                 disabled={isLoading}
@@ -135,19 +197,58 @@ export function LoginScreen({ onClose }: LoginScreenProps) {
                 className="w-full rounded-xl border border-white/5 bg-obsidian-800/80 px-4 py-3 text-sm text-white/90 placeholder-white/30 outline-none transition-all focus:border-aura-purple/50 focus:ring-1 focus:ring-aura-purple/50 focus:bg-white/5 disabled:opacity-50 shadow-inner"
               />
 
+              {/* Password field — only for password mode */}
+              {mode === "password" && (
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); clearError(); }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={passwordView === "register" ? "Contraseña (mín. 8 caracteres)" : "Contraseña"}
+                  disabled={isLoading}
+                  className="w-full rounded-xl border border-white/5 bg-obsidian-800/80 px-4 py-3 text-sm text-white/90 placeholder-white/30 outline-none transition-all focus:border-aura-purple/50 focus:ring-1 focus:ring-aura-purple/50 focus:bg-white/5 disabled:opacity-50 shadow-inner"
+                />
+              )}
+
               {error && (
                 <p className="text-xs text-red-400 font-medium" role="alert">
                   {error}
                 </p>
               )}
 
-              <button
-                onClick={handleMagicLinkLogin}
-                disabled={isLoading || !email.trim()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-aura-cyan to-aura-purple px-4 py-3 text-sm font-medium text-white disabled:opacity-50 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_30px_rgba(168,85,247,0.5)]"
-              >
-                {isLoading ? "Enviando..." : "Recibir Enlace Mágico"}
-              </button>
+              {mode === "magic" ? (
+                <button
+                  onClick={handleMagicLinkLogin}
+                  disabled={isLoading || !email.trim()}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-aura-cyan to-aura-purple px-4 py-3 text-sm font-medium text-white disabled:opacity-50 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_30px_rgba(168,85,247,0.5)]"
+                >
+                  {isLoading ? "Enviando..." : "Recibir Enlace Mágico"}
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={handlePasswordAuth}
+                    disabled={isLoading || !email.trim() || !password}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-aura-cyan to-aura-purple px-4 py-3 text-sm font-medium text-white disabled:opacity-50 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_30px_rgba(168,85,247,0.5)]"
+                  >
+                    {isLoading
+                      ? "Procesando..."
+                      : passwordView === "register"
+                        ? "Crear Cuenta"
+                        : "Iniciar Sesión"
+                    }
+                  </button>
+                  <button
+                    onClick={() => { setPasswordView(passwordView === "login" ? "register" : "login"); clearError(); }}
+                    className="text-xs text-center text-aura-cyan/60 hover:text-aura-cyan transition-colors"
+                  >
+                    {passwordView === "login"
+                      ? "¿No tienes cuenta? Regístrate"
+                      : "¿Ya tienes cuenta? Inicia sesión"
+                    }
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}

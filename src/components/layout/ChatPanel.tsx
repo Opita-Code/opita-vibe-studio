@@ -415,12 +415,13 @@ export function ChatPanel({ width, onLogin }: ChatPanelProps) {
       {authMode === "unauthenticated" ? (
         <div className="p-6 m-4 mt-auto bg-obsidian-800 border border-white/10 rounded-xl shadow-lg flex flex-col items-center text-center">
           <img src={vibeLogoUrl} alt="Vibe Studio" className="w-12 h-12 mb-4 opacity-80" />
-          <p className="text-sm font-medium text-slate-300 mb-5">
+          <p id="chat-cta-description" className="text-sm font-medium text-slate-300 mb-5">
             Despierta a Vibe AI para potenciar tu código
           </p>
           <button 
             onClick={onLogin} 
             className="w-full py-2.5 bg-white text-black text-sm font-semibold rounded-lg shadow hover:bg-slate-200 transition-colors"
+            aria-describedby="chat-cta-description"
           >
             Iniciar Sesión
           </button>
@@ -439,6 +440,7 @@ export function ChatPanel({ width, onLogin }: ChatPanelProps) {
                   checked={useSubagent} 
                   onChange={(e) => setUseSubagent(e.target.checked)} 
                   disabled={isStreaming}
+                  aria-label="Activar Vibe Pro Engine"
                 />
                 <div className="w-7 h-4 bg-slate-700/80 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[12px] peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-300 after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-vibe-cyan/90 peer-disabled:opacity-50"></div>
               </label>

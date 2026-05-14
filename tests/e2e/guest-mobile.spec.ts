@@ -33,7 +33,7 @@ test.describe('Guest Mobile — Viewport 375x812', () => {
     await expect(previewNavBtn).toBeVisible();
   });
 
-  test('ActivityBar también visible en mobile (coexiste con MobileNavBar)', async ({ page }) => {
+  test('ActivityBar oculto en mobile (solo MobileNavBar)', async ({ page }) => {
     await page.goto('/app/');
     const guestBtn = page.locator('button:has-text("Comenzar sin cuenta")');
     await expect(guestBtn).toBeVisible({ timeout: 10000 });
@@ -43,9 +43,9 @@ test.describe('Guest Mobile — Viewport 375x812', () => {
     const editorNavBtn = page.locator('span.text-\\[10px\\]').filter({ hasText: 'Editor' });
     await expect(editorNavBtn).toBeVisible({ timeout: 10000 });
 
-    // El ActivityBar TAMBIÉN es visible — ambos navs coexisten en mobile
-    const explorerBtn = page.locator('button[title*="Explorador"]');
-    await expect(explorerBtn).toBeVisible();
+    // ActivityBar ahora tiene `hidden md:flex` — no visible en mobile
+    const explorerBtn = page.locator('button[aria-label="Explorador de Archivos"]');
+    await expect(explorerBtn).toBeHidden();
   });
 
   test('Tab IA abre chat panel en mobile', async ({ page }) => {
