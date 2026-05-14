@@ -8,6 +8,7 @@ import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { MobileNavBar } from "@/components/layout/MobileNavBar";
 import { BugReportModal } from "@/components/layout/BugReportModal";
 import { FileWatcher } from "@/components/editor/FileWatcher";
+import { MobileNotSupportedScreen } from "@/components/layout/MobileNotSupportedScreen";
 import { useAuthStore } from "@/stores/auth";
 import { useKeybindings } from "@/lib/useKeybindings";
 import { LegacyLogicManager } from "./renderer/LegacyLogicManager";
@@ -94,6 +95,14 @@ export default function App() {
   const [loginModalOpenState, setLoginModalOpenState] = useState(false);
   setLoginModalOpen = setLoginModalOpenState;
 
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   useEffect(() => {
     detectSession();
     
@@ -103,6 +112,10 @@ export default function App() {
       setLoginModalOpenState(true);
     }
   }, [detectSession, authMode]);
+
+  if (isMobile) {
+    return <MobileNotSupportedScreen />;
+  }
 
   if (!sessionDetected) {
     return (
