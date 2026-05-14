@@ -45,11 +45,5 @@ export const OMNI_ITEMS: OmniItem[] = [
   { id: "set-editor", title: "Configuración del Editor", subtitle: "Ajusta tipografía, tabulaciones y atajos", category: "Settings", iconType: "settings", keywords: ["settings", "configuracion", "editor", "font"], action: "OPEN_SETTINGS" },
   { id: "set-ai", title: "Ajustes de Vibe AI", subtitle: "Modelos, contexto y proveedores", category: "Settings", iconType: "ai", keywords: ["ai", "vibe", "llm", "model"], action: "OPEN_AI_SETTINGS" },
 
-  // Chats (Mock history)
-  { id: "chat-1", title: "Refactorización OmniBar", subtitle: "Ayer - Contexto: UI Store", category: "Chats", iconType: "chat", keywords: ["omnibar", "refactor", "ui"], action: "OPEN_CHAT_1" },
-  { id: "chat-2", title: "Migración a AWS Cognito", subtitle: "Hace 3 días - Contexto: Backend", category: "Chats", iconType: "chat", keywords: ["aws", "cognito", "auth", "login"], action: "OPEN_CHAT_2" },
 
-  // Files (Mock workspace)
-  { id: "file-1", title: "ActivityBar.tsx", subtitle: "src/components/layout/", category: "Files", iconType: "file", keywords: ["activity", "bar", "tsx", "react"], action: "OPEN_FILE_1" },
-  { id: "file-2", title: "ui.ts", subtitle: "src/stores/", category: "Files", iconType: "file", keywords: ["store", "ui", "zustand"], action: "OPEN_FILE_2" },
 ];
