@@ -3,6 +3,7 @@ import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
 import type { Attachment } from "@/lib/types";
 import { listProviders } from "@/providers/registry";
+import { ChevronDown, CheckCircle2, Zap } from "lucide-react";
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -33,6 +34,22 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
 
   const plan = useAuthStore(s => s.plan);
   const [isUploading, setIsUploading] = useState(false);
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsModelDropdownOpen(false);
+      }
+    }
+    if (isModelDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isModelDropdownOpen]);
 
   const processFile = useCallback(async (file: File) => {
     const isImage = file.type.startsWith("image/");
@@ -176,12 +193,22 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   );
 
   const isOverLimit = text.length >= CHAR_LIMIT;
-  const activeProvider = useChatStore(s => s.activeProvider);
   const activeModelId = useChatStore(s => s.activeModelId);
   const setActiveModelId = useChatStore(s => s.setActiveModelId);
   const setActiveProvider = useChatStore(s => s.setActiveProvider);
   
   const allProviders = listProviders();
+  
+  const configuredProvidersStr = localStorage.getItem("vibe-byok-configured");
+  const configuredProviders: string[] = configuredProvidersStr ? JSON.parse(configuredProvidersStr) : [];
+  
+  const visibleProviders = allProviders.map(p => {
+    if (p.tier === "free") return p;
+    if (configuredProviders.includes(p.id)) return p;
+    return null;
+  }).filter(Boolean) as typeof allProviders;
+
+  const selectedModelName = allProviders.flatMap(p => p.models).find(m => m.id === activeModelId)?.name || "Seleccionar modelo";
 
   return (
     <div 
@@ -310,27 +337,65 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           <span className="text-[10px] font-medium tracking-wide uppercase text-aura-purple/60">
             {isUploading ? "Subiendo..." : `Engine ${CHAR_LIMIT / 1000}k`}
           </span>
-            <select
-              value={activeModelId}
-              onChange={(e) => {
-                const modelId = e.target.value;
-                setActiveModelId(modelId);
-                const provider = allProviders.find(p => p.models.some(m => m.id === modelId));
-                if (provider) {
-                  setActiveProvider(provider.id);
-                }
-              }}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+              className="flex items-center gap-1.5 text-[10px] font-medium tracking-wide bg-white/5 hover:bg-white/10 text-white/80 border border-white/10 rounded-md px-2 py-1 outline-none transition-all cursor-pointer"
               aria-label="Seleccionar modelo de IA"
-              className="text-[10px] font-medium tracking-wide bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 rounded-md px-1.5 py-0.5 outline-none cursor-pointer transition-colors max-w-[120px] sm:max-w-none truncate"
             >
-              {allProviders.map(p => (
-                <optgroup key={p.id} label={p.name}>
-                  {p.models.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+              {selectedModelName.includes("Opita") ? (
+                <span className="flex items-center text-aura-purple font-bold tracking-wider">
+                  <Zap className="w-3 h-3 mr-1" />
+                  {selectedModelName}
+                </span>
+              ) : (
+                <span className="truncate max-w-[120px]">{selectedModelName}</span>
+              )}
+              <ChevronDown className={`w-3 h-3 opacity-50 transition-transform ${isModelDropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+            
+            {isModelDropdownOpen && (
+              <div className="absolute bottom-full left-0 mb-2 w-56 bg-obsidian-900 border border-white/10 rounded-xl shadow-2xl p-1.5 z-50 animate-fade-in-up origin-bottom-left max-h-64 overflow-y-auto">
+                {visibleProviders.map(p => (
+                  <div key={p.id} className="mb-2 last:mb-0">
+                    <div className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white/40">
+                      {p.name} {p.tier === "free" ? "(Gratis)" : "(BYOK)"}
+                    </div>
+                    {p.models.map(m => (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          setActiveModelId(m.id);
+                          setActiveProvider(p.id);
+                          setIsModelDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-2 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between ${
+                          activeModelId === m.id ? "bg-aura-purple/20 text-aura-purple" : "text-white/70 hover:bg-white/5 hover:text-white"
+                        }`}
+                      >
+                        <span className="flex items-center">
+                          {m.name.includes("Opita") ? (
+                            <strong className="text-aura-purple flex items-center font-bold">
+                              <Zap className="w-3 h-3 mr-1" />
+                              {m.name}
+                            </strong>
+                          ) : (
+                            m.name
+                          )}
+                        </span>
+                        {activeModelId === m.id && <CheckCircle2 className="w-3 h-3" />}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+                {visibleProviders.length === 1 && visibleProviders[0].tier === "free" && (
+                  <div className="px-2 py-2 text-[10px] text-white/40 italic text-center border-t border-white/5 mt-1">
+                    Conecta tus API Keys en Configuración para ver más modelos.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         <span className={`text-[10px] font-medium tracking-wide uppercase ${isOverLimit ? "text-red-400" : "text-white/40"}`}>
           {isOverLimit ? "Límite alcanzado" : `~${Math.round(text.length / 4)} tokens`}
