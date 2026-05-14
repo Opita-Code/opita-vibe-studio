@@ -42,10 +42,8 @@ export async function handler(event: any) {
 
   // ── GET /checkout-sign ──────────────────────────────────────────
   if (method === "GET") {
-    // CORS headers for cross-origin checkout page
+    // CORS headers for cross-origin checkout page (managed by AWS now)
     const headers = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Content-Type": "application/json",
     };
 
@@ -90,11 +88,6 @@ export async function handler(event: any) {
   if (method === "OPTIONS") {
     return {
       statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-      },
       body: "",
     };
   }
