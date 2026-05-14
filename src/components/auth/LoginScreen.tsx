@@ -95,7 +95,7 @@ export function LoginScreen({ onClose, onAuthenticated }: LoginScreenProps) {
   return (
     <div className="relative flex h-full w-full items-center justify-center bg-obsidian-900">
       {/* Elementos de fondo tipo "Zen Flow" */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
         <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-aura-purple/5 mix-blend-screen filter blur-[100px] animate-blob"></div>
         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-aura-cyan/5 mix-blend-screen filter blur-[100px] animate-blob-reverse delay-2000"></div>
       </div>
@@ -105,7 +105,7 @@ export function LoginScreen({ onClose, onAuthenticated }: LoginScreenProps) {
         <button
           onClick={onClose}
           className="absolute left-6 top-6 text-white/40 hover:text-white transition-colors z-10 flex items-center gap-2 text-sm font-medium bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg border border-white/5 backdrop-blur-md"
-          aria-label="Volver"
+          aria-label="Volver atrás"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
