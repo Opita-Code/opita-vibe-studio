@@ -13,6 +13,8 @@ export function useKeybindings() {
   const setExplorerVisible = useUIStore(s => s.setExplorerVisible);
   const settingsVisible = useUIStore(s => s.settingsVisible);
   const setSettingsVisible = useUIStore(s => s.setSettingsVisible);
+  const activeSidebar = useUIStore(s => s.activeSidebar);
+  const setActiveSidebar = useUIStore(s => s.setActiveSidebar);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -43,6 +45,10 @@ export function useKeybindings() {
             e.preventDefault();
             toggleActionBar();
             break;
+          case 'l': // Ctrl+L toggle Vibe AI Chat
+            e.preventDefault();
+            setActiveSidebar(activeSidebar === "chat" ? null : "chat");
+            break;
           case '1':
             e.preventDefault();
             setActiveView("preview");
@@ -64,5 +70,6 @@ export function useKeybindings() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [createNewSession, setLocation, toggleTerminal, toggleActionBar, setActiveView, explorerVisible, setExplorerVisible, settingsVisible, setSettingsVisible]);
+  }, [createNewSession, setLocation, toggleTerminal, toggleActionBar, setActiveView, explorerVisible, setExplorerVisible, settingsVisible, setSettingsVisible, activeSidebar, setActiveSidebar]);
 }
+

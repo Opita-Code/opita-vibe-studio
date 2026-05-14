@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 import { ByokPanel } from "@/components/settings/ByokPanel";
@@ -29,6 +29,45 @@ export function SettingsPanel() {
   const isAuthenticated = authMode === "authenticated";
   
   const [activeTab, setActiveTab] = useState<SettingsCategory>("conexiones");
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Escape to close
+  useEffect(() => {
+    if (!settingsVisible) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSettingsVisible(false);
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [settingsVisible, setSettingsVisible]);
+
+  // Auto-focus dialog on open
+  useEffect(() => {
+    if (settingsVisible && dialogRef.current) {
+      dialogRef.current.focus();
+    }
+  }, [settingsVisible]);
+
+  // Focus trap
+  const handleTrapKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== "Tab" || !dialogRef.current) return;
+    const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }, []);
 
   // Avoid rendering anything if not visible, but AnimatePresence handles the exit.
   // We'll wrap the whole return in AnimatePresence.
@@ -53,11 +92,17 @@ export function SettingsPanel() {
           onClick={() => setSettingsVisible(false)}
         >
           <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Configuración de Vibe Studio"
+            tabIndex={-1}
+            onKeyDown={handleTrapKeyDown}
             initial={{ opacity: 0, scale: 0.97, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 10 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="w-full max-w-5xl h-[85vh] bg-[#0D0D12]/90 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_80px_-15px_rgba(0,0,0,1)] overflow-hidden flex flex-col md:flex-row"
+            className="w-full max-w-5xl h-[85vh] bg-[#0D0D12]/90 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_80px_-15px_rgba(0,0,0,1)] overflow-hidden flex flex-col md:flex-row outline-none"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Sidebar */}
@@ -166,7 +211,10 @@ export function SettingsPanel() {
                               <h3 className="text-sm font-semibold text-slate-200">VibeLens (Modo Aislado)</h3>
                               <button
                                 onClick={() => setVibeLensEnabled(!vibeLensEnabled)}
-                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                                role="switch"
+                                aria-checked={vibeLensEnabled}
+                                aria-label="Activar VibeLens modo aislado"
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-obsidian-900 ${
                                   vibeLensEnabled ? 'bg-aura-cyan' : 'bg-obsidian-700'
                                 }`}
                               >
@@ -190,7 +238,8 @@ export function SettingsPanel() {
                             <div className="flex gap-3 max-w-md">
                               <button
                                 onClick={() => setChatPosition("left")}
-                                className={`flex-1 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                                aria-pressed={chatPosition === "left"}
+                                className={`flex-1 px-4 py-3 rounded-lg text-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-aura-purple focus-visible:ring-offset-2 focus-visible:ring-offset-obsidian-900 ${
                                   chatPosition === "left"
                                     ? "bg-aura-purple/20 text-aura-purple border border-aura-purple/30 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
                                     : "bg-obsidian-900/50 text-slate-400 hover:text-slate-200 hover:bg-obsidian-800 border border-white/5"
@@ -200,7 +249,8 @@ export function SettingsPanel() {
                               </button>
                               <button
                                 onClick={() => setChatPosition("right")}
-                                className={`flex-1 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                                aria-pressed={chatPosition === "right"}
+                                className={`flex-1 px-4 py-3 rounded-lg text-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-aura-purple focus-visible:ring-offset-2 focus-visible:ring-offset-obsidian-900 ${
                                   chatPosition === "right"
                                     ? "bg-aura-purple/20 text-aura-purple border border-aura-purple/30 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
                                     : "bg-obsidian-900/50 text-slate-400 hover:text-slate-200 hover:bg-obsidian-800 border border-white/5"
