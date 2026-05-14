@@ -12,12 +12,35 @@ pub struct ShellOutput {
     pub exit_code: i32,
 }
 
+/// Valida el comando contra una lista blanca para prevenir RCE.
+fn is_command_allowed(cmd: &str) -> bool {
+    let cmd_trimmed = cmd.trim();
+    
+    let allowed_prefixes = ["git ", "npm ", "npx ", "node ", "tsc ", "rm -rf node_modules"];
+    
+    if !allowed_prefixes.iter().any(|prefix| cmd_trimmed.starts_with(prefix)) {
+        return false;
+    }
+    
+    // Prohibir caracteres de control de shell para evitar ejecución encadenada (ej: `git status && rm -rf /`)
+    let forbidden_chars = ['&', '|', ';', '$', '>', '<', '`'];
+    if cmd_trimmed.chars().any(|c| forbidden_chars.contains(&c)) {
+        return false;
+    }
+    
+    true
+}
+
 /// Ejecuta un comando del sistema operativo con timeout de 30 segundos
 ///
 /// En Windows usa `cmd /C`, en Unix usa `sh -c`.
 /// Retorna stdout, stderr y código de salida.
 #[tauri::command]
 pub fn exec_shell(cmd: String, cwd: String) -> Result<ShellOutput, String> {
+    if !is_command_allowed(&cmd) {
+        return Err(format!("Comando rechazado por seguridad: El comando no está permitido o contiene caracteres inválidos. Comando: {}", cmd));
+    }
+
     let shell = if cfg!(target_os = "windows") {
         "cmd"
     } else {
