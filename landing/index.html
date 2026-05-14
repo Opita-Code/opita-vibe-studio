@@ -420,7 +420,7 @@
         const response = await fetch(API_URL + "/auth/me", { credentials: "include" });
         if (response.ok) {
           const data = await response.json();
-          var checkoutUrl = "https://cuentas.opitacode.com/checkout.html";
+          var checkoutUrl = "https://cuenta.opitacode.com/checkout.html";
           var params = "?product=" + product + "&userId=" + encodeURIComponent(data.user.email) + "&redirect=" + encodeURIComponent(window.location.origin + "/app/?payment_success=true");
           window.location.href = checkoutUrl + params;
         } else {
