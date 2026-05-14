@@ -32,3 +32,4 @@ Vibe Studio is an Opita Code product — a simplified vibe-coding environment fo
 - SDD for substantial changes
 - Config-first, reversible changes
 - BYOK support in all tiers
+- Deployment: Use `vibe-aws-deploy` skill to build and deploy to S3/CloudFront

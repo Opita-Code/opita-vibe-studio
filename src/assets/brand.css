@@ -1,22 +1,25 @@
 :root {
-  --vibe-indigo: #4f46e5;
-  --vibe-black: #0b0b0c;
-  --vibe-white: #ffffff;
-  --vibe-dark-bg: #1e1e1e;
+  --color-vibe-bg: #0a0f1c;
+  --color-vibe-surface: #131b2e;
+  --color-vibe-cyan: #00f0ff;
+  --color-vibe-purple: #b026ff;
+  --color-vibe-indigo: #4f46e5;
+  --color-vibe-white: #ffffff;
 
   --vibe-logo-safe-area: 24px;
   --vibe-radius-symbol-module: 999px;
 }
 
 .vibe-logo-light {
-  color: var(--vibe-black);
+  color: var(--color-vibe-bg);
 }
 
 .vibe-logo-dark {
-  color: var(--vibe-white);
-  background: var(--vibe-dark-bg);
+  color: var(--color-vibe-white);
+  background: var(--color-vibe-bg);
 }
 
 .vibe-accent {
-  color: var(--vibe-indigo);
+  color: var(--color-vibe-cyan);
 }
+

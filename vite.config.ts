@@ -32,4 +32,19 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: "./tests/setup.ts",
   },
+
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["react", "react-dom", "zustand", "wouter", "date-fns"],
+          editor: ["@monaco-editor/react", "monaco-editor"],
+          preview: ["@codesandbox/sandpack-react"],
+          ui: ["framer-motion", "lucide-react"],
+          core: ["@tauri-apps/api", "idb-keyval", "jose"]
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+  },
 });

@@ -16,9 +16,10 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@opita/cloud-context": ["./packages/opita-cloud-context/src/index.ts"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "packages/opita-cloud-context/src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

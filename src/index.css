@@ -1,9 +1,19 @@
+@import "./assets/brand.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import "./assets/brand.css";
-
+@layer utilities {
+  .bg-glass {
+    background-color: rgba(19, 27, 46, 0.4);
+    backdrop-filter: blur(12px);
+  }
+  .border-glass {
+    border-color: rgba(255, 255, 255, 0.05);
+    border-width: 1px;
+  }
+}
 :root {
   font-family:
     Inter,
@@ -25,18 +35,22 @@
   padding: 0;
 }
 
-html,
-body,
-#root {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
+/* Restaurar cursor de texto y selección solo en áreas editables */
+input,
+textarea,
+[contenteditable],
+.selectable {
+  user-select: text;
+  cursor: text;
 }
 
-body {
-  margin: 0;
-  background-color: #1e1e1e;
-  color: #d4d4d4;
+/* Suprimir anillo de foco en clics de mouse, mantener en navegación por teclado */
+*:focus {
+  outline: none;
+}
+*:focus-visible {
+  outline: 2px solid theme('colors.aura.purple');
+  outline-offset: -1px;
 }
 
 @keyframes slideInUp {
@@ -48,4 +62,70 @@ body {
     transform: translateY(0);
     opacity: 1;
   }
+}
+
+
+
+html,
+body,
+#root {
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  background-color: theme('colors.obsidian.900');
+  color: #f8fafc;
+}
+
+/* Suprimir anillo de foco en clics de mouse, mantener en navegación por teclado */
+*:focus {
+  outline: none;
+}
+*:focus-visible {
+  outline: 2px solid theme('colors.aura.purple');
+  outline-offset: -1px;
+}
+@keyframes slideInUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Evitar que iframes capturen eventos de ratón durante el redimensionamiento */
+body.is-resizing iframe {
+  pointer-events: none !important;
+}
+
+/* Zen Flow Scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: theme('colors.obsidian.800');
+  border-radius: 10px;
+  border: 3px solid theme('colors.obsidian.900');
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: theme('colors.aura.purple' / 30%);
+  border-width: 2px;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }

@@ -3,77 +3,131 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Opita Vibe Studio - Vibecodea en español</title>
-  <link rel="icon" type="image/svg+xml" href="/logo-symbol.svg" />
-  <link rel="alternate icon" type="image/x-icon" href="/favicon.ico" />
+  <title>Opita Vibe Studio - El código fluye.</title>
+  
+  <meta name="description" content="Vibe Studio. Crea software en español. Sin inglés. Sin barreras. Vibecodea en un entorno inmersivo impulsado por IA.">
+  <link rel="icon" type="image/svg+xml" href="/vibe-logo.svg" />
+  
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Outfit', 'sans-serif'],
+            sans: ['Geist', 'sans-serif'],
             mono: ['JetBrains Mono', 'monospace'],
           },
           colors: {
-            vibe: {
-              indigo: '#6366f1',
+            obsidian: {
+              900: '#09090b',
+              800: '#121217',
+              700: '#1c1c21',
+            },
+            aura: {
               cyan: '#06b6d4',
+              blue: '#3b82f6',
               purple: '#a855f7',
             }
           },
           animation: {
-            'typing': 'typing 3s steps(40, end) infinite',
-            'blink': 'blink 1s step-end infinite',
-            'float': 'float 6s ease-in-out infinite',
-            'glow-pulse': 'glow-pulse 4s ease-in-out infinite',
+            'blob': 'blob 15s infinite',
+            'blob-reverse': 'blob-reverse 20s infinite',
+            'float-slow': 'float 8s ease-in-out infinite',
+            'fade-in-up': 'fadeUp 1s ease-out forwards',
           },
           keyframes: {
-            typing: {
-              '0%, 20%': { width: '0' },
-              '80%, 100%': { width: '100%' },
+            blob: {
+              '0%': { transform: 'translate(0px, 0px) scale(1)' },
+              '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+              '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+              '100%': { transform: 'translate(0px, 0px) scale(1)' },
             },
-            blink: {
-              '0%, 100%': { opacity: '1' },
-              '50%': { opacity: '0' },
+            'blob-reverse': {
+              '0%': { transform: 'translate(0px, 0px) scale(1)' },
+              '33%': { transform: 'translate(-30px, 50px) scale(1.2)' },
+              '66%': { transform: 'translate(20px, -20px) scale(0.8)' },
+              '100%': { transform: 'translate(0px, 0px) scale(1)' },
             },
             float: {
               '0%, 100%': { transform: 'translateY(0)' },
-              '50%': { transform: 'translateY(-10px)' },
+              '50%': { transform: 'translateY(-15px)' },
             },
-            'glow-pulse': {
-              '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
-              '50%': { opacity: '0.6', transform: 'scale(1.05)' },
+            fadeUp: {
+              '0%': { opacity: '0', transform: 'translateY(20px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
             }
           }
         }
       }
     }
   </script>
+  
   <style>
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
-      background-color: #0f172a; /* slate-900 */
-      background-image: 
-        radial-gradient(circle at 15% 50%, rgba(168, 85, 247, 0.12), transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(6, 182, 212, 0.12), transparent 25%);
-      background-attachment: fixed;
-      color: #e2e8f0;
+      background-color: #09090b;
+      color: #fafafa;
       margin: 0;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow-x: hidden;
     }
-    .glass-panel {
-      background: rgba(15, 23, 42, 0.5);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+
+    /* Minimalist Glass */
+    .glass-surface {
+      background: rgba(18, 18, 23, 0.4);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8);
     }
-    
-    /* Efecto de scrollbar oculto para el editor simulado */
+
+    /* Aura text gradient */
+    .text-aura {
+      background: linear-gradient(135deg, #06b6d4, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* CTA Button Hover */
+    .btn-aura {
+      position: relative;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+    }
+    .btn-aura::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(168, 85, 247, 0.2));
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      z-index: 0;
+    }
+    .btn-aura:hover::before {
+      opacity: 1;
+    }
+    .btn-aura:hover {
+      border-color: rgba(168, 85, 247, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px -10px rgba(168, 85, 247, 0.3);
+    }
+    .btn-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Hide scrollbar for clean UI preview */
     .no-scrollbar::-webkit-scrollbar {
       display: none;
     }
@@ -81,192 +135,314 @@
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
-
-    .typing-container {
-      display: inline-block;
-      overflow: hidden;
-      white-space: nowrap;
-      border-right: 2px solid #a855f7;
-    }
-
-    /* Animación del mensaje de chat */
-    .chat-bubble {
-      opacity: 0;
-      transform: translateY(10px);
-      animation: fadeUp 0.5s forwards;
-    }
-    .chat-bubble-delay-1 { animation-delay: 1.5s; }
-    .chat-bubble-delay-2 { animation-delay: 3s; }
-    
-    @keyframes fadeUp {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
   </style>
 </head>
-<body class="antialiased">
-  
-  <!-- Navbar -->
-  <nav class="fixed top-0 w-full z-50 glass-panel border-b-0 border-x-0 border-t-0 border-white/5">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-1 sm:gap-2 group">
-        <svg class="w-6 h-6 sm:w-8 sm:h-8 text-vibe-cyan transition-transform group-hover:scale-110 group-hover:text-vibe-purple duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-        <span class="font-bold text-lg sm:text-xl tracking-tight text-white">Vibe Studio</span>
-      </div>
-      <div class="flex gap-2 sm:gap-4 items-center">
-        <a href="https://opitacode.com" class="hidden sm:block text-sm text-slate-300 hover:text-white transition-colors">Opita Code</a>
-        <a href="http://localhost:1420/app/" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-vibe-purple to-vibe-cyan hover:from-purple-500 hover:to-cyan-400 text-white text-xs sm:text-sm font-medium rounded-md shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all whitespace-nowrap">
-          Abrir Studio
-        </a>
-      </div>
+
+<body class="antialiased selection:bg-aura-purple/30 selection:text-white">
+
+  <!-- FLUID BACKGROUND ANIMATIONS -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+    <div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-aura-purple/10 mix-blend-screen filter blur-[100px] opacity-60 animate-blob"></div>
+    <div class="absolute top-[20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-aura-cyan/10 mix-blend-screen filter blur-[120px] opacity-50 animate-blob-reverse delay-2000"></div>
+    <div class="absolute bottom-[-20%] left-[20%] w-[40%] h-[40%] rounded-full bg-aura-blue/10 mix-blend-screen filter blur-[100px] opacity-40 animate-blob delay-4000"></div>
+    <!-- Mesh overlay to give it texture -->
+    <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDIiLz4KPC9zdmc+')] opacity-20 mix-blend-overlay"></div>
+  </div>
+
+  <!-- NAVIGATION -->
+  <nav class="relative z-50 w-full px-6 py-6 md:px-12 flex items-center justify-between animate-fade-in-up">
+    <div class="flex items-center gap-3">
+      <img src="/vibe-logo.svg" alt="Vibe Studio" class="w-8 h-8 md:w-10 md:h-10" />
+      <span class="text-xl md:text-2xl font-medium tracking-tight text-white/90">Vibe Studio</span>
+    </div>
+    <div class="flex items-center gap-6">
+      <a href="#features" class="text-sm font-medium text-white/50 hover:text-white transition-colors hidden md:block">Características</a>
+      <a href="#pricing" class="text-sm font-medium text-white/50 hover:text-white transition-colors hidden md:block">Precios</a>
+      <a href="https://opitacode.com" class="text-sm font-medium text-white/50 hover:text-white transition-colors">Opita Code</a>
+      <a href="/app/" class="btn-aura px-5 py-2.5 rounded-full text-sm font-medium text-white/90">
+        <span class="btn-content">Abrir Studio</span>
+      </a>
     </div>
   </nav>
 
-  <!-- Hero Section -->
-  <main class="flex-1 flex flex-col items-center justify-center px-6 mt-24 relative overflow-hidden">
-    <!-- Ambient glow center -->
-    <div class="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-vibe-purple/20 blur-[150px] rounded-full pointer-events-none animate-glow-pulse"></div>
+  <!-- HERO SECTION -->
+  <main class="relative z-10 flex-1 flex flex-col items-center pt-24 pb-32 px-6 text-center">
     
-    <div class="max-w-4xl w-full text-center z-10 space-y-8 animate-[fadeUp_0.8s_ease-out]">
-      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel text-xs text-vibe-cyan mb-2 font-mono border border-vibe-cyan/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] hover:scale-105 transition-transform cursor-default">
-        <span class="w-2 h-2 rounded-full bg-vibe-cyan animate-pulse"></span>
-        v0.1.0 Beta Disponible
-      </div>
-      
-      <h1 class="text-4xl sm:text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-slate-400 tracking-tight leading-[1.1] pb-2">
-        Vibecodea en español.<br/>
-        <span class="text-transparent bg-clip-text bg-gradient-to-r from-vibe-purple via-vibe-indigo to-vibe-cyan">
-          Aprende sin darte cuenta.
-        </span>
-      </h1>
-      
-      <p class="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto font-light leading-relaxed">
-        El primer IDE impulsado por IA diseñado específicamente para estudiantes hispanohablantes. Entorno seguro, servidor local y asistencia nativa en cada línea de código.
-      </p>
-
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 pb-12">
-        <a href="http://localhost:1420/app/" class="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-vibe-indigo to-vibe-purple hover:to-purple-500 hover:scale-[1.02] text-white font-medium rounded-lg shadow-[0_10px_25px_rgba(99,102,241,0.3)] transition-all text-lg flex items-center justify-center gap-2 group">
-          Comenzar a programar
-          <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
-        </a>
-      </div>
+    <!-- Tagline -->
+    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 mb-8 animate-fade-in-up" style="animation-delay: 0.1s;">
+      <span class="w-2 h-2 rounded-full bg-aura-cyan animate-pulse"></span>
+      <span class="text-xs font-medium tracking-wider uppercase text-white/70">Acceso Anticipado</span>
     </div>
 
-    <!-- Interfaz Interactiva Mockup (Reemplaza al anterior SVG/Tarjeta estática) -->
-    <div class="max-w-6xl w-full glass-panel rounded-2xl overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] relative z-10 border border-white/10 group mb-20 animate-float flex flex-col">
-      <!-- Topbar del IDE -->
-      <div class="h-10 bg-slate-900/90 border-b border-white/5 flex items-center px-4 justify-between select-none">
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full bg-[#ff5f56]"></div>
-          <div class="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
-          <div class="w-3 h-3 rounded-full bg-[#27c93f]"></div>
-        </div>
-        <div class="text-xs text-slate-500 font-mono flex gap-4">
-          <span class="hover:text-slate-300 cursor-pointer">index.html</span>
-          <span class="text-vibe-cyan hover:text-cyan-300 cursor-pointer">style.css</span>
-          <span class="hover:text-slate-300 cursor-pointer">app.js</span>
-        </div>
-        <div class="w-16"></div> <!-- Spacer -->
-      </div>
-      
-      <!-- Cuerpo del IDE -->
-      <div class="flex flex-col md:flex-row h-[450px]">
-        
-        <!-- Sidebar Izquierda (Archivos) -->
-        <div class="hidden md:flex w-48 bg-slate-900/60 border-r border-white/5 flex-col p-4">
-          <p class="text-xs font-semibold text-slate-500 tracking-wider mb-4 uppercase">Explorador</p>
-          <div class="space-y-2 text-sm font-mono text-slate-400">
-            <div class="flex items-center gap-2 text-slate-200">
-              <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
-              proyecto
-            </div>
-            <div class="flex items-center gap-2 pl-4 text-slate-300 hover:text-white cursor-pointer">
-              <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
-              index.html
-            </div>
-            <div class="flex items-center gap-2 pl-4 text-vibe-cyan bg-white/5 rounded px-2 py-1 cursor-pointer">
-              <span class="text-cyan-400 font-bold text-xs">#</span>
-              style.css
-            </div>
-            <div class="flex items-center gap-2 pl-4 text-slate-400 hover:text-white cursor-pointer">
-              <span class="text-yellow-400 font-bold text-xs">JS</span>
-              app.js
-            </div>
-          </div>
-        </div>
+    <!-- Main Headline -->
+    <h1 class="text-5xl md:text-7xl lg:text-8xl font-semibold tracking-tighter leading-tight mb-6 max-w-4xl animate-fade-in-up" style="animation-delay: 0.2s;">
+      Crea software.<br />
+      <span class="text-aura font-medium">Sin fricción.</span>
+    </h1>
 
-        <!-- Área de Editor Central -->
-        <div class="flex-1 bg-slate-950/80 p-6 font-mono text-sm md:text-base leading-loose relative overflow-hidden no-scrollbar">
-          <!-- Números de línea -->
-          <div class="absolute left-0 top-0 bottom-0 w-12 border-r border-white/5 bg-slate-900/30 flex flex-col items-center py-6 text-slate-600 text-xs">
-            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span>
+    <p class="text-lg md:text-xl text-white/50 max-w-2xl mb-12 font-light leading-relaxed animate-fade-in-up" style="animation-delay: 0.3s;">
+      Entra en un estado de flujo puro. Describe tu idea en español, y la inteligencia artificial esculpe el código en tiempo real. Cero configuraciones, cero juicios.
+    </p>
+
+    <!-- Main CTA -->
+    <a href="/app/" class="group relative px-8 py-4 rounded-full bg-white text-obsidian-900 font-medium text-lg hover:bg-white/90 transition-all duration-300 hover:scale-105 shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)] animate-fade-in-up flex items-center gap-3" style="animation-delay: 0.4s;">
+      Comenzar a programar
+      <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+      </svg>
+    </a>
+
+    <!-- MOCKUP SHOWCASE (Floating Glass UI) -->
+    <div class="mt-24 w-full max-w-6xl animate-fade-in-up opacity-0" style="animation-delay: 0.6s; animation-fill-mode: forwards;">
+      <div class="animate-float-slow">
+        <div class="glass-surface rounded-2xl overflow-hidden flex flex-col md:flex-row h-[600px] relative ring-1 ring-white/10">
+        
+        <!-- Sidebar (Explorer) -->
+        <div class="w-full md:w-64 bg-obsidian-900/60 border-r border-white/5 flex flex-col">
+          <div class="p-4 border-b border-white/5 flex items-center gap-2">
+            <div class="flex gap-1.5">
+              <div class="w-3 h-3 rounded-full bg-white/20"></div>
+              <div class="w-3 h-3 rounded-full bg-white/20"></div>
+              <div class="w-3 h-3 rounded-full bg-white/20"></div>
+            </div>
           </div>
-          
-          <div class="pl-10 text-slate-300">
-            <div><span class="text-vibe-purple">body</span> {</div>
-            <div class="pl-4"><span class="text-vibe-cyan">display</span>: flex;</div>
-            <div class="pl-4"><span class="text-vibe-cyan">justify-content</span>: center;</div>
-            <div class="pl-4"><span class="text-vibe-cyan">align-items</span>: center;</div>
-            <div class="pl-4"><span class="text-vibe-cyan">background</span>: <span class="text-orange-300">#0f172a</span>;</div>
-            <div class="pl-4 flex items-center">
-              <div class="typing-container animate-typing text-green-400">
-                /* ¡Vibe Studio hace el diseño web mágico! */
+          <div class="p-4 flex-1">
+            <div class="text-xs font-semibold text-white/40 uppercase tracking-wider mb-4">Proyecto</div>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2 text-sm text-aura-cyan">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                <span>vibe-app</span>
+              </div>
+              <div class="pl-6 flex items-center gap-2 text-sm text-white/70">
+                <svg class="w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                <span>App.tsx</span>
+              </div>
+              <div class="pl-6 flex items-center gap-2 text-sm text-white/70">
+                <svg class="w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                <span>styles.css</span>
               </div>
             </div>
-            <div>}</div>
-          </div>
-          
-          <!-- Botón Flotante "Run" simulado -->
-          <div class="absolute bottom-6 right-6 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-400 text-white rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.3)] text-sm font-sans font-medium flex items-center gap-2 cursor-pointer hover:scale-105 transition-transform">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
-            Live Preview
           </div>
         </div>
 
-        <!-- Sidebar Derecha (Chat de IA) -->
-        <div class="w-full md:w-80 bg-slate-900/70 border-l border-white/5 flex flex-col relative overflow-hidden">
-          <div class="p-3 border-b border-white/5 flex items-center gap-2">
-            <span class="text-vibe-purple animate-pulse">✨</span>
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Asistente IA</span>
+        <!-- Editor Area -->
+        <div class="flex-1 bg-obsidian-800/40 flex flex-col font-mono text-sm">
+          <div class="flex border-b border-white/5">
+            <div class="px-4 py-2 border-b-2 border-aura-cyan text-white/90 bg-white/5">App.tsx</div>
           </div>
-          
-          <div class="flex-1 p-4 flex flex-col gap-4 overflow-hidden">
-            <!-- Mensaje Usuario -->
-            <div class="self-end bg-vibe-indigo/20 border border-vibe-indigo/30 rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[85%] text-sm text-slate-200 shadow-sm chat-bubble">
-              ¿Cómo centro un div? Siempre se me olvida 😅
+          <div class="p-6 flex-1 overflow-hidden relative">
+            <!-- Simulated Code -->
+            <div class="text-white/50 leading-relaxed">
+              <span class="text-aura-purple">import</span> { <span class="text-aura-cyan">useState</span>, <span class="text-aura-cyan">useEffect</span> } <span class="text-aura-purple">from</span> <span class="text-green-400/80">'react'</span>;<br/><br/>
+              <span class="text-aura-purple">export default function</span> <span class="text-blue-400/90">VibeApp</span>() {<br/>
+              &nbsp;&nbsp;<span class="text-aura-purple">const</span> [isFlowing, setFlowing] = <span class="text-aura-cyan">useState</span>(<span class="text-orange-400/80">true</span>);<br/><br/>
+              &nbsp;&nbsp;<span class="text-aura-cyan">useEffect</span>(() => {<br/>
+              &nbsp;&nbsp;&nbsp;&nbsp;console.log(<span class="text-green-400/80">'El código se escribe solo.'</span>);<br/>
+              &nbsp;&nbsp;}, []);<br/><br/>
+              &nbsp;&nbsp;<span class="text-aura-purple">return</span> (<br/>
+              &nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="text-blue-400/90">div</span> <span class="text-aura-cyan">className</span>=<span class="text-green-400/80">"min-h-screen bg-obsidian"</span>&gt;<br/>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="text-blue-400/90">h1</span>&gt;Bienvenido a Vibe Studio&lt;/<span class="text-blue-400/90">h1</span>&gt;<br/>
+              &nbsp;&nbsp;&nbsp;&nbsp;&lt;/<span class="text-blue-400/90">div</span>&gt;<br/>
+              &nbsp;&nbsp;);<br/>
+              }
             </div>
             
-            <!-- Mensaje IA 1 -->
-            <div class="self-start bg-slate-800/80 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[90%] text-sm text-slate-300 shadow-sm chat-bubble chat-bubble-delay-1">
-              ¡Claro! En 2026 lo más fácil sigue siendo Flexbox o Grid. Fíjate en el código que acabo de escribir en tu editor a la izquierda.
+            <!-- Code Ghost highlight -->
+            <div class="absolute inset-x-0 top-32 h-20 bg-gradient-to-r from-transparent via-aura-cyan/5 to-transparent"></div>
+          </div>
+        </div>
+
+        <!-- Chat Panel (The AI) -->
+        <div class="w-full md:w-80 bg-obsidian-900/80 border-l border-white/5 flex flex-col backdrop-blur-3xl">
+          <div class="p-4 border-b border-white/5 flex items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-aura-cyan animate-pulse shadow-[0_0_10px_rgba(6,182,212,0.8)]"></div>
+            <span class="font-medium text-sm text-white/90">Vibe AI</span>
+          </div>
+          
+          <div class="flex-1 p-4 overflow-hidden flex flex-col gap-4 justify-end pb-0">
+            <!-- User Message -->
+            <div class="self-end max-w-[85%] bg-white/10 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-white/90">
+              Crea un componente de reproductor de música con un fondo de cristal desenfocado.
             </div>
             
-            <!-- Mensaje IA 2 -->
-            <div class="self-start bg-slate-800/80 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[90%] text-sm text-slate-300 shadow-sm chat-bubble chat-bubble-delay-2">
-              <span class="text-vibe-cyan font-mono text-xs">display: flex;</span> y <span class="text-vibe-cyan font-mono text-xs">align-items: center;</span> hacen la magia. ¿Quieres que lo aplique en el HTML?
+            <!-- AI Message -->
+            <div class="self-start max-w-[90%] bg-gradient-to-br from-aura-purple/20 to-transparent border border-aura-purple/20 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-white/90 shadow-lg shadow-aura-purple/5 relative overflow-hidden">
+              <div class="absolute inset-0 bg-aura-purple/5 animate-pulse"></div>
+              <div class="relative z-10">
+                <p class="mb-2 text-white/80">¡Claro! He generado el componente <code class="bg-black/30 px-1 py-0.5 rounded text-aura-cyan">GlassPlayer.tsx</code>.</p>
+                <div class="flex items-center gap-2 mt-3 pt-3 border-t border-white/10">
+                  <svg class="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  <span class="text-xs text-white/50">Código insertado en el editor</span>
+                </div>
+              </div>
             </div>
           </div>
           
-          <!-- Input Chat Simulado -->
-          <div class="p-4 border-t border-white/5 bg-slate-900/90">
-            <div class="bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 flex items-center justify-between text-slate-500 text-sm">
-              <span>Escribe a la IA...</span>
-              <svg class="w-4 h-4 text-vibe-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+          <!-- Chat Input -->
+          <div class="p-4">
+            <div class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-center justify-between group hover:border-aura-cyan/40 transition-colors">
+              <span class="text-sm text-white/30 font-light">¿Qué quieres construir hoy?</span>
+              <svg class="w-4 h-4 text-white/20 group-hover:text-aura-cyan transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
             </div>
           </div>
         </div>
 
       </div>
+      </div>
     </div>
+    <!-- FEATURES BENTO GRID -->
+    <div id="features" class="mt-40 w-full max-w-6xl animate-fade-in-up opacity-0" style="animation-delay: 0.8s; animation-fill-mode: forwards;">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-semibold tracking-tight mb-4">Arquitectura de <span class="text-aura">vanguardia</span></h2>
+        <p class="text-white/50 text-lg max-w-2xl mx-auto">Vibe Studio no es otro chat. Es un IDE completo impulsado por IA, diseñado para escribir, previsualizar y desplegar sin salir del flujo.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 px-4 text-left">
+        <!-- Feature 1 -->
+        <div class="glass-surface p-8 rounded-3xl border border-white/5 hover:border-aura-cyan/40 transition-colors md:col-span-2 group">
+          <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 border border-white/10 group-hover:bg-aura-cyan/10 group-hover:border-aura-cyan/30 transition-colors">
+            <svg class="w-6 h-6 text-aura-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <h3 class="text-2xl font-medium text-white/90 mb-3">VibeLens Contextual</h3>
+          <p class="text-white/50 leading-relaxed text-sm">
+            La IA sabe exactamente qué archivo estás mirando. No tienes que copiar y pegar código ni explicar el contexto. VibeLens inyecta el estado de tu editor directamente en el LLM para darte respuestas precisas y listas para aplicar.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="glass-surface p-8 rounded-3xl border border-white/5 hover:border-aura-purple/40 transition-colors group relative overflow-hidden">
+          <div class="absolute -right-10 -top-10 w-40 h-40 bg-aura-purple/10 rounded-full blur-3xl group-hover:bg-aura-purple/20 transition-colors"></div>
+          <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 border border-white/10 relative z-10">
+            <svg class="w-6 h-6 text-aura-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+          </div>
+          <h3 class="text-xl font-medium text-white/90 mb-3 relative z-10">Cero Configuración</h3>
+          <p class="text-white/50 leading-relaxed text-sm relative z-10">
+            Renderizado instantáneo con WebContainers. Tu código corre nativamente en el navegador sin instalar Node ni Docker.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="glass-surface p-8 rounded-3xl border border-white/5 hover:border-white/20 transition-colors group">
+          <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 border border-white/10">
+            <svg class="w-6 h-6 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </div>
+          <h3 class="text-xl font-medium text-white/90 mb-3">Exportación Limpia</h3>
+          <p class="text-white/50 leading-relaxed text-sm">
+            Descarga tu proyecto como un archivo ZIP. Nada de lock-in. El código es React + Vite + Tailwind puro, tuyo para siempre.
+          </p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="glass-surface p-8 rounded-3xl border border-white/5 hover:border-aura-blue/40 transition-colors md:col-span-2 group">
+          <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 border border-white/10 group-hover:bg-aura-blue/10 group-hover:border-aura-blue/30 transition-colors">
+            <svg class="w-6 h-6 text-aura-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+          </div>
+          <h3 class="text-2xl font-medium text-white/90 mb-3">Control Total (Próximamente)</h3>
+          <p class="text-white/50 leading-relaxed text-sm">
+            Maneja múltiples archivos, dependencias NPM, y componentes modulares con una interfaz de explorador limpia y profesional. Sin el desorden de un IDE tradicional, pero con toda su potencia.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRICING SECTION -->
+    <div id="pricing" class="mt-40 w-full max-w-7xl animate-fade-in-up mx-auto" style="animation-delay: 0.9s;">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-semibold tracking-tight mb-4">Elige tu <span class="text-aura">Estado de Flujo</span></h2>
+        <p class="text-white/50 text-lg max-w-xl mx-auto">No hay trucos. Paga con Nequi, PSE o Tarjeta cuando estés listo para llevar tu código al siguiente nivel.</p>
+      </div>
+
+      <div class="grid lg:grid-cols-3 gap-8 px-4">
+        <!-- Free Tier -->
+        <div class="glass-surface p-8 rounded-3xl border border-white/5 flex flex-col hover:border-white/10 transition-colors">
+          <div class="text-xl font-medium text-white/90 mb-2">Flujo Básico</div>
+          <div class="text-4xl font-semibold mb-6">$0 <span class="text-lg text-white/40 font-normal">/mes</span></div>
+          <p class="text-white/60 text-sm mb-8 flex-1">Para estudiantes y curiosos que quieren probar el futuro del código.</p>
+          <ul class="space-y-4 mb-8 text-sm text-white/70">
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Hasta 30 prompts mensuales</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Modelos IA estándar</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Despliegue local únicamente</li>
+          </ul>
+          <a href="/app/" class="w-full py-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-center font-medium transition-colors text-white/90">Iniciar Gratis</a>
+        </div>
+
+        <!-- Estudiante Tier -->
+        <div class="glass-surface p-8 rounded-3xl border border-aura-cyan/30 flex flex-col hover:border-aura-cyan/50 transition-colors relative">
+          <div class="text-xl font-medium text-white/90 mb-2">Vibe Estudiante</div>
+          <div class="text-4xl font-semibold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-aura-cyan to-white">$11.900 <span class="text-lg text-white/40 font-normal">COP/mes</span></div>
+          <p class="text-white/60 text-sm mb-8 flex-1">Acceso ilimitado a Opita Architect para programar backend sin preocuparte por los límites.</p>
+          <ul class="space-y-4 mb-8 text-sm text-white/90">
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-aura-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Prompts ilimitados</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-aura-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Orquestación SDD Híbrida (Reasoner/Chat)</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-aura-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Sincronización Cloud</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-aura-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>30 ejecuciones de código diarias</li>
+          </ul>
+          
+          <button onclick="checkoutWompi('VIBE_STUDENT')" class="w-full py-3 rounded-full border border-aura-cyan/30 hover:bg-aura-cyan/10 text-center font-medium transition-colors text-white/90 cursor-pointer">
+            <span class="btn-content font-bold tracking-wide">Plan Estudiante</span>
+          </button>
+        </div>
+
+        <!-- Pro Tier -->
+        <div class="glass-surface p-8 rounded-3xl border border-aura-purple/50 relative flex flex-col transform lg:-translate-y-4 shadow-[0_0_50px_-12px_rgba(168,85,247,0.3)]">
+          <div class="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-aura-cyan to-aura-purple rounded-full text-xs font-semibold text-white tracking-wider uppercase">Más Popular</div>
+          <div class="text-xl font-medium text-white/90 mb-2">Vibe Pro</div>
+          <div class="text-4xl font-semibold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-aura-cyan to-aura-purple">$49.900 <span class="text-lg text-white/40 font-normal">COP/mes</span></div>
+          <p class="text-white/60 text-sm mb-8 flex-1">Potencia bruta. Orquestación Premium de Opita Architect, Subagentes autónomos ilimitados y el IDE completo para profesionales.</p>
+          <ul class="space-y-4 mb-8 text-sm text-white/90">
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-aura-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Prompts ilimitados</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-aura-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Orquestación SDD Premium (Full Reasoner R1)</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-aura-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Subagentes Autónomos (Edición de código)</li>
+            <li class="flex items-center gap-3"><svg class="w-5 h-5 text-aura-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Soporte VIP Prioritario</li>
+          </ul>
+          
+          <!-- Wompi Button -->
+          <button onclick="checkoutWompi('VIBE_PRO')" class="w-full btn-aura py-3 rounded-full text-center font-medium transition-colors text-white/90 cursor-pointer">
+            <span class="btn-content font-bold tracking-wide">Obtener Vibe Pro</span>
+          </button>
+          
+          <p class="text-center text-xs text-white/30 mt-4 flex items-center justify-center gap-2">
+            <svg class="w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8V7a4 4 0 00-8 0v4h8z"/></svg>
+            Pagos seguros procesados por Wompi
+          </p>
+        </div>
+      </div>
+    </div>
+
   </main>
 
-  <!-- Footer -->
-  <footer class="py-8 text-center text-slate-500 text-sm border-t border-white/5 glass-panel mt-auto">
-    <p>&copy; 2026 Opita Code. Todos los derechos reservados. Diseñado para aprender.</p>
+  <script>
+    async function checkoutWompi(product = 'VIBE_PRO') {
+      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const API_URL = isLocalhost ? "http://localhost:3000" : "https://api.opitacode.com";
+      
+      try {
+        const response = await fetch(API_URL + "/auth/me", { credentials: "include" });
+        if (response.ok) {
+          const data = await response.json();
+          var checkoutUrl = "https://cuentas.opitacode.com/checkout.html";
+          var params = "?product=" + product + "&userId=" + encodeURIComponent(data.user.email) + "&redirect=" + encodeURIComponent(window.location.origin + "/app/?payment_success=true");
+          window.location.href = checkoutUrl + params;
+        } else {
+          // Intent-based auth: Redirect to app login and carry the intent
+          window.location.href = "/app/?login=true&intent=checkout&product=" + product;
+        }
+      } catch (e) {
+        console.error("Error al obtener sesión", e);
+        window.location.href = "/app/?login=true&intent=checkout&product=" + product;
+      }
+    }
+  </script>
+
+  <!-- FOOTER -->
+  <footer class="relative z-10 border-t border-white/5 bg-obsidian-900/50 backdrop-blur-lg py-8 px-6 text-center">
+    <div class="flex flex-col md:flex-row items-center justify-center gap-6 text-sm text-white/40">
+      <span class="font-mono">© 2026 Opita Code</span>
+      <span class="hidden md:inline">•</span>
+      <a href="https://opitacode.com/legal/privacidad.html" class="hover:text-white transition-colors">Privacidad</a>
+      <span class="hidden md:inline">•</span>
+      <a href="https://opitacode.com/legal/terminos.html" class="hover:text-white transition-colors">Términos</a>
+    </div>
   </footer>
 
 </body>

@@ -1,0 +1,48 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="112" fill="#09090b"/>
+  
+  <defs>
+    <!-- Fluid Vibe Gradient -->
+    <linearGradient id="fluid-gradient" x1="100" y1="100" x2="412" y2="412" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+
+    <!-- Deep Ambient Glow -->
+    <radialGradient id="ambient-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#09090b" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Ambient Glow Background -->
+  <circle cx="256" cy="256" r="200" fill="url(#ambient-glow)" />
+
+  <!-- The Fluid Drop (Animated) -->
+  <path fill="url(#fluid-gradient)">
+    <!-- A path that resembles a fluid droplet falling and branching slightly into a 'V' -->
+    <animate attributeName="d" 
+             values="
+               M256 120 C180 200 120 280 170 350 C200 390 240 370 256 320 C272 370 312 390 342 350 C392 280 332 200 256 120 Z;
+               M256 130 C190 220 130 290 180 360 C210 400 245 380 256 330 C267 380 302 400 332 360 C382 290 322 220 256 130 Z;
+               M256 120 C180 200 120 280 170 350 C200 390 240 370 256 320 C272 370 312 390 342 350 C392 280 332 200 256 120 Z" 
+             dur="6s" 
+             repeatCount="indefinite" 
+             calcMode="spline" 
+             keySplines="0.4 0 0.2 1; 0.4 0 0.2 1" />
+  </path>
+  
+  <!-- Subtle glass reflection over the drop -->
+  <path fill="#ffffff" opacity="0.15">
+    <animate attributeName="d" 
+             values="
+               M256 120 C180 200 120 280 170 350 C200 390 240 370 256 320 C256 220 280 180 256 120 Z;
+               M256 130 C190 220 130 290 180 360 C210 400 245 380 256 330 C256 230 280 190 256 130 Z;
+               M256 120 C180 200 120 280 170 350 C200 390 240 370 256 320 C256 220 280 180 256 120 Z" 
+             dur="6s" 
+             repeatCount="indefinite" 
+             calcMode="spline" 
+             keySplines="0.4 0 0.2 1; 0.4 0 0.2 1" />
+  </path>
+</svg>
