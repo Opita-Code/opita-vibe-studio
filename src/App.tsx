@@ -107,6 +107,11 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("login") === "true" && authMode === "unauthenticated") {
       setLoginModalOpen(true);
+      
+      // Clear the login param so it doesn't trigger a loop if the user logs out later
+      params.delete("login");
+      const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
+      window.history.replaceState({}, document.title, newUrl);
     }
   }, [detectSession, authMode, setLoginModalOpen]);
 
