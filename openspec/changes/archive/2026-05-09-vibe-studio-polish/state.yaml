@@ -1,0 +1,17 @@
+phase: design+tasks
+status: completed
+change_name: vibe-studio-polish
+started: 2026-05-09
+artifacts:
+  explore:
+    path: openspec/changes/vibe-studio-polish/exploration.md
+    engram_key: sdd/vibe-studio-polish/explore
+  spec:
+    path: openspec/changes/vibe-studio-polish/spec.md
+    engram_key: sdd/vibe-studio-polish/spec
+  design:
+    path: openspec/changes/vibe-studio-polish/design.md
+    engram_key: sdd/vibe-studio-polish/design
+  tasks:
+    path: openspec/changes/vibe-studio-polish/tasks.md
+    engram_key: sdd/vibe-studio-polish/tasks

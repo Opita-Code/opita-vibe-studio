@@ -1,44 +1,42 @@
-# Delta for Live Preview
+# Live Preview Specification
 
-## ADDED Requirements
+## Purpose
 
-### Requirement: Sandboxed Iframe Rendering
+Real-time component preview using Sandpack (CodeSandbox runtime). Renders user-generated React components in an isolated iframe with dark-mode styling.
 
-The live preview pane MUST render the project's entry HTML file inside a sandboxed iframe. The iframe SHALL use `sandbox="allow-scripts"` WITHOUT `allow-same-origin`. A strict Content Security Policy (CSP) MUST block: inline scripts (`script-src 'self'`), network requests to external domains, and filesystem access.
+## Architecture
 
-#### Scenario: Project renders in sandboxed preview
+- **VibeSandpackOverlay**: `src/components/preview/VibeSandpackOverlay.tsx` — Dark cover overlay that hides white flash during Vite initialization. Shows "Show Preview" button until user interacts.
+- **VibeEnginePreview**: `src/components/preview/VibeEnginePreview.tsx` — Sandpack wrapper component
+- **EmptyPreviewState**: `src/components/preview/EmptyPreviewState.tsx` — Shown when no preview target is set
+- **LivePreview**: `src/components/preview/LivePreview.tsx` — Legacy iframe preview
+- **Extension**: `src/extensions/vibe-preview/index.ts` — Registers preview view in EditorSlot
 
-- GIVEN a project has `index.html`, `styles.css`, and `script.js`
-- WHEN the preview pane loads
-- THEN `index.html` renders inside the sandboxed iframe
-- AND linked CSS/JS files are loaded from the local project files
-- AND any `fetch()` call to an external URL is blocked by CSP
+## Requirements
 
-#### Scenario: Sandbox escape attempt is blocked
+### Requirement: Dark Mode Cover
 
-- GIVEN AI-generated code contains `<script>window.parent.document</script>`
-- WHEN the preview renders this code
-- THEN the script runs in the sandboxed context only
-- AND access to the parent window (Tauri WebView) is denied by browser sandbox
+The preview iframe MUST be covered with a dark overlay (`#020617`) during initialization to prevent white flash. The cover is removed when the user clicks "Show Preview" or performs their first code edit.
 
-### Requirement: Reload on Save
+#### Scenario: Initial preview load
 
-The preview iframe MUST reload automatically within 500ms of any project file being saved. A manual reload button SHALL also be available.
+- GIVEN a component is set as preview target
+- WHEN the Sandpack runtime initializes
+- THEN a dark cover hides the iframe
+- AND the cover shows the Vibe Studio logo and "Show Preview" button
 
-#### Scenario: Preview updates after file save
+### Requirement: Empty State
 
-- GIVEN the preview is showing `index.html`
-- WHEN the user edits and saves `styles.css` in the editor
-- THEN the preview iframe reloads and reflects the new styles
-- AND a subtle "Actualizado" indicator flashes momentarily
+When no preview target is set, the preview area shows an empty state with guidance text.
 
-### Requirement: Error Display
+### Requirement: Sandpack Integration
 
-When the previewed HTML/CSS/JS causes a runtime error, the system SHOULD capture the error via `window.onerror` (postMessage bridge) and display it in a non-blocking error bar above the preview. Errors MUST NOT crash the app.
+The preview uses `@codesandbox/sandpack-react` to create a real browser environment. Generated files from the AI pipeline are injected into Sandpack's virtual file system.
 
-#### Scenario: JavaScript error shown in preview
+## Files
 
-- GIVEN the project's `script.js` has a syntax error
-- WHEN the preview loads
-- THEN an error bar appears showing: "Error en script.js línea 5: Unexpected token"
-- AND the preview frame does not crash or go blank
+- `src/components/preview/VibeSandpackOverlay.tsx`
+- `src/components/preview/VibeEnginePreview.tsx`
+- `src/components/preview/EmptyPreviewState.tsx`
+- `src/components/preview/LivePreview.tsx`
+- `src/extensions/vibe-preview/index.ts`

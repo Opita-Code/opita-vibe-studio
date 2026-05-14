@@ -1,45 +1,56 @@
-# Delta for BYOK Configuration
+# BYOK Configuration Specification
 
-## ADDED Requirements
+## Purpose
 
-### Requirement: Provider Key Management
+Bring Your Own Key (BYOK) system allowing users to connect their own AI provider API keys. Configured providers bypass Opita's prompt limits.
 
-The system MUST allow users to add, view, and remove API keys for supported BYOK providers: OpenAI, Anthropic, OpenRouter, and custom endpoint. Keys SHALL be stored encrypted via the Tauri store plugin (platform secure storage). Keys MUST NEVER be displayed in plaintext after initial entry; only masked versions (e.g., `sk-...a1b2`).
+## Architecture
 
-#### Scenario: User adds an OpenAI key
+- **ByokPanel**: `src/components/settings/ByokPanel.tsx` — Grid of provider cards with expand/configure flow
+- **Store**: `src/lib/byok-store.ts` — localStorage-based key storage (`vibe-byok-{provider}`)
+- **Registry**: `src/providers/registry.ts` — Provider metadata and model lists
 
-- GIVEN the BYOK settings panel is open
-- WHEN the user enters `sk-proj-abc123...` and clicks "Guardar"
-- THEN the key is validated by making a lightweight API call (list models)
-- AND on success, the key is encrypted and stored
-- AND the UI shows "OpenAI ✅ Conectada" with the masked key `sk-proj-a...c123`
-- AND on validation failure, the UI shows "❌ API key inválida"
+## Requirements
 
-#### Scenario: User removes a provider key
+### Requirement: Supported Providers
 
-- GIVEN OpenAI is configured with a valid key
-- WHEN the user clicks "Eliminar" on the OpenAI entry and confirms
-- THEN the key is deleted from secure storage
-- AND the provider status changes to "No configurado"
+The system MUST support the following AI providers via BYOK:
 
-### Requirement: Provider Status Display
+| Provider | Key prefix | Models |
+|----------|-----------|--------|
+| DeepSeek | `sk-` | deepseek-coder, deepseek-chat |
+| Anthropic | `sk-ant-` | claude-3.5-sonnet, claude-3-haiku |
+| Groq | `gsk_` | llama-3.1-70b, mixtral-8x7b |
+| Mistral | N/A | mistral-large, mistral-medium |
+| Cohere | N/A | command-r-plus |
+| Together | N/A | meta-llama/Llama-3-70b |
+| Perplexity | `pplx-` | llama-3.1-sonar-large |
 
-The BYOK settings panel SHALL display each provider's status: "No configurado", "✅ Conectada", "❌ Error: [reason]", or "⏳ Verificando...". Status MUST update after key validation.
+### Requirement: Key Management
 
-#### Scenario: Provider shows error after key expires
+API keys are stored in localStorage as JSON objects: `{ key, createdAt, updatedAt }`. The key `vibe-byok-configured` tracks which providers have been set up as a JSON array.
 
-- GIVEN a previously valid Anthropic key was stored
-- WHEN the system detects a 401 Unauthorized on the next request
-- THEN the provider status updates to "❌ Error: API key expirada"
-- AND a notification suggests the user update their key
+#### Scenario: Connect a provider
 
-### Requirement: Custom Endpoint Configuration
+- GIVEN user opens Settings → Conexiones IA
+- WHEN user clicks on an unconfigured provider card
+- THEN the card expands to show an API key input (`type="password"`)
+- AND a "Conectar Proveedor" button appears (disabled until key is entered)
+- AND entering a key enables the button
 
-The system MUST support adding a custom OpenAI-compatible endpoint with: endpoint URL, API key, optional model list override. The custom endpoint SHALL be listed alongside built-in providers in the BYOK panel.
+#### Scenario: Provider already configured
 
-#### Scenario: Custom endpoint configured
+- GIVEN a provider key exists in localStorage
+- WHEN the BYOK panel renders
+- THEN the provider card shows a "connected" status indicator
 
-- GIVEN the user enters `https://my-llm.example.com/v1` and a key
-- WHEN validation succeeds
-- THEN the endpoint appears as "Custom (my-llm.example.com)" in the model selector
-- AND models are fetched from `GET /v1/models` or the manual override list
+### Requirement: Active Provider Selection
+
+The active provider and model are stored in `src/stores/chat.ts` as `activeProvider` and `activeModelId`. These can be persisted via `vibe-chat-storage` in localStorage.
+
+## Files
+
+- `src/components/settings/ByokPanel.tsx`
+- `src/lib/byok-store.ts`
+- `src/providers/registry.ts`
+- `src/stores/chat.ts` — `activeProvider`, `activeModelId`

@@ -1,42 +1,31 @@
-# Delta for Terminal
+# Terminal Specification
 
-## ADDED Requirements
+## Purpose
 
-### Requirement: Spanish-Translated Command Output
+Integrated terminal panel for executing commands. Togglable via `Ctrl+J` or the MobileNavBar "Terminal" tab.
 
-The terminal MUST capture shell command output (stdout + stderr) and translate common technical messages to Spanish. Translations SHALL cover: file not found, permission denied, command not found, and standard npm/git status messages. Untranslated output passes through unchanged.
+## Architecture
 
-#### Scenario: Command error translated to Spanish
+- **TerminalPanel**: `src/components/terminal/TerminalPanel.tsx` — Terminal UI with output display
+- **State**: `terminalVisible` in `src/stores/ui.ts`
+- **MCP Bridge**: `src/services/mcpClient.ts` — Routes commands to Tauri backend for local execution
 
-- GIVEN the user runs `node script.js` and the file doesn't exist
-- WHEN the shell returns "Error: Cannot find module './script.js'"
-- THEN the terminal displays "Error: No se encuentra el módulo './script.js'"
-- AND the original English error is available on hover/tooltip
+## Requirements
 
-#### Scenario: Successful git status translated
+### Requirement: Toggle Terminal
 
-- GIVEN the user runs `git status` and there are modified files
-- WHEN git outputs "modified: index.html"
-- THEN the terminal shows "modificado: index.html"
+The terminal panel toggles via `Ctrl+J` keyboard shortcut or the "Terminal" button in MobileNavBar. When visible, it appears at the bottom of the editor area.
 
-### Requirement: Preset Commands
+### Requirement: Command Execution
 
-The terminal MUST offer a dropdown of preset commands for common operations: `git status`, `git init`, `npm init`, `npm install`, `npm run dev`. Selecting a preset SHALL auto-fill the command input. Dangerous commands (`rm -rf`, `git push --force`) MUST trigger a confirmation dialog.
+In Tauri mode, commands are executed via the MCP bridge (`handleMcpToolRequest`). In web mode, terminal functionality is limited to display only.
 
-#### Scenario: Preset fills command input
+### Requirement: Spanish Output
 
-- GIVEN the terminal is open
-- WHEN the user selects "git status" from the preset dropdown
-- THEN "git status" populates the command input
-- AND the user can edit before pressing Enter
+Terminal status messages and labels are in Spanish (e.g., "Terminal", "Ejecutando...").
 
-### Requirement: Command Execution via Shell Plugin
+## Files
 
-Commands MUST execute through `@tauri-apps/plugin-shell` with a 30-second timeout. The terminal SHALL show a spinner during execution and display exit codes. The shell context (working directory) MUST be bound to the open project folder.
-
-#### Scenario: Long-running command times out
-
-- GIVEN a command exceeds 30 seconds
-- WHEN the timeout fires
-- THEN the process is killed
-- AND the terminal displays "⏱️ Comando cancelado: excedió 30 segundos"
+- `src/components/terminal/TerminalPanel.tsx`
+- `src/stores/ui.ts` — `terminalVisible`, `setTerminalVisible`
+- `src/services/mcpClient.ts`

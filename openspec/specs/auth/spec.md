@@ -1,73 +1,89 @@
-# Delta for Auth
+# Auth Specification
 
-## ADDED Requirements
+## Purpose
 
-### Requirement: Opita Code SSO Login
+Authentication for Vibe Studio using AWS SES Magic Links with custom JWT tokens. No login gate — the app opens to an OnboardingFlow for first-time guests, then operates in guest or authenticated mode.
 
-The system MUST authenticate users via Opita Code SSO (OAuth 2.0/OIDC). Login SHALL support email/password and Google OAuth. The auth flow MUST open in the system browser (not embedded WebView) for security, with a local callback server to receive the token.
+## Architecture
 
-#### Scenario: User logs in with email/password
+- **Backend**: AWS Lambda (`CoreAPI`) at `api.opitacode.com`
+- **Token**: Custom HMAC-signed JWT stored via `httpOnly` cookie (`opita_session`)
+- **Email delivery**: AWS SES sends magic link to user's email
+- **Frontend**: `src/auth/sso.ts` — `initiateSSO()` and `restoreSession()`
+- **Store**: `src/stores/auth.ts` — Zustand store with `AuthMode`, `UserProfile`, `Session`
 
-- GIVEN the app is not authenticated
-- WHEN the user clicks "Iniciar sesión" and completes the SSO flow in the browser
-- THEN the app receives an access token + refresh token
-- AND the session is stored in SQLite via `tauri-plugin-sql`
-- AND the user is redirected to the main app interface
+## Requirements
 
-#### Scenario: Session persists across app restarts
+### Requirement: Magic Link Authentication
 
-- GIVEN a user logged in during a previous session
-- WHEN the app starts
-- THEN SQLite is queried for existing session tokens
-- AND if the access token is still valid, the user is automatically authenticated
-- AND if expired, the refresh token is used to obtain a new access token silently
+The system MUST authenticate users via AWS SES magic links. The user enters their email, receives a link, and clicking the link sets a JWT cookie that the frontend reads via `/auth/me`.
 
-### Requirement: Student Verification
+#### Scenario: User requests magic link
 
-During registration via SSO, the system SHALL verify student status by checking for a `.edu` email domain. Non-student accounts MAY use a standard email. The `Estudiante` plan MUST require verified student status.
+- GIVEN the app is in guest mode
+- WHEN the user enters their email and clicks "Enviar enlace mágico"
+- THEN `POST /auth/request` is called with `{ email, redirectTo }`
+- AND AWS SES sends an email with a magic link
+- AND the UI shows a success message "Revisa tu correo"
 
-#### Scenario: Student registers with .edu email
+#### Scenario: User completes magic link flow
 
-- GIVEN a user signs up with `nombre@unal.edu.co`
-- WHEN the SSO registration completes
-- THEN the account is automatically tagged as `student: true`
-- AND the Estudiante plan becomes available
+- GIVEN the user clicked the magic link from their email
+- WHEN the redirect lands on the frontend with a token parameter
+- THEN the backend sets an `httpOnly` cookie `opita_session`
+- AND the frontend calls `GET /auth/me` to verify the session
+- AND if valid, `authMode` transitions to `"authenticated"`
 
-### Requirement: Login Screen Brand Presence
+### Requirement: Silent Session Detection
 
-The login screen MUST render the Vibe Studio brand symbol and product name. The legacy "OV" text placeholder SHALL NOT appear. Brand colors on the login screen MUST use CSS custom properties from the brand system.
+On app mount, `detectSession()` calls `GET /auth/me` with `credentials: "include"`. If a valid JWT cookie exists, the user is silently authenticated. If not, the app stays in guest mode.
 
-#### Scenario: Brand symbol renders on login screen
+#### Scenario: Session restored on mount
 
-- GIVEN the app is not authenticated
-- WHEN the login screen renders
-- THEN the 4-module Vibe Studio viseme symbol SVG is displayed
-- AND the "OV" text placeholder is NOT present
-- AND the product name heading displays "Vibe Studio"
+- GIVEN a valid `opita_session` cookie exists
+- WHEN the app mounts and `detectSession()` runs
+- THEN `GET /auth/me` returns `{ user: { email, plan } }`
+- AND `authMode` is set to `"authenticated"`
+- AND `hasCompletedOnboarding` is set to `true`
 
-#### Scenario: Login interactive elements use brand colors
+#### Scenario: No session — guest mode
 
-- GIVEN the login screen is rendered
-- WHEN interactive elements (buttons, links) are visible
-- THEN the primary button uses branding indigo (`var(--vibe-indigo)` or `#4f46e5`)
-- AND link text uses brand indigo, NOT `#818cf8`
-- AND hover states use a darker indigo, NOT `#4338ca`
+- GIVEN no `opita_session` cookie exists
+- WHEN `detectSession()` runs
+- THEN `GET /auth/me` returns 401
+- AND `authMode` stays `"unauthenticated"`
+- AND `sessionDetected` is set to `true` (stops loading spinner)
 
-#### Scenario: Login screen preserves existing tagline
+### Requirement: Login Screen as Modal
 
-- GIVEN the login screen renders with new branding
-- WHEN the tagline is displayed
-- THEN it still shows "Vibecodea en español. Aprende sin darte cuenta."
-- AND the tagline text is unchanged from the pre-branding version
+The LoginScreen renders as a modal overlay, NOT a startup gate. It is triggered from the OnboardingFlow or the ActivityBar login button. Brand presence (Vibe Studio logo + tagline) MUST be preserved.
 
-### Requirement: Logout and Session Cleanup
+#### Scenario: Login modal from onboarding
 
-The system MUST clear local session data on logout: delete tokens from SQLite, clear Zustand auth store, and return to the login screen. A logout button SHALL be accessible from the user menu.
+- GIVEN the OnboardingFlow is visible
+- WHEN user clicks "Iniciar sesión"
+- THEN LoginScreen renders as a modal over the OnboardingFlow
+- AND the user can close it to return to onboarding
 
-#### Scenario: Logout clears all session data
+### Requirement: Logout Returns to Guest Mode
 
-- GIVEN a user is authenticated
-- WHEN the user clicks "Cerrar sesión"
-- THEN access/refresh tokens are deleted from SQLite
-- AND the auth Zustand store resets to unauthenticated
-- AND the UI shows the login screen
+On logout, the frontend clears the JWT cookie and transitions to guest mode. The app MUST NOT navigate to a login screen.
+
+#### Scenario: Logout flow
+
+- GIVEN authenticated user
+- WHEN logout is triggered from the ActivityBar avatar
+- THEN `authMode` transitions to `"unauthenticated"`
+- AND the main UI remains accessible with guest-tier limits
+
+### Requirement: User Plans
+
+The system supports three plans: `free`, `estudiante`, `pro`. The plan is returned from `/auth/me` and stored in `authStore.plan`. Plan-specific behavior is enforced in the frontend (prompt limits, model access, subagent toggle).
+
+## Files
+
+- `src/auth/sso.ts` — `initiateSSO()`, `restoreSession()`
+- `src/stores/auth.ts` — AuthStore (user, session, plan, tokenUsage)
+- `src/components/auth/LoginScreen.tsx` — Magic link login modal
+- `src/components/auth/OnboardingFlow.tsx` — First-time guest flow
+- `packages/vibe-ai-backend/src/api/core.handler` — `/auth/request`, `/auth/me`, `/auth/verify`

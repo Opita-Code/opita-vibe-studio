@@ -1,0 +1,4 @@
+- [x] Inject UI navigation instructions into `streamFromProvider`.
+- [x] Create regex parsing loop in `sendMessage` of `ChatPanel.tsx`.
+- [x] Link `<vibe-action>` outputs to zustand stores (`useProjectStore`, `useUIStore`).
+- [x] Hide `<vibe-action>` tags from final user message strings.

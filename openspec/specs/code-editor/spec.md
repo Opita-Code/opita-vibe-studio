@@ -1,49 +1,43 @@
-# Delta for Code Editor
+# Code Editor Specification
 
-## ADDED Requirements
+## Purpose
 
-### Requirement: Monaco Editor Integration
+Monaco-based code editor with tabbed file management, syntax highlighting, and AI-aware toolbar.
 
-The editor pane MUST embed Monaco Editor (`@monaco-editor/react`) with lazy-loading. Syntax highlighting SHALL activate automatically based on file extension (.html, .css, .js). The editor MUST support undo/redo, find/replace, and line numbers.
+## Architecture
 
-#### Scenario: Editor opens an HTML file
+- **EditorPanel**: `src/components/layout/EditorPanel.tsx` — Main editor container with Monaco
+- **ViewTabs**: `src/components/layout/ViewTabs.tsx` — Top-level view tabs (Editor, Preview, Split)
+- **FileTabs**: `src/components/editor/FileTabs.tsx` — Open file tabs with close buttons
+- **EditorToolbar**: `src/components/editor/EditorToolbar.tsx` — Quick actions (Explain, Optimize, Fix, Tests)
+- **MonacoEditor**: `src/components/editor/MonacoEditor.tsx` — Monaco wrapper component
+- **FileWatcher**: `src/components/editor/FileWatcher.tsx` — Watches file changes for live reload
+- **Store**: `src/stores/project.ts` — Open files, active tab, file contents
 
-- GIVEN a project with `index.html` in the file tree
-- WHEN the user clicks `index.html`
-- THEN Monaco loads and displays the file content with HTML syntax highlighting
-- AND line numbers appear in the gutter
+## Requirements
+
+### Requirement: Monaco Integration
+
+The editor uses Monaco Editor for code editing with syntax highlighting, IntelliSense, and multi-file support.
 
 ### Requirement: File Tabs
 
-The editor MUST display open files as tabs above the editor area. Tabs SHALL show the filename and a close button. Unsaved files MUST show a dot indicator.
+Open files appear as tabs above the editor. Each tab shows the filename, and can be closed with the X button. The active tab is highlighted.
 
-#### Scenario: Multiple files open with unsaved indicator
+### Requirement: View Tabs
 
-- GIVEN `index.html` is open with unsaved changes
-- WHEN the user opens `styles.css`
-- THEN both files appear as tabs: `styles.css` (active), `index.html` (with dot indicator)
-- AND clicking `index.html` switches to that file
-- AND closing the tab prompts save if unsaved
+ViewTabs provide top-level navigation between Editor, Preview, and Split views.
 
-### Requirement: File Save
+### Requirement: AI Quick Actions
 
-The editor MUST support save via Ctrl+S. The system SHALL write file contents to disk via Tauri fs plugin IPC. Save status MUST display briefly ("Guardado") on success.
+The EditorToolbar shows contextual AI actions for the active file: Explicar, Optimizar, Fix, Tests. These inject the active file's content into the chat context.
 
-#### Scenario: Save modified file
+## Files
 
-- GIVEN a file has unsaved changes
-- WHEN the user presses Ctrl+S
-- THEN the file content is written to the project folder via IPC
-- AND the unsaved indicator is removed from the tab
-- AND a brief "Guardado" toast appears
-
-### Requirement: AI-Generated Code Insertion
-
-When the AI generates code blocks, the system SHALL offer an "Aplicar" button per code block. Clicking it MUST create or update the corresponding file in the project and open it in the editor.
-
-#### Scenario: Apply AI-generated HTML
-
-- GIVEN the AI responds with ` ```html ... ``` ` containing a complete HTML file
-- WHEN the user clicks "Aplicar" on the code block
-- THEN `index.html` is created/overwritten in the project folder
-- AND the file opens in the editor with the new content
+- `src/components/layout/EditorPanel.tsx`
+- `src/components/layout/ViewTabs.tsx`
+- `src/components/editor/FileTabs.tsx`
+- `src/components/editor/EditorToolbar.tsx`
+- `src/components/editor/MonacoEditor.tsx`
+- `src/components/editor/FileWatcher.tsx`
+- `src/stores/project.ts`

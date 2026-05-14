@@ -1,56 +1,72 @@
-# Delta for Desktop Shell
+# Desktop Shell Specification
 
-## ADDED Requirements
+## Summary
 
-### Requirement: App Window Management
+Tauri v2 desktop shell with a micro-kernel extension architecture. The shell uses a CoreHost to register extensions (views, commands) at boot, rendering them into layout slots (SidebarSlot, EditorSlot, StatusbarSlot).
 
-The Tauri v2 desktop shell MUST provide a main application window with configurable title, minimum size (1024×680), and close-to-tray behavior. The system SHALL support window minimize, maximize, restore, and close operations via native OS controls.
+## Architecture
 
-#### Scenario: App launches and shows main window
+### Extension System
 
-- GIVEN the app is installed on Windows 10/11
-- WHEN the user launches the executable
-- THEN a main window opens with dimensions 1280×800 (default)
-- AND the window title displays "Vibe Studio"
+- **CoreHost**: `src/core/CoreHost.ts` — Boots extensions, provides `ExtensionContext` with `views.registerView()` and `commands.registerCommand()`
+- **coreStore**: `src/core/state/coreStore.ts` — Zustand store holding registered views and commands
+- **Extensions**: `src/extensions/` — Self-registering modules:
+  - `vibe-ai` — Registers ChatPanel as sidebar view (lazy-loaded)
+  - `vibe-preview` — Registers preview as editor view
+  - `vibe-viewtabs` — Registers ViewTabs as editor chrome
 
-#### Scenario: Close button minimizes to tray
+### Layout Slots
 
-- GIVEN the main window is open
-- WHEN the user clicks the close button (X)
-- THEN the window hides to the system tray
-- AND the app process continues running
-- AND clicking the tray icon restores the window
+- **SidebarSlot**: `src/renderer/layouts/SidebarSlot.tsx` — Renders views with `target: "sidebar"`, sorted by `order`
+- **EditorSlot**: `src/renderer/layouts/EditorSlot.tsx` — Renders editor-target views
+- **StatusbarSlot**: `src/renderer/layouts/StatusbarSlot.tsx` — Renders statusbar-target views
 
-### Requirement: System Tray Integration
+### Desktop-Specific Features
 
-The app MUST register a system tray icon with a context menu containing at minimum: "Abrir Vibe Studio", "Cerrar". The tray SHALL be visible on app startup and persist until explicit quit.
+- **TitleBar**: `src/components/layout/TitleBar.tsx` — Custom window title bar with traffic lights
+- **Window management**: Single instance enforcement, custom window controls
+- **Native FS**: Tauri IPC commands for file system access (`src-tauri/src/commands/fs.rs`)
+- **MCP Bridge**: `src/services/mcpClient.ts` — Rust-React bridge for local terminal commands
 
-#### Scenario: Tray menu shows options
+## Requirements
 
-- GIVEN the app is running
-- WHEN the user right-clicks the tray icon
-- THEN a context menu appears with "Abrir Vibe Studio" and "Cerrar"
-- AND selecting "Abrir" restores the main window if hidden
-- AND selecting "Cerrar" terminates the app process completely
+### Requirement: Extension Registration
 
-### Requirement: Single Instance Enforcement
+All UI panels MUST be registered as extensions via `CoreHost.boot()`. Hardcoded panel rendering is legacy and being migrated to slot-based architecture.
 
-The app MUST enforce a single running instance. If a second instance is launched, the existing instance SHALL be focused and the second instance SHALL exit immediately.
+#### Scenario: Chat panel registration
 
-#### Scenario: Duplicate launch focuses existing
+- GIVEN the `vibe-ai` extension is loaded
+- WHEN `CoreHost.boot()` runs
+- THEN `registerView({ id: 'vibe.view.chat', target: 'sidebar', component: ChatPanelLazy })` is called
+- AND the ChatPanel becomes available in SidebarSlot when `activeSidebar === "chat"`
 
-- GIVEN the app is already running
-- WHEN a second instance is launched
-- THEN the existing window is restored and focused
-- AND the second instance exits with zero delay
+### Requirement: Platform Detection
 
-### Requirement: Auto-Update Support
+The app detects Tauri vs browser at runtime via `src/lib/platform.ts`. Desktop-specific features (TitleBar, native FS, MCP) are only enabled in Tauri context.
 
-The app SHALL integrate `tauri-plugin-updater` to check for, download, and apply updates. Update checks MUST run silently on app start and MAY notify the user when an update is available.
+### Requirement: ActivityBar Navigation
 
-#### Scenario: Update available notification
+The ActivityBar (`src/components/layout/ActivityBar.tsx`) provides primary navigation:
+- Explorer (`Ctrl+B`) — toggles ExplorerDock
+- Search (`Ctrl+Shift+F`) — toggles search sidebar
+- Vibe AI Chat (`Ctrl+L`) — toggles chat sidebar
+- Bug Report — opens BugReportModal
+- Settings (`Ctrl+,`) — opens SettingsPanel
+- Landing link (guests only) — external link to vibe.opitacode.com
+- User avatar (authenticated) — shows initial, click to logout
 
-- GIVEN a newer version exists on the update server
-- WHEN the app starts and completes the update check
-- THEN a non-blocking notification informs the user an update is available
-- AND the user MAY choose to install immediately or defer
+## Files
+
+- `src/core/CoreHost.ts`
+- `src/core/state/coreStore.ts`
+- `src/core/types.ts`
+- `src/extensions/vibe-ai/index.ts`
+- `src/extensions/vibe-preview/index.ts`
+- `src/extensions/vibe-viewtabs/index.ts`
+- `src/renderer/layouts/SidebarSlot.tsx`
+- `src/renderer/layouts/EditorSlot.tsx`
+- `src/renderer/layouts/StatusbarSlot.tsx`
+- `src/components/layout/ActivityBar.tsx`
+- `src/components/layout/TitleBar.tsx`
+- `src/lib/platform.ts`

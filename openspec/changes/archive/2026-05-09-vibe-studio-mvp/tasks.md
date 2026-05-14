@@ -128,8 +128,8 @@ Chain strategy: stacked-to-main
 
 ## Phase 11: Polish + Verification
 
-- [ ] 11.1 E2E vibe-coding loop: mock AI response → files on disk → preview renders
-- [ ] 11.2 Security audit: sandbox escapes (filesystem, network, eval, infinite loops)
-- [ ] 11.3 Boot perf: cold start <3s, warm <1.5s, verify load budget
-- [ ] 11.4 Edge cases: empty project, offline mode, corrupted SQLite, rapid file changes
-- [ ] 11.5 Quality gates: lint, format, typecheck, all tests pass
+- [x] 11.1 E2E vibe-coding loop: mock AI response → files on disk → preview renders
+- [x] 11.2 Security audit: sandbox escapes (filesystem, network, eval, infinite loops)
+- [x] 11.3 Boot perf: cold start <3s, warm <1.5s, verify load budget
+- [x] 11.4 Edge cases: empty project, offline mode, corrupted SQLite, rapid file changes
+- [x] 11.5 Quality gates: lint, format, typecheck, all tests pass

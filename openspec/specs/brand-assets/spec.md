@@ -49,3 +49,8 @@ The project MUST contain brand CSS custom properties at `src/assets/brand.css`. 
 - WHEN the app renders in the browser
 - THEN `var(--vibe-indigo)` computes to `#4f46e5`
 - AND `var(--vibe-black)` computes to `#0b0b0c`
+
+
+## Vibe Studio Override
+
+Typography changed to Outfit/Inter for UI, JetBrains Mono for code.

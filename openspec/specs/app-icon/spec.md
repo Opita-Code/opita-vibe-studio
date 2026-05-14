@@ -44,3 +44,8 @@ All icons MUST use the dark variant (indigo symbol on dark background). Light-va
 - WHEN the app shortcut icon is displayed
 - THEN the icon is clearly visible with sufficient contrast
 - AND the symbol is recognizable, not washed out
+
+
+## Vibe Studio Override
+
+New Vibe Studio icon: glowing 'V' with soundwaves/brackets.
