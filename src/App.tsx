@@ -1,108 +1,181 @@
-import { useCallback, useEffect, useState } from "react";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { EditorPanel } from "@/components/layout/EditorPanel";
-import { ChatPanel } from "@/components/layout/ChatPanel";
-import { ResizeHandle } from "@/components/layout/ResizeHandle";
+import { useState, useEffect, Suspense } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { StatusBar } from "@/components/layout/StatusBar";
+import { ActionBar } from "@/components/layout/ActionBar";
 import { LoginScreen } from "@/components/auth/LoginScreen";
+import { OnboardingFlow } from "@/components/auth/OnboardingFlow";
+import { SettingsPanel } from "@/components/settings/SettingsPanel";
+import { MobileNavBar } from "@/components/layout/MobileNavBar";
+import { BugReportModal } from "@/components/layout/BugReportModal";
 import { FileWatcher } from "@/components/editor/FileWatcher";
-import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
-import { restoreSession } from "@/auth/sso";
+import { useKeybindings } from "@/lib/useKeybindings";
+import { LegacyLogicManager } from "./renderer/LegacyLogicManager";
+import { SidebarSlot } from "./renderer/layouts/SidebarSlot";
+import { EditorSlot } from "./renderer/layouts/EditorSlot";
+import { StatusbarSlot } from "./renderer/layouts/StatusbarSlot";
+import { useUIStore } from "@/stores/ui";
+import { ResizeHandle } from "@/components/layout/ResizeHandle";
+import { ActivityBar } from "@/components/layout/ActivityBar";
+import { ExplorerDock } from "@/components/layout/ExplorerDock";
+import { ChatHistoryPanel } from "@/components/chat/ChatHistoryPanel";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 
-function App() {
-  const sidebarWidth = useUIStore((s) => s.sidebarWidth);
-  const chatVisible = useUIStore((s) => s.chatVisible);
-  const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
-  const toggleChat = useUIStore((s) => s.toggleChat);
+function GlobalKeybindings() {
+  useKeybindings();
+  return null;
+}
 
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const login = useAuthStore((s) => s.login);
-  const setLoading = useAuthStore((s) => s.setLoading);
+/**
+ * Dumb Workspace that relies on Core Slots instead of hardcoded panels.
+ */
+function Workspace() {
+  const activeSidebar = useUIStore((s) => s.activeSidebar);
+  const chatPosition = useUIStore((s) => s.chatPosition);
+  const chatWidth = useUIStore((s) => s.chatWidth);
+  const setChatWidth = useUIStore((s) => s.setChatWidth);
+  const chatHistoryVisible = useUIStore((s) => s.chatHistoryVisible);
 
-  const [sessionRestored, setSessionRestored] = useState(false);
-
-  // ── Restaurar sesión al iniciar ──────────────────────────
-  useEffect(() => {
-    async function tryRestore() {
-      setLoading(true);
-      try {
-        const result = await restoreSession();
-        if (result) {
-          login(result.user, result.session);
-        }
-      } catch {
-        // No hay sesión guardada — mostrar login
-      } finally {
-        setLoading(false);
-        setSessionRestored(true);
-      }
-    }
-    tryRestore();
-  }, [login, setLoading]);
-
-  // ── Ctrl+B: toggle chat panel ───────────────────────────
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === "b") {
-        e.preventDefault();
-        toggleChat();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleChat]);
-
-  // ── Resize handlers ─────────────────────────────────────
-  const handleSidebarResize = useCallback(
-    (delta: number) => {
-      setSidebarWidth(sidebarWidth + delta);
-    },
-    [sidebarWidth, setSidebarWidth],
-  );
-
-  // ── Loading state ───────────────────────────────────────
-  if (!sessionRestored) {
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-[#1e1e1e]">
-        <div className="flex flex-col items-center gap-3">
-          <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[var(--vibe-indigo)] border-t-transparent" />
-          <span className="text-sm text-[#969696]">Cargando...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Login screen (no autenticado) ───────────────────────
-  if (!isAuthenticated) {
-    return <LoginScreen />;
-  }
-
-  // ── Layout principal ────────────────────────────────────
   return (
-    <div className="flex h-full w-full flex-col bg-[#1e1e1e] text-[#d4d4d4]">
-      {/* Watcher de archivos del proyecto (invisible) */}
-      <FileWatcher />
+    <div className="flex flex-1 overflow-hidden relative w-full h-full pb-16 md:pb-0">
+      {/* 1. Barra de actividad (Izquierda) */}
+      <ActivityBar onLogin={() => setLoginModalOpen(true)} />
 
-      {/* Panel principal: sidebar | editor | chat */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar izquierdo — explorador de archivos */}
-        <Sidebar width={sidebarWidth} />
+      {/* 2. Primary Sidebar (Izquierda) */}
+      <ExplorerDock />
+      <AnimatePresence>
+        {activeSidebar === "chat" && chatHistoryVisible && (
+          <motion.div
+            initial={{ opacity: 0, width: 0, marginLeft: -10 }}
+            animate={{ opacity: 1, width: "auto", marginLeft: 0 }}
+            exit={{ opacity: 0, width: 0, marginLeft: -10 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="flex-shrink-0 z-40 overflow-hidden"
+          >
+            <ChatHistoryPanel />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Si el chat está a la izquierda, renderizamos SidebarSlot aquí */}
+      {activeSidebar === "chat" && chatPosition === "left" && (
+        <>
+          <div className="flex-shrink-0 z-10" style={{ width: chatWidth }}>
+            <SidebarSlot />
+          </div>
+          <ResizeHandle onResize={(delta) => setChatWidth(chatWidth + delta)} />
+        </>
+      )}
 
-        {/* Handle de redimensionamiento del sidebar */}
-        <ResizeHandle onResize={handleSidebarResize} />
+      {/* 3. Área del Editor (Centro) */}
+      <EditorSlot />
 
-        {/* Centro — editor + vista previa */}
-        <EditorPanel />
-
-        {/* Chat lateral derecho (toggleable) */}
-        {chatVisible && <ChatPanel width={320} />}
-      </div>
-
-      {/* Barra de estado inferior */}
-      <StatusBar />
+      {/* Si el chat está a la derecha, renderizamos SidebarSlot aquí */}
+      {activeSidebar === "chat" && chatPosition === "right" && (
+        <>
+          <ResizeHandle onResize={(delta) => setChatWidth(chatWidth - delta)} />
+          <div className="flex-shrink-0 z-10" style={{ width: chatWidth }}>
+            <SidebarSlot />
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-export default App;
+// Global modal state (hacky for now due to lifting it outside App scope to pass to ActivityBar)
+let setLoginModalOpen: (open: boolean) => void = () => {};
+
+export default function App() {
+  const authMode = useAuthStore((s) => s.authMode);
+  const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);
+  const sessionDetected = useAuthStore((s) => s.sessionDetected);
+  const detectSession = useAuthStore((s) => s.detectSession);
+  const [loginModalOpenState, setLoginModalOpenState] = useState(false);
+  setLoginModalOpen = setLoginModalOpenState;
+
+  useEffect(() => {
+    detectSession();
+    
+    // Auto-open login modal if requested via URL intent
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("login") === "true" && authMode === "unauthenticated") {
+      setLoginModalOpenState(true);
+    }
+  }, [detectSession, authMode]);
+
+  if (!sessionDetected) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-obsidian-900">
+        <div className="w-8 h-8 rounded-full border-2 border-aura-cyan border-t-transparent animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!hasCompletedOnboarding && authMode === "unauthenticated") {
+    return (
+      <div className="flex flex-col h-full w-full">
+        <div className="flex-1 relative">
+          <OnboardingFlow 
+            onEnterGuest={() => useAuthStore.getState().completeOnboarding()}
+            onLogin={() => setLoginModalOpen(true)} 
+          />
+        </div>
+        {loginModalOpenState && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
+            <LoginScreen 
+              onClose={() => setLoginModalOpen(false)} 
+              onAuthenticated={() => {
+                useAuthStore.getState().completeOnboarding();
+                setLoginModalOpen(false);
+              }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Suspense fallback={
+      <div className="flex h-full w-full items-center justify-center bg-obsidian-900">
+        <div className="w-8 h-8 rounded-full border-2 border-aura-cyan border-t-transparent animate-spin"></div>
+      </div>
+    }>
+      <GlobalKeybindings />
+      <LegacyLogicManager />
+      <CommandPalette />
+      
+      <div className="flex h-full w-full flex-col text-slate-200 bg-obsidian-900">
+        <FileWatcher />
+        <ActionBar />
+
+        <div className="flex flex-1 overflow-hidden relative w-full h-full">
+          <Workspace />
+        </div>
+
+        {loginModalOpenState && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <LoginScreen 
+              onClose={() => setLoginModalOpen(false)} 
+              onAuthenticated={() => {
+                useAuthStore.getState().completeOnboarding();
+                setLoginModalOpen(false);
+              }}
+            />
+          </div>
+        )}
+
+        <SettingsPanel />
+        <BugReportModal />
+        <MobileNavBar />
+        
+        {/* We keep the legacy StatusBar and inject the new slot next to it for now */}
+        <div className="flex flex-col">
+          <StatusbarSlot />
+          <StatusBar />
+        </div>
+      </div>
+    </Suspense>
+  );
+}
