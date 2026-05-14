@@ -3,7 +3,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { Resource as SSTResource } from "sst";
 import { z } from "zod";
-import { randomUUID, createHmac } from "crypto";
+import { randomUUID, createHmac, scryptSync, randomBytes, timingSafeEqual } from "crypto";
 
 function base64url(buf: Buffer) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
@@ -26,7 +26,17 @@ function verifyJWT(token: string, secret: string) {
   if (payload.exp && now > payload.exp) throw new Error("Token expired");
   return payload;
 }
-import { randomUUID } from "crypto";
+
+// ─── Password Hashing (crypto.scrypt — native, zero deps) ────
+function hashPassword(password: string): { hash: string; salt: string } {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return { hash, salt };
+}
+function verifyPassword(password: string, hash: string, salt: string): boolean {
+  const derived = scryptSync(password, salt, 64);
+  return timingSafeEqual(derived, Buffer.from(hash, "hex"));
+}
 
 const Resource = SSTResource as any;
 
@@ -335,6 +345,125 @@ export const handler = async (event: any) => {
           body: JSON.stringify([newProject]),
         };
       }
+    }
+
+    // ─── Password Auth ────────────────────────────────────────
+    if (path === "/auth/register" && method === "POST") {
+      const body = JSON.parse(event.body || "{}");
+      const email = body.email?.trim()?.toLowerCase();
+      const password = body.password;
+      const name = body.name?.trim() || email?.split("@")[0] || "Usuario";
+
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!email || !emailRegex.test(email)) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Email inválido" }) };
+      }
+      if (!password || password.length < 8) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "La contraseña debe tener mínimo 8 caracteres" }) };
+      }
+
+      // Check if user already has a password
+      const existingUser = await docClient.send(new GetCommand({
+        TableName: Resource.Users.name,
+        Key: { email }
+      }));
+
+      if (existingUser.Item?.password_hash) {
+        return { statusCode: 409, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Este correo ya está registrado. Usa iniciar sesión." }) };
+      }
+
+      const { hash, salt } = hashPassword(password);
+
+      // Upsert: merge with existing magic-link user or create new
+      await docClient.send(new PutCommand({
+        TableName: Resource.Users.name,
+        Item: {
+          ...(existingUser.Item || {}),
+          email,
+          name,
+          password_hash: hash,
+          password_salt: salt,
+          plan: existingUser.Item?.plan || "free",
+          created_at: existingUser.Item?.created_at || new Date().toISOString(),
+          last_login: new Date().toISOString(),
+        }
+      }));
+
+      // Generate session (same as magic link flow)
+      const sessionToken = signJWT(
+        { email, role: "authenticated" },
+        process.env.JWT_SECRET || "opita_secret_for_dev_only_123",
+        7 * 24 * 60
+      );
+
+      const isLocalhost = (event.requestContext?.domainName || "").includes("localhost");
+      const cookieAttrs = isLocalhost ? "Path=/; HttpOnly; SameSite=Lax" : "Path=/; HttpOnly; Secure; SameSite=None";
+      const setCookie = `opita_session=${sessionToken}; ${cookieAttrs}; Max-Age=${7 * 24 * 60 * 60}`;
+
+      return {
+        statusCode: 201,
+        headers: {
+          ...getCorsHeaders(event),
+          "Set-Cookie": setCookie,
+        },
+        body: JSON.stringify({ message: "Registro exitoso", user: { email, name, plan: existingUser.Item?.plan || "free" } }),
+      };
+    }
+
+    if (path === "/auth/login" && method === "POST") {
+      const body = JSON.parse(event.body || "{}");
+      const email = body.email?.trim()?.toLowerCase();
+      const password = body.password;
+
+      if (!email || !password) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Email y contraseña son requeridos" }) };
+      }
+
+      const userResult = await docClient.send(new GetCommand({
+        TableName: Resource.Users.name,
+        Key: { email }
+      }));
+
+      if (!userResult.Item) {
+        return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Credenciales inválidas" }) };
+      }
+
+      if (!userResult.Item.password_hash || !userResult.Item.password_salt) {
+        return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Esta cuenta usa enlace mágico. Solicita uno o regístrate con contraseña." }) };
+      }
+
+      const isValid = verifyPassword(password, userResult.Item.password_hash, userResult.Item.password_salt);
+      if (!isValid) {
+        return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Credenciales inválidas" }) };
+      }
+
+      // Update last_login
+      await docClient.send(new PutCommand({
+        TableName: Resource.Users.name,
+        Item: {
+          ...userResult.Item,
+          last_login: new Date().toISOString(),
+        }
+      }));
+
+      const sessionToken = signJWT(
+        { email, role: "authenticated" },
+        process.env.JWT_SECRET || "opita_secret_for_dev_only_123",
+        7 * 24 * 60
+      );
+
+      const isLocalhost = (event.requestContext?.domainName || "").includes("localhost");
+      const cookieAttrs = isLocalhost ? "Path=/; HttpOnly; SameSite=Lax" : "Path=/; HttpOnly; Secure; SameSite=None";
+      const setCookie = `opita_session=${sessionToken}; ${cookieAttrs}; Max-Age=${7 * 24 * 60 * 60}`;
+
+      return {
+        statusCode: 200,
+        headers: {
+          ...getCorsHeaders(event),
+          "Set-Cookie": setCookie,
+        },
+        body: JSON.stringify({ message: "Login exitoso", user: { email, name: userResult.Item.name || email.split("@")[0], plan: userResult.Item.plan || "free" } }),
+      };
     }
 
     return { statusCode: 404, body: "Not found" };

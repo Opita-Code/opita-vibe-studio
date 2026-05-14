@@ -97,3 +97,57 @@ export async function logout(): Promise<void> {
 
   useAuthStore.getState().logout();
 }
+
+/**
+ * Registra un nuevo usuario con email y contraseña.
+ * Auto-autentica al usuario tras el registro exitoso.
+ */
+export async function registerWithPassword(
+  email: string,
+  password: string,
+  name?: string
+): Promise<AuthResult> {
+  const response = await fetch(`${API_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ email, password, name }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Error al registrar");
+  }
+
+  // Session cookie is set — restore to sync auth store
+  const session = await restoreSession();
+  if (!session) throw new Error("No se pudo iniciar sesión tras el registro");
+  return session;
+}
+
+/**
+ * Inicia sesión con email y contraseña.
+ */
+export async function loginWithPassword(
+  email: string,
+  password: string
+): Promise<AuthResult> {
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Error al iniciar sesión");
+  }
+
+  // Session cookie is set — restore to sync auth store
+  const session = await restoreSession();
+  if (!session) throw new Error("No se pudo restaurar la sesión");
+  return session;
+}
