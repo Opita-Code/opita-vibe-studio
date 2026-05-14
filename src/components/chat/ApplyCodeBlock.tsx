@@ -4,6 +4,7 @@ import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useProjectStore } from "@/stores/project";
 import { suggestFilename } from "@/lib/language";
 import { writeFile } from "@/lib/ipc";
+import { Copy, Check } from "lucide-react";
 
 // ─── Props ─────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ const SYNTAX_STYLES = {
  * - error: mensaje de error
  */
 export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
-  const rootPath = useProjectStore((s) => s.rootPath);
+  const rootPath = useProjectStore((s) => s.activeWorkspaceId);
   const openTabs = useProjectStore((s) => s.openTabs);
   const fileContents = useProjectStore((s) => s.fileContents);
   const openFile = useProjectStore((s) => s.openFile);
@@ -47,6 +48,7 @@ export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [needsOverwrite, setNeedsOverwrite] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -65,6 +67,13 @@ export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
     setError(null);
     setNeedsOverwrite(false);
   }, []);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [code]);
 
   // Handle opening the save dialog
   const handleApply = useCallback(() => {
@@ -152,24 +161,28 @@ export function ApplyCodeBlock({ code, language }: ApplyCodeBlockProps) {
         {code}
       </SyntaxHighlighter>
 
-      {/* Floating Aplicar button */}
+      {/* Floating Buttons */}
       {!showDialog && status !== "saved" && (
-        <button
-          onClick={handleApply}
-          className={`
-            absolute top-2 right-2 px-2 py-1 text-xs rounded
-            transition-opacity duration-150
-            opacity-0 group-hover:opacity-100
-            focus:opacity-100
-            text-white
-            focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--vibe-indigo)]
-          `}
-          style={{ backgroundColor: "var(--vibe-indigo)" }}
-          title="Guardar este código como archivo"
-          aria-label="Aplicar código"
-        >
-          Aplicar
-        </button>
+        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 focus-within:opacity-100">
+          <button
+            onClick={handleCopy}
+            className="flex items-center justify-center gap-1 px-2 py-1 text-xs rounded bg-[#444]/80 backdrop-blur-sm text-[#d4d4d4] hover:bg-[#555] transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--vibe-indigo)]"
+            title="Copiar código"
+            aria-label="Copiar código"
+          >
+            {copied ? <Check size={12} className="text-[#4ade80]" /> : <Copy size={12} />}
+            {copied ? "Copiado" : "Copiar"}
+          </button>
+          <button
+            onClick={handleApply}
+            className="px-2 py-1 text-xs rounded text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--vibe-indigo)] shadow-sm hover:opacity-90"
+            style={{ backgroundColor: "var(--vibe-indigo)" }}
+            title="Guardar este código como archivo"
+            aria-label="Aplicar código"
+          >
+            Aplicar
+          </button>
+        </div>
       )}
 
       {/* Saved indicator */}

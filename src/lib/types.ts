@@ -12,6 +12,14 @@ export interface FileNode {
 
 // ─── Chat ──────────────────────────────────────────────────────
 
+export interface Attachment {
+  id: string;
+  name: string;
+  contentType: string; // "image/png", "text/plain", etc.
+  data: string; // Base64 for images, raw text for text files
+  size?: number;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant" | "system";
@@ -19,13 +27,17 @@ export interface Message {
   timestamp: number;
   /** If the message contains file operations, list paths here */
   filePaths?: string[];
+  attachments?: Attachment[];
 }
 
 export interface ChatChunk {
-  type: "text" | "code" | "file_create" | "file_update" | "done" | "error";
+  type: "text" | "code" | "file_create" | "file_update" | "done" | "error" | "mcp_tool_request";
   content: string;
   language?: string;
   filePath?: string;
+  tool?: string;
+  args?: any;
+  errorType?: "network" | "rate-limit" | "abort" | "server";
 }
 
 export interface ChatOptions {
@@ -33,6 +45,10 @@ export interface ChatOptions {
   temperature?: number;
   model?: string;
   pipelinePhase?: "entender" | "construir" | "verificar";
+  action?: string;
+  subagentId?: string;
+  customInstructions?: string;
+  signal?: AbortSignal;
 }
 
 // ─── AI Providers ──────────────────────────────────────────────
@@ -65,7 +81,7 @@ export interface TokenUsage {
   billingPeriodEnd: string;
 }
 
-export type UserPlan = "free" | "estudiante" | "creador" | "pro" | "universidad";
+export type UserPlan = "free" | "estudiante" | "pro";
 
 export interface UserProfile {
   id: string;

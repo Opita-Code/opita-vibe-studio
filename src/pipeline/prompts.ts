@@ -78,13 +78,24 @@ export function buildEntenderMessages(userMessage: string): Array<{
  * Crea los mensajes de sistema para la fase Construir.
  * @param plan - El plan generado por Entender
  * @param userMessage - Mensaje original del usuario
+ * @param vibeLensEnabled - Indica si VibeLens está activado para permitir la emisión de preview-component
  */
 export function buildConstruirMessages(
   plan: string,
   userMessage: string,
+  vibeLensEnabled: boolean = true
 ): Array<{ role: "system" | "user"; content: string }> {
+  let systemContent = CONSTRUIR_BASE;
+  
+  if (vibeLensEnabled) {
+    systemContent = systemContent.replace(
+      "Buena indentación y legibilidad\n",
+      "Buena indentación y legibilidad\n- Si estás trabajando en un componente específico y quieres que el usuario lo previsualice de forma aislada, emite: <vibe-action type=\"preview-component\" value=\"ruta/del/componente.ext\" />\n"
+    );
+  }
+
   return [
-    { role: "system", content: CONSTRUIR_BASE },
+    { role: "system", content: systemContent },
     {
       role: "user",
       content: `Plan a implementar:\n${plan}\n\nPedido original: ${userMessage}`,

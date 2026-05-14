@@ -5,13 +5,48 @@ import { createGeminiProvider } from "./gemini";
 import { createOpenAIProvider } from "./openai";
 import { createOpenRouterProvider } from "./openrouter";
 import { createCustomProvider } from "./custom";
+import { createChatGPTWebProvider } from "./chatgpt-web";
+import { createAnthropicProvider } from "./anthropic";
 
 // ─── Default Model Definitions ─────────────────────────────────
+
+const ANTHROPIC_MODELS: ModelConfig[] = [
+  {
+    id: "claude-3-5-sonnet-20241022",
+    name: "Claude 3.5 Sonnet",
+    providerId: "anthropic",
+    maxTokens: 8192,
+    temperature: 0.7,
+    costPer1kInput: 0.003,
+    costPer1kOutput: 0.015,
+    tier: "byok",
+  },
+  {
+    id: "claude-3-5-haiku-20241022",
+    name: "Claude 3.5 Haiku",
+    providerId: "anthropic",
+    maxTokens: 8192,
+    temperature: 0.7,
+    costPer1kInput: 0.001,
+    costPer1kOutput: 0.005,
+    tier: "byok",
+  },
+];
 
 const DEEPSEEK_MODELS: ModelConfig[] = [
   {
     id: "deepseek-chat",
-    name: "DeepSeek V3",
+    name: "Opita Flash",
+    providerId: "deepseek",
+    maxTokens: 8192,
+    temperature: 0.7,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    tier: "free",
+  },
+  {
+    id: "deepseek-reasoner",
+    name: "Opita Architect",
     providerId: "deepseek",
     maxTokens: 8192,
     temperature: 0.7,
@@ -93,14 +128,29 @@ const CUSTOM_MODELS: ModelConfig[] = [
   },
 ];
 
+const CHATGPT_WEB_MODELS: ModelConfig[] = [
+  {
+    id: "text-davinci-002-render-sha",
+    name: "ChatGPT Plus (Web)",
+    providerId: "chatgpt-web",
+    maxTokens: 8192,
+    temperature: 0.7,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    tier: "byok",
+  },
+];
+
 // ─── Model map ─────────────────────────────────────────────────
 
 const MODEL_MAP: Record<string, ModelConfig[]> = {
   deepseek: DEEPSEEK_MODELS,
   gemini: GEMINI_MODELS,
   openai: OPENAI_MODELS,
+  anthropic: ANTHROPIC_MODELS,
   openrouter: OPENROUTER_MODELS,
   custom: CUSTOM_MODELS,
+  "chatgpt-web": CHATGPT_WEB_MODELS,
 };
 
 // ─── Provider Registry ─────────────────────────────────────────
@@ -122,8 +172,10 @@ export function initializeProviders(): void {
     createDeepSeekProvider(),
     createGeminiProvider(),
     createOpenAIProvider(),
+    createAnthropicProvider(),
     createOpenRouterProvider(),
     createCustomProvider(),
+    createChatGPTWebProvider(),
   ];
 
   providers = new Map(defaults.map((p) => [p.id, p]));

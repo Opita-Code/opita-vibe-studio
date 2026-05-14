@@ -102,8 +102,8 @@ export async function* routeRequest(
 
   // ── Fallback: ningún provider funcionó ───────────────────
   yield {
-    type: "text",
-    content: "Configurá una API key en Ajustes > Proveedores para usar modelos reales.",
+    type: "error",
+    content: "Configura una API key en Configuración > BYOK para usar modelos reales.",
     providerId: "fallback",
     model: "none",
   } as ChatChunk & RouteResult;
@@ -111,8 +111,8 @@ export async function* routeRequest(
   // Si hubo un error previo, mostrarlo
   if (lastError) {
     yield {
-      type: "text",
-      content: `\n\nMotivo: ${lastError}`,
+      type: "error",
+      content: `Motivo: ${lastError}`,
       providerId: "fallback",
       model: "none",
     } as ChatChunk & RouteResult;
@@ -132,21 +132,46 @@ export async function* routeRequest(
  * más el historial de contexto.
  */
 export async function* streamFromProvider(
-  prompt: string,
   context: Message[],
   preferredProvider?: string,
+  options?: { action?: string; subagentId?: string; model?: string }
 ): AsyncGenerator<ChatChunk> {
+  const MAX_CONTEXT = 50; // Límite actual en el store
+  const contextRatio = context.length / MAX_CONTEXT;
+  
+  let systemContent = `Eres Vibe Studio AI, el asistente inteligente integrado en Vibe Studio, un IDE moderno y elegante.
+Tienes la capacidad de ayudar al usuario a programar, explicar conceptos de manera clara y profesional, y usar las herramientas disponibles en el entorno local a través del protocolo MCP. Responde siempre de forma concisa y amigable.`;
+
+  systemContent += `\n\n[SISTEMA: Herramientas de Navegación UI]
+Puedes controlar la interfaz del editor para mostrarle cosas al usuario dinámicamente insertando estos tags XML en tu respuesta. Se ejecutarán automáticamente y el usuario no verá los tags:
+- <vibe-action type="set-view" value="preview" /> (Muestra la vista previa a pantalla completa)
+- <vibe-action type="set-view" value="editor" /> (Muestra el editor de código)
+- <vibe-action type="set-view" value="split" /> (Muestra código y vista previa divididos)
+- <vibe-action type="open-file" value="ruta/al/archivo.ext" /> (Abre un archivo en el editor)
+- <vibe-action type="toggle-explorer" value="true" /> (Abre el explorador de archivos)
+- <vibe-action type="preview-component" value="ruta/al/archivo.tsx" /> (Abre VibeLens en Modo Aislado para previsualizar un componente específico en solitario)
+Usa estos tags inteligentemente cuando el usuario pida ver algo, revisar código, o cuando creas que es útil cambiar la vista para mejorar su experiencia. ¡Hazlo ver como magia!`;
+
+  if (contextRatio >= 0.8) {
+    systemContent += `\n\n⚠️ AVISO DEL SISTEMA: El contexto de esta conversación está casi lleno (${context.length}/${MAX_CONTEXT} mensajes). Sugiere sutilmente y de manera muy amable al usuario que inicie una "Nueva conversación" pronto para mantener un buen rendimiento y no olvidar detalles importantes.`;
+  }
+
+  const systemMessage: Message = {
+    id: `system-context-${Date.now()}`,
+    role: "system",
+    content: systemContent,
+    timestamp: Date.now() - 1,
+  };
+
+  // context ya incluye el último mensaje del usuario enviado desde ChatPanel
+  const cleanContext = context.filter(m => m.content !== "" || m.role !== "assistant");
+  
   const messages: Message[] = [
-    ...context,
-    {
-      id: `prompt-${Date.now()}`,
-      role: "user",
-      content: prompt,
-      timestamp: Date.now(),
-    },
+    systemMessage,
+    ...cleanContext
   ];
 
-  for await (const chunk of routeRequest(messages, { preferredProvider })) {
+  for await (const chunk of routeRequest(messages, { preferredProvider, ...options })) {
     yield chunk;
   }
 }

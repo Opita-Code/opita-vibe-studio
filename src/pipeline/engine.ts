@@ -9,6 +9,9 @@ import { parseEntenderResponse } from "./entender";
 import { parseConstruirResponse, parseConstruirResponseFallback } from "./construir";
 import { parseVerificarResponse } from "./verificar";
 import type { PipelineEvent, PipelinePhase, FileOutput, ConstruirOutput } from "./types";
+import { useAuthStore } from "@/stores/auth";
+import { useChatStore } from "@/stores/chat";
+import { useUIStore } from "@/stores/ui";
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -125,14 +128,16 @@ async function tryWriteFiles(files: FileOutput[]): Promise<string[]> {
 
   for (const file of files) {
     try {
-      // En entorno Tauri, writeFile es un comando IPC.
-      // En tests, se mockea o se ignora si no está disponible.
-      const { writeFile } = await import("@/lib/ipc");
-      await writeFile(file.path, file.content);
+      const { saveFileContent } = await import("@/lib/fs");
+      await saveFileContent(file.path, file.content);
+      
+      // Actualizar el estado en memoria para que el explorador y el editor lo vean inmediatamente
+      const { useProjectStore } = await import("@/stores/project");
+      useProjectStore.getState().setFileContent(file.path, file.content);
+      
       created.push(file.path);
-    } catch (_err) {
-      // Fallback: en entornos sin Tauri (tests, browser dev), no es crítico
-      console.warn(`[Pipeline] No se pudo escribir ${file.path}`);
+    } catch (err) {
+      console.warn(`[Pipeline] No se pudo escribir ${file.path}`, err);
     }
   }
 
@@ -164,7 +169,65 @@ export async function* runPipeline(
   userMessage: string,
   contextMessages: Message[],
   preferredProvider: string,
+  activeModelId: string,
 ): AsyncGenerator<PipelineEvent> {
+  const plan = useAuthStore.getState().plan;
+  const useSubagent = useChatStore.getState().useSubagent;
+  const subagentInstructions = useChatStore.getState().subagentInstructions;
+  const vibeLensEnabled = useUIStore.getState().vibeLensEnabled;
+
+  if (plan === "pro" && useSubagent) {
+    // ── Fase Única: Subagente Autónomo (Vibe Pro Engine) ──
+    yield { type: "phase_change", phase: "entender" as PipelinePhase }; // UI indicator
+
+    try {
+      // Remover el mensaje vacío del asistente que acabamos de agregar en el UI,
+      // porque el backend genera la respuesta completa de nuevo.
+      const cleanContext = contextMessages.filter(m => m.content !== "" || m.role !== "assistant");
+      const subagentGenerator = routeRequest(
+        cleanContext,
+        {
+          preferredProvider,
+          action: "subagent",
+          subagentId: "sdd-apply",
+          customInstructions: subagentInstructions,
+          model: activeModelId,
+        }
+      );
+
+      let content = "";
+      for await (const chunk of subagentGenerator) {
+        if (chunk.type === "text") {
+          content += chunk.content;
+        } else if (chunk.type === "error") {
+          throw new Error(chunk.content);
+        }
+      }
+
+      const actionMatch = content.match(/<vibe-action\s+type="preview-component"\s+value="([^"]+)"\s*\/>/);
+      if (actionMatch && vibeLensEnabled) {
+        useUIStore.getState().setPreviewTarget(actionMatch[1]);
+      }
+
+      // Las modificaciones de archivos se gestionaron de forma invisible mediante tool calls vía MCP.
+      // Retornamos el resultado final.
+      yield {
+        type: "result",
+        content: content,
+        files: [], // Array vacío porque el backend ya escribió los archivos directamente usando write_local_file
+      };
+      return;
+
+    } catch (err) {
+      yield {
+        type: "error",
+        message: `Error ejecutando Subagente AWS: ${err}`,
+      };
+      return;
+    }
+  }
+
+  // ── Fase Clásica: Free/BYOK ──
   let entenderPlan = "";
   let construirOutput: ConstruirOutput | null = null;
 
@@ -176,6 +239,7 @@ export async function* runPipeline(
     const entenderResponse = await collectResponse(
       routeRequest([...contextMessages, ...toMessages(entenderMessages)], {
         preferredProvider,
+        model: activeModelId,
       }),
     );
 
@@ -195,10 +259,11 @@ export async function* runPipeline(
   yield { type: "phase_change", phase: "construir" as PipelinePhase };
 
   const runConstruir = async (plan: string): Promise<ConstruirOutput> => {
-    const construirMessages = buildConstruirMessages(plan, userMessage);
+    const construirMessages = buildConstruirMessages(plan, userMessage, vibeLensEnabled);
     const construirResponse = await collectResponse(
       routeRequest([...contextMessages, ...toMessages(construirMessages)], {
         preferredProvider,
+        model: activeModelId,
       }),
     );
 
@@ -242,6 +307,7 @@ export async function* runPipeline(
       const verificarResponse = await collectResponse(
         routeRequest([...contextMessages, ...toMessages(verificarMessages)], {
           preferredProvider,
+          model: activeModelId,
         }),
       );
 
@@ -315,6 +381,11 @@ export async function* runPipeline(
   }
 
   // ── Éxito ─────────────────────────────────────────────────
+  const actionMatch = construirOutput.fullResponse.match(/<vibe-action\s+type="preview-component"\s+value="([^"]+)"\s*\/>/);
+  if (actionMatch && vibeLensEnabled) {
+    useUIStore.getState().setPreviewTarget(actionMatch[1]);
+  }
+
   yield {
     type: "result",
     content: construirOutput.fullResponse,

@@ -1,11 +1,11 @@
-import { readFile, listDir, execShell } from "@/lib/ipc";
+import { readFile, listDir, execShell, writeFile } from "@/lib/ipc";
 import { useProjectStore } from "@/stores/project";
 
 // Idealmente desde VITE_AWS_API_URL
 const AWS_API_URL = "http://localhost:3000/api/mcp";
 
-export async function handleMcpToolRequest(tool: string, args: any, token: string): Promise<void> {
-  const rootPath = useProjectStore.getState().rootPath;
+export async function handleMcpToolRequest(tool: string, args: Record<string, unknown>, token: string): Promise<void> {
+  const rootPath = useProjectStore.getState().activeWorkspaceId;
   
   if (!rootPath) {
     await sendMcpResult(tool, { error: "No project opened" }, token);
@@ -13,26 +13,43 @@ export async function handleMcpToolRequest(tool: string, args: any, token: strin
   }
 
   try {
-    let result: any;
+    let result: unknown;
     
     switch (tool) {
-      case "read_local_file":
+      case "read_local_file": {
         // Aseguramos que solo lea dentro del proyecto
-        result = await readFile(`${rootPath}/${args.path}`);
+        const pathArg = String(args.path || "");
+        result = await readFile(`${rootPath}/${pathArg}`);
         break;
+      }
         
-      case "list_local_dir":
-        result = await listDir(`${rootPath}/${args.path || ""}`);
+      case "write_local_file": {
+        // Validar path superficialmente para seguridad básica
+        const pathArg = String(args.path || "");
+        const contentArg = String(args.content || "");
+        if (pathArg.includes("../") || pathArg.includes("..\\")) {
+           throw new Error("Path contains relative parent directories, which is forbidden.");
+        }
+        await writeFile(`${rootPath}/${pathArg}`, contentArg);
+        result = "Archivo escrito exitosamente.";
         break;
+      }
         
-      case "execute_test_command":
+      case "list_local_dir": {
+        const pathArg = String(args.path || "");
+        result = await listDir(`${rootPath}/${pathArg}`);
+        break;
+      }
+        
+      case "execute_test_command": {
         // Seguridad: Limitamos qué comandos se pueden correr desde AWS
-        const cmd = args.command as string;
+        const cmd = String(args.command || "");
         if (!cmd.startsWith("npm test") && !cmd.startsWith("npx vitest") && !cmd.startsWith("vitest")) {
            throw new Error("Comando de shell bloqueado por seguridad. Solo testing permitido.");
         }
         result = await execShell(cmd, rootPath);
         break;
+      }
         
       default:
         throw new Error(`Tool no reconocida por el cliente Tauri: ${tool}`);
@@ -44,7 +61,7 @@ export async function handleMcpToolRequest(tool: string, args: any, token: strin
   }
 }
 
-async function sendMcpResult(tool: string, payload: any, token: string) {
+async function sendMcpResult(tool: string, payload: Record<string, unknown>, token: string) {
   try {
     await fetch(AWS_API_URL, {
       method: "POST",

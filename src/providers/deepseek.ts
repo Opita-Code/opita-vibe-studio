@@ -1,13 +1,10 @@
 import type { AIProvider, ChatChunk, ChatOptions, Message } from "@/lib/types";
-import { streamOpenAICompatible, SseError } from "./sse";
-import { toApiMessages } from "./types";
+import { SseError } from "./sse";
 
 // ─── Constants ─────────────────────────────────────────────────
 
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
 const DEFAULT_MODEL = "deepseek-chat";
-const DEFAULT_MAX_TOKENS = 4096;
-const DEFAULT_TEMPERATURE = 0.7;
 
 /**
  * Crea un proveedor de DeepSeek V3.
@@ -32,59 +29,54 @@ export function createDeepSeekProvider(apiKey?: string): AIProvider {
 
   const provider: AIProvider = {
     id: "deepseek",
-    name: "DeepSeek V3",
+    name: "Opita AI",
     tier: "free",
 
     chat: async function* (
       messages: Message[],
       options?: ChatOptions,
     ): AsyncGenerator<ChatChunk> {
-      if (!configured) {
-        yield {
-          type: "error",
-          content:
-            "DeepSeek no está configurado. Agregá VITE_DEEPSEEK_KEY en el archivo .env",
-        };
-        return;
+      if (!configured && !options?.model) { // allow if hitting backend which has its own key
+        // Not strictly necessary since backend uses its key for free users
       }
 
-      const apiMessages = toApiMessages(messages);
-      const model = options?.model ?? DEFAULT_MODEL;
-
       try {
+        const { streamAwsSse } = await import("@/services/aiService");
         let fullContent = "";
 
-        for await (const delta of streamOpenAICompatible(
-          DEEPSEEK_API_URL,
-          { Authorization: `Bearer ${key}` },
-          {
-            model,
-            messages: apiMessages,
-            max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
-            temperature: options?.temperature ?? DEFAULT_TEMPERATURE,
-          },
+        for await (const chunk of streamAwsSse(
+          messages,
+          "deepseek",
+          undefined,
+          options?.signal,
+          key || undefined,
+          { modelId: options?.model || DEFAULT_MODEL }
         )) {
-          fullContent += delta;
-          yield { type: "text", content: delta };
+          if (chunk.type === "text") {
+            fullContent += chunk.content;
+            yield { type: "text", content: chunk.content };
+          } else if (chunk.type === "error") {
+            yield { type: "error", content: chunk.content };
+          }
         }
 
         // Log de uso
         const tokensUsed = countTokens([
           { role: "assistant", content: fullContent },
         ] as Message[]);
-        console.warn(`[DeepSeek] Tokens generados (estimado): ${tokensUsed}`);
+        console.warn(`[DeepSeek Backend] Tokens generados (estimado): ${tokensUsed}`);
 
         yield { type: "done", content: "" };
       } catch (err) {
         if (err instanceof SseError) {
           yield {
             type: "error",
-            content: `DeepSeek error (${err.status}): ${err.message}`,
+            content: `Opita AI error (${err.status}): ${err.message}`,
           };
         } else {
           yield {
             type: "error",
-            content: `DeepSeek error inesperado: ${String(err)}`,
+            content: `Opita AI error inesperado: ${String(err)}`,
           };
         }
       }

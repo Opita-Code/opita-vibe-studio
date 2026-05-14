@@ -45,7 +45,7 @@ export function createCustomProvider(
         yield {
           type: "error",
           content:
-            "Endpoint personalizado no está configurado. Configurá la URL y API key en Ajustes > Proveedores.",
+            "Endpoint personalizado no está configurado. Configura la URL y API key en Configuración > BYOK.",
         };
         return;
       }
