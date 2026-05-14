@@ -23,6 +23,5 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   args: {
     width: 400,
-    onLogin: () => alert("Iniciar Sesión"),
   },
 };
