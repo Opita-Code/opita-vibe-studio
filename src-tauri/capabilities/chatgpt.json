@@ -1,0 +1,11 @@
+{
+  "identifier": "chatgpt-remote",
+  "windows": ["chatgpt-webauth"],
+  "remote": {
+    "urls": ["https://*.chatgpt.com/*", "https://chatgpt.com/*"]
+  },
+  "permissions": [
+    "core:event:default",
+    "core:window:allow-close"
+  ]
+}

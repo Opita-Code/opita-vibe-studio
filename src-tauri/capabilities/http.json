@@ -1,0 +1,17 @@
+{
+  "identifier": "http-fetch-apis",
+  "description": "Allow HTTP plugin to fetch from external LLM APIs",
+  "windows": ["*"],
+  "permissions": [
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://*.openai.com/*" },
+        { "url": "https://*.chatgpt.com/*" },
+        { "url": "https://chatgpt.com/*" },
+        { "url": "https://api.anthropic.com/*" },
+        { "url": "https://openrouter.ai/*" }
+      ]
+    }
+  ]
+}

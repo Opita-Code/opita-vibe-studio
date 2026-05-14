@@ -1,0 +1,9 @@
+name = "solitary-wood-9514"
+main = "src/index.ts"
+compatibility_date = "2024-05-13"
+
+routes = [{ pattern = "api.opitacode.com/*", zone_name = "opitacode.com" }]
+
+[vars]
+TARGET_URL = "https://hvrfaujqxbx6tq3lmb7o42woaq0ckmhs.lambda-url.us-east-1.on.aws"
+

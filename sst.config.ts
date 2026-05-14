@@ -42,6 +42,14 @@ export default $config({
       primaryIndex: { hashKey: "client_id", rangeKey: "id" },
     });
 
+    // 1.2e Crear tabla de Transacciones (Wompi)
+    const transactionsTable = new sst.aws.Dynamo("Transactions", {
+      fields: {
+        id: "string",
+      },
+      primaryIndex: { hashKey: "id" },
+    });
+
     // 1.3 Endpoint Dummy Streaming
     const api = new sst.aws.Function("ChatStreamAPI", {
       url: true, // Enables AWS Lambda Function URLs
@@ -80,10 +88,9 @@ export default $config({
     const billingApi = new sst.aws.Function("BillingAPI", {
       url: true,
       handler: "packages/vibe-ai-backend/src/api/billing.handler",
+      link: [transactionsTable, usersTable],
       environment: {
         WOMPI_WEBHOOK_SECRET: process.env.WOMPI_WEBHOOK_SECRET || "",
-        SUPABASE_URL: process.env.SUPABASE_URL || "",
-        SUPABASE_API: process.env.SUPABASE_API || "",
       },
     });
 

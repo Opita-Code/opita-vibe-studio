@@ -38,21 +38,35 @@ pub fn list_dir(path: String) -> Result<Vec<FileEntry>, String> {
 
     let mut files = Vec::new();
     for entry in entries {
-        let entry = entry.map_err(|e| format!("Error al leer entrada: {}", e))?;
-        let metadata = entry.metadata().map_err(|e| format!("Error al leer metadatos: {}", e))?;
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue, // Skip entries we can't read (e.g. permission denied)
+        };
+
+        // OneDrive "Files On-Demand": metadata may fail for cloud-only files.
+        // Fall back to defaults instead of failing the entire directory listing.
+        let metadata = entry.metadata().ok();
 
         let modified_at = metadata
-            .modified()
-            .ok()
+            .as_ref()
+            .and_then(|m| m.modified().ok())
             .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
             .map(|d| d.as_secs())
             .unwrap_or(0);
 
+        // file_type() is cheaper than metadata() and works for OneDrive placeholders
+        let is_dir = metadata
+            .as_ref()
+            .map(|m| m.is_dir())
+            .unwrap_or_else(|| entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false));
+
+        let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
+
         files.push(FileEntry {
             name: entry.file_name().to_string_lossy().to_string(),
             path: entry.path().to_string_lossy().to_string(),
-            is_dir: metadata.is_dir(),
-            size: metadata.len(),
+            is_dir,
+            size,
             modified_at,
         });
     }
@@ -84,4 +98,10 @@ pub fn delete_entry(path: String) -> Result<(), String> {
     } else {
         fs::remove_file(p).map_err(|e| format!("Error al eliminar archivo: {}", e))
     }
+}
+
+/// Renombra o mueve un archivo o directorio
+#[tauri::command]
+pub fn rename_entry(old_path: String, new_path: String) -> Result<(), String> {
+    fs::rename(&old_path, &new_path).map_err(|e| format!("Error al renombrar: {}", e))
 }
