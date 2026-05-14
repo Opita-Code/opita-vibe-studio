@@ -2,7 +2,7 @@ import { useCallback, useRef, useState, DragEvent, ClipboardEvent } from "react"
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
 import type { Attachment } from "@/lib/types";
-import { getProviderModels } from "@/providers/registry";
+import { listProviders } from "@/providers/registry";
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -179,9 +179,9 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const activeProvider = useChatStore(s => s.activeProvider);
   const activeModelId = useChatStore(s => s.activeModelId);
   const setActiveModelId = useChatStore(s => s.setActiveModelId);
+  const setActiveProvider = useChatStore(s => s.setActiveProvider);
   
-  const models = getProviderModels(activeProvider);
-  const canSelectModel = plan === "pro" || plan === "estudiante" || activeProvider === "chatgpt-web" || activeProvider === "custom" || activeProvider === "openrouter";
+  const allProviders = listProviders();
 
   return (
     <div 
@@ -310,19 +310,27 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           <span className="text-[10px] font-medium tracking-wide uppercase text-aura-purple/60">
             {isUploading ? "Subiendo..." : `Engine ${CHAR_LIMIT / 1000}k`}
           </span>
-          {canSelectModel && models.length > 0 && (
             <select
               value={activeModelId}
-              onChange={(e) => setActiveModelId(e.target.value)}
+              onChange={(e) => {
+                const modelId = e.target.value;
+                setActiveModelId(modelId);
+                const provider = allProviders.find(p => p.models.some(m => m.id === modelId));
+                if (provider) {
+                  setActiveProvider(provider.id);
+                }
+              }}
               aria-label="Seleccionar modelo de IA"
-              className="text-[10px] font-medium tracking-wide bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 rounded-md px-1.5 py-0.5 outline-none cursor-pointer transition-colors"
+              className="text-[10px] font-medium tracking-wide bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 rounded-md px-1.5 py-0.5 outline-none cursor-pointer transition-colors max-w-[120px] sm:max-w-none truncate"
             >
-              <option value="deepseek-reasoner">Opita Architect</option>
-              {models.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
+              {allProviders.map(p => (
+                <optgroup key={p.id} label={p.name}>
+                  {p.models.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
-          )}
         </div>
         <span className={`text-[10px] font-medium tracking-wide uppercase ${isOverLimit ? "text-red-400" : "text-white/40"}`}>
           {isOverLimit ? "Límite alcanzado" : `~${Math.round(text.length / 4)} tokens`}

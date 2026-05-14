@@ -58,10 +58,16 @@ export async function* routeRequest(
     try {
       const provider = getProvider(providerId);
       let usedModel = options?.model;
+      const info = providers.find((p) => p.id === providerId);
 
-      // Elegir el primer modelo disponible si no se especificó
+      // Si el modelo especificado no pertenece a este provider (p.ej. durante un failover),
+      // descartarlo para que se use el modelo por defecto del provider.
+      if (usedModel && info && !info.models.some(m => m.id === usedModel)) {
+        usedModel = undefined;
+      }
+
+      // Elegir el primer modelo disponible si no se especificó o fue descartado
       if (!usedModel) {
-        const info = providers.find((p) => p.id === providerId);
         usedModel = info?.models?.[0]?.id;
       }
 
