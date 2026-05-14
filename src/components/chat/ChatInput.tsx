@@ -24,6 +24,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,7 +40,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
 
     if (isLarge) {
       if (plan !== "pro") {
-        alert("⚠️ El archivo es demasiado grande (>5MB). Necesitas Vibe Pro para usar Vibe Storage.");
+      setUploadError("Archivo demasiado grande (>5MB). Necesitas Vibe Pro para Vibe Storage.");
         return;
       }
       
@@ -85,7 +86,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         ]);
         
       } catch (err: any) {
-        alert("Error al subir archivo grande: " + err.message);
+        setUploadError("Error al subir archivo: " + err.message);
       } finally {
         setIsUploading(false);
       }
@@ -149,6 +150,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
     if ((!trimmed && attachments.length === 0) || disabled) return;
+    setUploadError(null);
     onSend(trimmed, attachments.length > 0 ? attachments : undefined);
     setText("");
     setAttachments([]);
@@ -190,19 +192,19 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     >
       {/* Quick AI Actions */}
       <div className="flex flex-wrap gap-2 mb-3">
-        <button onClick={() => { setText("Explica el siguiente código:\n\n```\n\n```"); setTimeout(() => textareaRef.current?.focus(), 50); }} className="px-2 py-1 text-[11px] font-medium text-slate-300 bg-white/5 hover:bg-aura-cyan/20 border border-white/10 hover:border-aura-cyan/30 rounded-md transition-all flex items-center gap-1.5">
+        <button onClick={() => { setText("Explica el siguiente código:\n\n```\n\n```"); setTimeout(() => textareaRef.current?.focus(), 50); }} aria-label="Insertar prompt: Explicar código" className="px-2 py-1 text-[11px] font-medium text-slate-300 bg-white/5 hover:bg-aura-cyan/20 border border-white/10 hover:border-aura-cyan/30 rounded-md transition-all flex items-center gap-1.5">
           <svg className="w-3 h-3 text-aura-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           Explicar
         </button>
-        <button onClick={() => { setText("Optimiza el siguiente código:\n\n```\n\n```"); setTimeout(() => textareaRef.current?.focus(), 50); }} className="px-2 py-1 text-[11px] font-medium text-slate-300 bg-white/5 hover:bg-aura-purple/20 border border-white/10 hover:border-aura-purple/30 rounded-md transition-all flex items-center gap-1.5">
+        <button onClick={() => { setText("Optimiza el siguiente código:\n\n```\n\n```"); setTimeout(() => textareaRef.current?.focus(), 50); }} aria-label="Insertar prompt: Optimizar código" className="px-2 py-1 text-[11px] font-medium text-slate-300 bg-white/5 hover:bg-aura-purple/20 border border-white/10 hover:border-aura-purple/30 rounded-md transition-all flex items-center gap-1.5">
           <svg className="w-3 h-3 text-aura-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
           Optimizar
         </button>
-        <button onClick={() => { setText("Encuentra y corrige errores en este código:\n\n```\n\n```"); setTimeout(() => textareaRef.current?.focus(), 50); }} className="px-2 py-1 text-[11px] font-medium text-slate-300 bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 rounded-md transition-all flex items-center gap-1.5">
+        <button onClick={() => { setText("Encuentra y corrige errores en este código:\n\n```\n\n```"); setTimeout(() => textareaRef.current?.focus(), 50); }} aria-label="Insertar prompt: Corregir errores" className="px-2 py-1 text-[11px] font-medium text-slate-300 bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 rounded-md transition-all flex items-center gap-1.5">
           <svg className="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           Fix
         </button>
-        <button onClick={() => { setText("Genera tests unitarios para este código:\n\n```\n\n```"); setTimeout(() => textareaRef.current?.focus(), 50); }} className="px-2 py-1 text-[11px] font-medium text-slate-300 bg-white/5 hover:bg-aura-blue/20 border border-white/10 hover:border-aura-blue/30 rounded-md transition-all flex items-center gap-1.5">
+        <button onClick={() => { setText("Genera tests unitarios para este código:\n\n```\n\n```"); setTimeout(() => textareaRef.current?.focus(), 50); }} aria-label="Insertar prompt: Generar tests" className="px-2 py-1 text-[11px] font-medium text-slate-300 bg-white/5 hover:bg-aura-blue/20 border border-white/10 hover:border-aura-blue/30 rounded-md transition-all flex items-center gap-1.5">
           <svg className="w-3 h-3 text-aura-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           Tests
         </button>
@@ -221,11 +223,19 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5"/></svg>
               )}
               <span className="max-w-[150px] truncate">{att.name}</span>
-              <button onClick={() => removeAttachment(att.id)} className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 text-red-400 hover:text-red-300">
+              <button onClick={() => removeAttachment(att.id)} aria-label={`Eliminar adjunto ${att.name}`} className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 text-red-400 hover:text-red-300">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Inline upload error (replaces native alert) */}
+      {uploadError && (
+        <div role="alert" className="flex items-center justify-between mb-3 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-300">
+          <span>⚠️ {uploadError}</span>
+          <button onClick={() => setUploadError(null)} aria-label="Cerrar error" className="text-red-400 hover:text-white ml-2">✕</button>
         </div>
       )}
 
@@ -236,7 +246,8 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           ref={fileInputRef} 
           className="hidden" 
           multiple 
-          onChange={handleFileChange} 
+          onChange={handleFileChange}
+          aria-label="Seleccionar archivos para adjuntar"
         />
         
         <button
@@ -303,6 +314,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
             <select
               value={activeModelId}
               onChange={(e) => setActiveModelId(e.target.value)}
+              aria-label="Seleccionar modelo de IA"
               className="text-[10px] font-medium tracking-wide bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 rounded-md px-1.5 py-0.5 outline-none cursor-pointer transition-colors"
             >
               <option value="deepseek-reasoner">Opita Architect</option>
