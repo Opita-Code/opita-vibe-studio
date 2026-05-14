@@ -34,7 +34,7 @@ export function ActivityBar() {
 
   return (
     <div 
-      className="hidden md:flex w-12 h-full bg-obsidian-950 border-r border-white/5 flex-col items-center py-3 flex-shrink-0 z-40 select-none"
+      className="hidden md:flex w-12 h-full bg-obsidian-950 border-r border-white/5 flex-col items-center py-3 flex-shrink-0 z-50 select-none"
       role="toolbar"
       aria-label="Barra de actividad principal"
     >
