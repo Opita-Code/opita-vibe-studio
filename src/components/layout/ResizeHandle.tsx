@@ -28,6 +28,7 @@ export function ResizeHandle({
       document.body.style.cursor =
         orientation === "horizontal" ? "col-resize" : "row-resize";
       document.body.style.userSelect = "none";
+      document.body.classList.add("is-resizing");
     },
     [orientation],
   );
@@ -47,6 +48,7 @@ export function ResizeHandle({
     dragging.current = false;
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
+    document.body.classList.remove("is-resizing");
   }, []);
 
   useEffect(() => {
@@ -60,14 +62,20 @@ export function ResizeHandle({
 
   return (
     <div
-      className={`shrink-0 ${
+      className={`relative z-50 flex shrink-0 items-center justify-center ${
         orientation === "horizontal"
-          ? "w-[3px] cursor-col-resize"
-          : "h-[3px] cursor-row-resize"
-      } bg-[#333] hover:bg-[var(--vibe-indigo)] active:bg-[var(--vibe-indigo)] transition-colors duration-150`}
+          ? "w-[6px] -mx-[3px] cursor-col-resize"
+          : "h-[6px] -my-[3px] cursor-row-resize"
+      } group`}
       role="separator"
       aria-orientation={orientation === "horizontal" ? "vertical" : "horizontal"}
       onMouseDown={handleMouseDown}
-    />
+    >
+      <div 
+        className={`${
+          orientation === "horizontal" ? "w-[2px] h-full" : "h-[2px] w-full"
+        } bg-transparent group-hover:bg-aura-purple/50 group-active:bg-aura-purple/80 group-hover:shadow-[0_0_10px_rgba(168,85,247,0.5)] transition-all duration-300 ease-out`}
+      />
+    </div>
   );
 }

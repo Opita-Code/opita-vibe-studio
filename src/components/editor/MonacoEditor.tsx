@@ -22,24 +22,53 @@ interface MonacoEditorProps {
 export function MonacoEditor({ path, value, onChange }: MonacoEditorProps) {
   const language = detectLanguage(path);
 
+  // Definir el tema custom de Vibe Studio
+  const handleEditorWillMount = (monaco: any) => {
+    monaco.editor.defineTheme('vibe-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { background: '0A0B0E' }
+      ],
+      colors: {
+        'editor.background': '#0B0D13', // Deep Vibe background
+        'editor.lineHighlightBackground': '#ffffff0a', // sutil
+        'editorLineNumber.foreground': '#475569',
+        'editorIndentGuide.background': '#ffffff0d',
+        'editorIndentGuide.activeBackground': '#ffffff26',
+        'editor.selectionBackground': '#00f0ff33', // vibe-cyan with transparency
+      }
+    });
+  };
+
   return (
     <Editor
-      theme="vs-dark"
+      theme="vibe-dark"
+      beforeMount={handleEditorWillMount}
       language={language}
       value={value}
       onChange={(v) => onChange(v ?? "")}
       options={{
-        minimap: { enabled: false },
-        fontSize: 13,
+        minimap: { enabled: true, scale: 0.75, autohide: true }, // Encendido pero sutil
+        fontSize: 14,
+        fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+        fontLigatures: true,
         lineNumbers: "on",
         scrollBeyondLastLine: false,
         automaticLayout: true,
         wordWrap: "on",
         tabSize: 2,
-        renderLineHighlight: "line",
+        renderLineHighlight: "all",
         cursorBlinking: "smooth",
+        cursorSmoothCaretAnimation: "on",
         smoothScrolling: true,
-        padding: { top: 8 },
+        padding: { top: 24, bottom: 24 }, // Editor Zen
+        formatOnPaste: true,
+        formatOnType: true,
+        stickyScroll: { enabled: true }, // Contexto fijo en funciones largas
+        bracketPairColorization: { enabled: true },
+        suggest: { showIcons: true, snippetsPreventQuickSuggestions: false },
+        scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
       }}
       loading={
         <div className="flex items-center justify-center h-full text-[#616161]">

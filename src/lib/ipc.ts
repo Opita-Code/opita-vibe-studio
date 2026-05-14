@@ -57,6 +57,10 @@ export function deleteEntry(path: string): Promise<void> {
   return invoke("delete_entry", { path });
 }
 
+export function renameEntry(oldPath: string, newPath: string): Promise<void> {
+  return invoke("rename_entry", { oldPath, newPath });
+}
+
 // ─── Shell ───────────────────────────────────────────────────────
 
 export interface ShellOutput {

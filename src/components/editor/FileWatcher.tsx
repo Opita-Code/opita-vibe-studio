@@ -1,9 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useProjectStore } from "@/stores/project";
-import {
-  startProjectWatcher,
-  stopProjectWatcher,
-} from "@/lib/file-watcher";
+import { startProjectWatcher, stopProjectWatcher } from "@/lib/file-watcher";
 
 /**
  * Componente invisible que maneja el ciclo de vida del watcher de archivos.
@@ -14,15 +11,16 @@ import {
  * - Detiene el watcher cuando se cierra la app o no hay proyecto
  */
 export function FileWatcher() {
-  const rootPath = useProjectStore((s) => s.rootPath);
-  const prevPathRef = useRef<string | null>(rootPath);
+  const workspaces = useProjectStore((s) => s.workspaces);
+  const watchHash = workspaces.map(w => w.path).join("|");
+  const prevHashRef = useRef<string | null>(watchHash);
 
   useEffect(() => {
-    // Iniciar si hay proyecto abierto
-    if (rootPath) {
+    // Iniciar si hay proyectos abiertos
+    if (workspaces.length > 0) {
       startProjectWatcher();
     } else {
-      // Sin proyecto — detener watcher
+      // Sin proyectos — detener watcher
       stopProjectWatcher();
     }
 
@@ -30,17 +28,17 @@ export function FileWatcher() {
       // Cleanup al desmontar
       stopProjectWatcher();
     };
-  }, [rootPath]);
+  }, [watchHash]); // Depends on the hash of paths
 
-  // Detectar cambio de ruta de proyecto
+  // Detectar cambio de rutas de proyectos (add/remove workspace)
   useEffect(() => {
-    if (prevPathRef.current !== rootPath) {
-      prevPathRef.current = rootPath;
-      if (rootPath) {
+    if (prevHashRef.current !== watchHash) {
+      prevHashRef.current = watchHash;
+      if (workspaces.length > 0) {
         startProjectWatcher();
       }
     }
-  }, [rootPath]);
+  }, [watchHash, workspaces.length]);
 
   return null; // Componente invisible
 }

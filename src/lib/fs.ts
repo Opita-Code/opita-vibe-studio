@@ -1,25 +1,18 @@
-import { readFile, writeFile, listDir, createDir, deleteEntry } from "./ipc";
+import { getFileSystemBackend } from "./fs-backend";
 import type { FileNode } from "./types";
 
-// ─── Helpers ────────────────────────────────────────────────────
+const IGNORE_DIRS = new Set([
+  "node_modules",
+  ".git",
+  ".next",
+  "dist",
+  "build",
+  "coverage",
+  ".vscode",
+  "out"
+]);
 
-/**
- * Convierte un FileEntry (de Tauri IPC) a un FileNode (del modelo de dominio).
- */
-function fileEntryToNode(entry: import("./ipc").FileEntry): FileNode {
-  return {
-    name: entry.name,
-    path: entry.path,
-    type: entry.is_dir ? "directory" : ("file" as const),
-    size: entry.size,
-    modifiedAt: new Date(entry.modified_at * 1000).toISOString(),
-    extension: entry.is_dir
-      ? undefined
-      : entry.name.includes(".")
-        ? entry.name.split(".").pop()?.toLowerCase()
-        : undefined,
-  };
-}
+// ─── Helpers ────────────────────────────────────────────────────
 
 /**
  * Ordena nodos: directorios primero, luego archivos, alfabético dentro de cada grupo.
@@ -35,18 +28,21 @@ function sortNodes(a: FileNode, b: FileNode): number {
  * Carga recursivamente el contenido de un directorio como FileNode[].
  */
 export async function loadProject(path: string): Promise<FileNode[]> {
-  const entries = await listDir(path);
+  const entries = await getFileSystemBackend().listDirectory(path);
   const nodes: FileNode[] = [];
 
-  for (const entry of entries) {
-    const node = fileEntryToNode(entry);
+  for (const node of entries) {
     if (node.type === "directory") {
-      try {
-        node.children = await loadProject(entry.path);
-      } catch {
-        // Si no se puede leer un subdirectorio (ej: sin permisos),
-        // lo incluimos sin hijos
+      if (IGNORE_DIRS.has(node.name)) {
         node.children = [];
+      } else {
+        try {
+          node.children = await loadProject(node.path);
+        } catch {
+          // Si no se puede leer un subdirectorio (ej: sin permisos),
+          // lo incluimos sin hijos
+          node.children = [];
+        }
       }
     }
     nodes.push(node);
@@ -60,32 +56,41 @@ export async function loadProject(path: string): Promise<FileNode[]> {
 
 /** Lee el contenido de un archivo como string. */
 export async function readFileContent(path: string): Promise<string> {
-  return readFile(path);
+  return getFileSystemBackend().readFile(path);
 }
 
 /** Escribe contenido en un archivo. */
 export async function saveFileContent(path: string, content: string): Promise<void> {
-  return writeFile(path, content);
+  return getFileSystemBackend().writeFile(path, content);
 }
 
 /** Crea un archivo vacío. */
 export async function createFileItem(path: string): Promise<void> {
-  await writeFile(path, "");
+  await getFileSystemBackend().writeFile(path, "");
 }
 
 /** Crea un directorio (y padres si es necesario). */
-export { createDir };
+export async function createDir(path: string): Promise<void> {
+  return getFileSystemBackend().createDirectory(path);
+}
 
 /** Elimina un archivo o directorio (→ papelera de reciclaje). */
-export { deleteEntry };
+export async function deleteEntry(path: string): Promise<void> {
+  return getFileSystemBackend().deleteEntry(path);
+}
+
+/** Renombra o mueve un archivo/directorio. */
+export async function renameEntry(oldPath: string, newPath: string): Promise<void> {
+  return getFileSystemBackend().renameEntry(oldPath, newPath);
+}
 
 // ─── Git Detection ──────────────────────────────────────────────
 
 /** Detecta si un directorio contiene un repositorio git. */
 export async function isGitRepo(path: string): Promise<boolean> {
   try {
-    const entries = await listDir(path);
-    return entries.some((e) => e.name === ".git" && e.is_dir);
+    const entries = await getFileSystemBackend().listDirectory(path);
+    return entries.some((e) => e.name === ".git" && e.type === "directory");
   } catch {
     return false;
   }

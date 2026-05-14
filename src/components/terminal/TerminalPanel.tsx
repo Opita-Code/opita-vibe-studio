@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useProjectStore } from "@/stores/project";
+import { useUIStore } from "@/stores/ui";
 import { execShell } from "@/lib/ipc";
 import { translateOutput, isErrorOutput } from "@/lib/terminal-translations";
 
@@ -63,12 +64,15 @@ interface TerminalPanelProps {
  * - Confirmación para comandos peligrosos
  */
 export function TerminalPanel({ height }: TerminalPanelProps) {
-  const rootPath = useProjectStore((s) => s.rootPath);
+  const rootPath = useProjectStore((s) => s.activeWorkspaceId);
   const [command, setCommand] = useState("");
   const [output, setOutput] = useState<OutputLine[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [confirmCommand, setConfirmCommand] = useState<string | null>(null);
   const [showPresets, setShowPresets] = useState(false);
+  const setTerminalVisible = useUIStore((s) => s.setTerminalVisible);
+  const activeTerminalTab = useUIStore((s) => s.activeTerminalTab);
+  const setActiveTerminalTab = useUIStore((s) => s.setActiveTerminalTab);
   const outputRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const nextIdRef = useRef(1);
@@ -165,6 +169,21 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
     [rootPath, isRunning, addOutput],
   );
 
+  // ── Manejar eventos globales (ej: WelcomeScreen inyecta comando) ──
+  useEffect(() => {
+    const handleRunCommand = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setCommand(customEvent.detail);
+        // Pequeño timeout para que react actualice el input antes de ejecutar
+        setTimeout(() => executeCommand(customEvent.detail), 100);
+      }
+    };
+    
+    window.addEventListener("vibe:run-terminal-command", handleRunCommand);
+    return () => window.removeEventListener("vibe:run-terminal-command", handleRunCommand);
+  }, [executeCommand]);
+
   // ── Manejar selección de preset ────────────────────────────
   const handlePresetSelect = useCallback((preset: PresetCommand) => {
     setShowPresets(false);
@@ -219,12 +238,35 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#1e1e1e] font-mono text-xs">
+    <>
+      {/* Backdrop for mobile */}
+      <div 
+        className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[90]"
+        onClick={() => setTerminalVisible(false)}
+        aria-hidden="true"
+      />
+      <div className="flex flex-col bg-obsidian-950/95 backdrop-blur-xl font-mono text-xs border-t border-white/10 md:shrink-0 fixed md:absolute bottom-16 md:bottom-0 left-0 right-0 z-[100] md:z-30 shadow-[0_-15px_40px_rgba(0,0,0,0.4)]" style={{ height: height || 300, maxHeight: '80dvh' }}>
       {/* ── Toolbar ─────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-3 py-1 bg-[#252526] border-b border-[#333] shrink-0">
-        <span className="text-xs font-semibold uppercase tracking-wider text-[#969696]">
-          Terminal
-        </span>
+      <div className="flex items-center justify-between pl-0 pr-3 py-0 bg-obsidian-900/60 backdrop-blur-3xl border-b border-white/5 shrink-0 h-8">
+        <div className="flex h-full">
+          {(["terminal", "problems", "console", "git", "logs"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTerminalTab(tab)}
+              className={`px-4 flex items-center text-[11px] uppercase tracking-wider font-semibold border-r border-white/5 transition-colors ${
+                activeTerminalTab === tab
+                  ? "text-aura-cyan bg-white/5 border-b-2 border-b-aura-cyan"
+                  : "text-slate-500 hover:text-slate-300 hover:bg-white/5 border-b-2 border-b-transparent"
+              }`}
+            >
+              {tab === "terminal" && "Terminal"}
+              {tab === "problems" && "Problemas"}
+              {tab === "console" && "Consola"}
+              {tab === "git" && "Git"}
+              {tab === "logs" && "Logs"}
+            </button>
+          ))}
+        </div>
 
         <div className="flex items-center gap-2">
           {/* Botón de presets */}
@@ -232,20 +274,20 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
             <button
               onClick={() => setShowPresets(!showPresets)}
               aria-label="Comandos predefinidos"
-              className="px-2 py-0.5 text-xs text-[#888] hover:text-[#d4d4d4] hover:bg-[#333] rounded transition-colors"
+              className="px-2 py-0.5 text-xs text-slate-400 hover:text-white hover:bg-white/10 rounded transition-colors"
               title="Comandos predefinidos"
             >
               📋 Presets
             </button>
 
             {showPresets && (
-              <div className="absolute right-0 top-full mt-1 z-50 bg-[#2d2d2d] border border-[#444] rounded shadow-xl max-h-60 overflow-y-auto min-w-[200px]">
+              <div className="absolute right-0 bottom-full mb-1 z-50 bg-obsidian-800/90 backdrop-blur-3xl border border-white/10 rounded-lg shadow-2xl max-h-60 overflow-y-auto min-w-[200px] overflow-hidden">
                 {PRESET_COMMANDS.map((preset) => (
                   <button
                     key={preset.command}
                     onClick={() => handlePresetSelect(preset)}
-                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[#3a3a3a] transition-colors flex items-center gap-2 ${
-                      preset.dangerous ? "text-[#f44747]" : "text-[#d4d4d4]"
+                    className={`w-full text-left px-4 py-2 text-xs hover:bg-white/10 transition-colors flex items-center gap-2 ${
+                      preset.dangerous ? "text-red-400" : "text-slate-200"
                     }`}
                   >
                     {preset.dangerous && <span>⚠️</span>}
@@ -260,85 +302,107 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
           <button
             onClick={handleClear}
             aria-label="Limpiar terminal"
-            className="px-2 py-0.5 text-xs text-[#888] hover:text-[#d4d4d4] hover:bg-[#333] rounded transition-colors"
+            className="px-2 py-0.5 text-xs text-slate-400 hover:text-white hover:bg-white/10 rounded transition-colors"
             title="Limpiar terminal"
           >
             🗑️
           </button>
+          
+          <div className="w-px h-3 bg-white/10 mx-1"></div>
+
+          {/* Botón cerrar */}
+          <button
+            onClick={() => setTerminalVisible(false)}
+            aria-label="Cerrar terminal"
+            className="px-2 py-0.5 text-xs text-slate-400 hover:text-red-400 hover:bg-white/10 rounded transition-colors"
+            title="Ocultar terminal"
+          >
+            ✕
+          </button>
         </div>
       </div>
 
-      {/* ── Output ──────────────────────────────────────────── */}
-      <div
-        ref={outputRef}
-        className="flex-1 overflow-y-auto p-3 space-y-0.5"
-        style={{ maxHeight: height ? height - 80 : undefined }}
-      >
-        {output.length === 0 ? (
-          <p className="text-[#616161] italic">
-            Escribe un comando o selecciona un preset para empezar
-          </p>
-        ) : (
-          output.map((line) => (
+      {/* ── Output & Input ──────────────────────────────────────── */}
+      <div className="flex-1 overflow-hidden relative flex flex-col">
+        {activeTerminalTab === "terminal" ? (
+          <>
             <div
-              key={line.id}
-              className={`${lineColor(line.type)} whitespace-pre-wrap break-all leading-5`}
+              ref={outputRef}
+              className="flex-1 overflow-y-auto p-4 space-y-1 font-mono text-[13px] tracking-wide"
             >
-              {line.text}
-            </div>
-          ))
-        )}
+              {output.length === 0 ? (
+                <p className="text-[#616161] italic">
+                  Escribe un comando o selecciona un preset para empezar
+                </p>
+              ) : (
+                output.map((line) => (
+                  <div
+                    key={line.id}
+                    className={`${lineColor(line.type)} whitespace-pre-wrap break-all leading-relaxed`}
+                  >
+                    {line.text}
+                  </div>
+                ))
+              )}
 
-        {/* Spinner cuando está ejecutando */}
-        {isRunning && (
-          <div className="flex items-center gap-2 text-[#888] mt-1">
-            <span className="inline-block w-3 h-3 border-2 border-[#4ec9b0] border-t-transparent rounded-full animate-spin" />
-            <span>Ejecutando...</span>
+              {/* Spinner cuando está ejecutando */}
+              {isRunning && (
+                <div className="flex items-center gap-3 text-[#888] mt-2">
+                  <span className="inline-block w-4 h-4 border-[3px] border-[#4ec9b0] border-t-transparent rounded-full animate-spin" />
+                  <span className="animate-pulse">Ejecutando...</span>
+                </div>
+              )}
+            </div>
+
+            {/* ── Input ────────────────────────────────────────────── */}
+            <div className="flex items-center gap-3 px-4 py-3 border-t border-white/5 bg-transparent shrink-0">
+              <span className="text-aura-cyan shrink-0 font-bold drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]">❯</span>
+              <textarea
+                ref={inputRef}
+                value={command}
+                onChange={(e) => setCommand(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Escribe un comando..."
+                disabled={isRunning}
+                rows={1}
+                className="flex-1 bg-transparent text-slate-200 outline-none resize-none placeholder-slate-600 font-mono text-[13px] leading-relaxed tracking-wide"
+                style={{ minHeight: 24 }}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-3">
+            <svg className="w-8 h-8 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+            <p className="text-sm font-medium tracking-wide">El panel <span className="text-aura-cyan/70 uppercase">"{activeTerminalTab}"</span> está en desarrollo</p>
           </div>
         )}
       </div>
 
-      {/* ── Input ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-3 py-2 border-t border-[#333] bg-[#252526]">
-        <span className="text-[#4ec9b0] shrink-0">❯</span>
-        <textarea
-          ref={inputRef}
-          value={command}
-          onChange={(e) => setCommand(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Escribe un comando..."
-          disabled={isRunning}
-          rows={1}
-          className="flex-1 bg-transparent text-[#d4d4d4] outline-none resize-none placeholder-[#616161] font-mono text-xs leading-5"
-          style={{ minHeight: 20 }}
-        />
-      </div>
-
       {/* ── Diálogo de confirmación ─────────────────────────── */}
       {confirmCommand && (
-        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-[#2d2d2d] border border-[#444] rounded-lg p-4 max-w-sm mx-4 shadow-xl">
-            <p className="text-xs text-[#f44747] font-semibold mb-2">
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-obsidian-800/90 backdrop-blur-3xl border border-white/10 rounded-2xl p-6 max-w-sm mx-4 shadow-2xl">
+            <p className="text-sm text-red-400 font-semibold mb-3">
               ⚠️ Comando peligroso
             </p>
-            <p className="text-sm text-[#d4d4d4] mb-1">
+            <p className="text-sm text-slate-300 mb-2">
               ¿Estás seguro de ejecutar este comando?
             </p>
-            <code className="block text-xs bg-[#1e1e1e] text-[#d4d4d4] p-2 rounded mb-3 font-mono">
+            <code className="block text-xs bg-obsidian-900 border border-white/5 text-slate-300 p-3 rounded-lg mb-6 font-mono">
               {confirmCommand}
             </code>
-            <div className="flex items-center gap-2 justify-end">
+            <div className="flex items-center gap-3 justify-end">
               <button
                 onClick={() => setConfirmCommand(null)}
                 aria-label="Cancelar comando peligroso"
-                className="px-3 py-1 text-xs text-[#888] hover:text-[#d4d4d4] hover:bg-[#3a3a3a] rounded transition-colors"
+                className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleConfirmDangerous}
                 aria-label="Confirmar ejecución de comando peligroso"
-                className="px-3 py-1 text-xs bg-[#c72e2e] text-white rounded hover:bg-[#e04040] transition-colors"
+                className="px-4 py-2 text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white rounded-lg transition-all shadow-lg"
               >
                 Ejecutar de todas formas
               </button>
@@ -347,5 +411,6 @@ export function TerminalPanel({ height }: TerminalPanelProps) {
         </div>
       )}
     </div>
+    </>
   );
 }

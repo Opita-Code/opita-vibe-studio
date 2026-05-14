@@ -1,6 +1,6 @@
 import { watch } from "@tauri-apps/plugin-fs";
 import { useProjectStore } from "@/stores/project";
-import { loadProject } from "@/lib/fs";
+
 
 // ─── State ──────────────────────────────────────────────────────
 
@@ -78,8 +78,8 @@ export function stopProjectWatcher(): void {
  * usando el contador `writingCount`.
  */
 export async function startProjectWatcher(): Promise<void> {
-  const { rootPath } = useProjectStore.getState();
-  if (!rootPath) return;
+  const { workspaces } = useProjectStore.getState();
+  if (workspaces.length === 0) return;
 
   // Detener watcher anterior si existe
   stopProjectWatcher();
@@ -89,20 +89,25 @@ export async function startProjectWatcher(): Promise<void> {
     if (isSuppressed()) return;
 
     const state = useProjectStore.getState();
-    if (!state.rootPath) return;
+    if (state.workspaces.length === 0) return;
 
-    // Recargar árbol de archivos
+    // Recargar árbol de archivos de cada workspace
     try {
-      const files = await loadProject(state.rootPath);
-      useProjectStore.setState({ files });
+      await Promise.all(state.workspaces.map(w => state.reloadWorkspace(w.id)));
     } catch (err) {
       console.warn("[Watcher] Error al recargar árbol de archivos:", err);
     }
   }, DEBOUNCE_MS);
 
-  // Iniciar watcher de Tauri
+  // Iniciar watcher de Tauri (solo si estamos en el entorno nativo)
   try {
-    stop = await watch([rootPath], handleChange, { recursive: true });
+    const { isTauri } = await import("@tauri-apps/api/core");
+    if (!isTauri()) {
+      console.debug("[Watcher] Ignorando watch: no estamos en el entorno Tauri.");
+      return;
+    }
+    const pathsToWatch = workspaces.map((w) => w.path);
+    stop = await watch(pathsToWatch, handleChange, { recursive: true });
   } catch (err) {
     console.warn("[Watcher] Error al iniciar watcher:", err);
     stop = null;
