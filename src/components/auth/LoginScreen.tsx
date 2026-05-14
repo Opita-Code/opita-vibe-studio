@@ -1,13 +1,14 @@
 import { useState, useCallback } from "react";
-import { useAuthStore } from "@/stores/auth";
 import { initiateSSO } from "@/auth/sso";
-import logoSvg from "@/assets/logo-symbol.svg";
+import vibeLogoUrl from "@/assets/vibe-logo.svg";
 
 // ─── Props ──────────────────────────────────────────────────────
 
 interface LoginScreenProps {
   /** Callback cuando el usuario completa el login o elige modo invitado */
   onAuthenticated?: () => void;
+  /** Callback para cerrar el modal */
+  onClose?: () => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────
@@ -15,27 +16,26 @@ interface LoginScreenProps {
 /**
  * Pantalla de inicio de sesión.
  *
- * Para el MVP:
- * - Campo de email + botón "Iniciar sesión con Vibe Studio"
- * - Loading state mientras se autentica
- * - Error state con retry
+ * Modo Supabase (cloudAuth.isReady()):
+ * - Botón "Iniciar sesión con Google" que dispara OAuth redirect
+ *   hacia Supabase Auth. El flujo vuelve via onAuthStateChange.
+ *
+ * Modo mock (sin env vars, dev):
+ * - Campo de email + botón "Iniciar sesión" para mock auth.
+ *
+ * Ambos modos:
  * - "Continuar sin cuenta" para modo invitado (free)
+ * - Enlaces a términos y política de privacidad
  *
- * En producción:
- * - Redirige al navegador del sistema para SSO OAuth 2.0
- * - Callback recibe el token y completa la autenticación
- *
- * Brand: muestra el símbolo SVG de Vibe Studio y el nombre "Vibe Studio"
+ * Brand: símbolo SVG de Vibe Studio + nombre
  */
-export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
+export function LoginScreen({ onClose }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  const login = useAuthStore((s) => s.login);
-  const enableGuestMode = useAuthStore((s) => s.enableGuestMode);
-
-  const handleSSOLogin = useCallback(async () => {
+  const handleMagicLinkLogin = useCallback(async () => {
     if (!email.trim()) {
       setError("Ingresa tu correo electrónico para continuar");
       return;
@@ -45,105 +45,135 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
     setError(null);
 
     try {
-      const result = await initiateSSO(email.trim());
-      if (result) {
-        login(result.user, result.session);
-        onAuthenticated?.();
-      }
-    } catch (err) {
-      setError(String(err));
+      await initiateSSO(email.trim());
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err.message || String(err));
     } finally {
       setIsLoading(false);
     }
-  }, [email, login, onAuthenticated]);
+  }, [email]);
 
-  const handleGuestMode = useCallback(() => {
-    // Modo invitado: sin autenticación, plan free
-    enableGuestMode();
-    onAuthenticated?.();
-  }, [enableGuestMode, onAuthenticated]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter" && !isLoading) {
-        handleSSOLogin();
+      if (e.key === "Enter" && !isLoading && !success) {
+        handleMagicLinkLogin();
       }
     },
-    [handleSSOLogin, isLoading],
+    [handleMagicLinkLogin, isLoading, success]
   );
 
   return (
-    <div className="flex h-full w-full items-center justify-center bg-[#1e1e1e]">
-      <div className="flex w-full max-w-sm flex-col items-center gap-6 px-6">
+    <div className="relative flex h-full w-full items-center justify-center bg-obsidian-900">
+      {/* Elementos de fondo tipo "Zen Flow" */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-aura-purple/5 mix-blend-screen filter blur-[100px] animate-blob"></div>
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-aura-cyan/5 mix-blend-screen filter blur-[100px] animate-blob-reverse delay-2000"></div>
+      </div>
+
+      {/* Botón cerrar */}
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="absolute left-6 top-6 text-white/40 hover:text-white transition-colors z-10 flex items-center gap-2 text-sm font-medium bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg border border-white/5 backdrop-blur-md"
+          aria-label="Volver"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Volver
+        </button>
+      )}
+      
+      <div className="relative z-10 flex w-full max-w-sm flex-col items-center gap-6 px-6">
         {/* Logo / Brand */}
-        <div className="flex flex-col items-center gap-2">
-          <img src={logoSvg} alt="Vibe Studio" className="h-16 w-16" />
-          <h1 className="text-xl font-bold text-[#d4d4d4]">Vibe Studio</h1>
-          <p className="text-center text-sm text-[#969696]">
+        <div className="flex flex-col items-center gap-4 mb-2 animate-fade-in">
+          <div className="relative">
+            <div className="absolute inset-0 bg-aura-cyan/20 blur-xl rounded-full animate-pulse"></div>
+            <img src={vibeLogoUrl} alt="Vibe Studio" className="relative h-20 w-20" />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-white/90">Vibe Studio</h1>
+          <p className="text-center text-sm font-light text-white/50">
             Vibecodea en español. Aprende sin darte cuenta.
           </p>
         </div>
 
-        {/* Formulario de login */}
-        <div className="flex w-full flex-col gap-3">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setError(null);
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder="tu@email.com"
-            disabled={isLoading}
-            autoFocus
-            className="w-full rounded border border-[#444] bg-[#2d2d2d] px-4 py-2.5 text-sm text-[#d4d4d4] placeholder-[#616161] outline-none transition-colors focus:border-[var(--vibe-indigo)] focus:ring-1 focus:ring-[var(--vibe-indigo)] disabled:opacity-50"
-          />
+        {success ? (
+          <div className="w-full flex flex-col items-center gap-4 animate-fade-in p-6 bg-white/5 border border-aura-cyan/30 rounded-xl">
+            <svg className="w-12 h-12 text-aura-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-white/90">Revisa tu correo</h3>
+              <p className="text-sm text-white/60 mt-1">
+                Hemos enviado un enlace mágico a <strong>{email}</strong>.
+                Haz clic en él para iniciar sesión.
+              </p>
+            </div>
+            <button
+              onClick={() => setSuccess(false)}
+              className="mt-2 text-xs text-aura-cyan/70 hover:text-aura-cyan transition-colors"
+            >
+              Intentar con otro correo
+            </button>
+          </div>
+        ) : (
+          <div className="w-full flex flex-col gap-4 animate-fade-up" style={{ animationDelay: "100ms" }}>
+            <div className="flex w-full flex-col gap-3">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="tu@email.com"
+                disabled={isLoading}
+                autoFocus
+                className="w-full rounded-xl border border-white/5 bg-obsidian-800/80 px-4 py-3 text-sm text-white/90 placeholder-white/30 outline-none transition-all focus:border-aura-purple/50 focus:ring-1 focus:ring-aura-purple/50 focus:bg-white/5 disabled:opacity-50 shadow-inner"
+              />
 
-          {error && (
-            <p className="text-xs text-red-400" role="alert">
-              {error}
-            </p>
-          )}
+              {error && (
+                <p className="text-xs text-red-400 font-medium" role="alert">
+                  {error}
+                </p>
+              )}
 
-          <button
-            onClick={handleSSOLogin}
-            disabled={isLoading || !email.trim()}
-            style={{ backgroundColor: "var(--vibe-indigo)" }}
-            className="flex w-full items-center justify-center gap-2 rounded px-4 py-2.5 text-sm font-medium text-white hover:opacity-80 transition-opacity disabled:opacity-50"
+              <button
+                onClick={handleMagicLinkLogin}
+                disabled={isLoading || !email.trim()}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-aura-cyan to-aura-purple px-4 py-3 text-sm font-medium text-white disabled:opacity-50 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_30px_rgba(168,85,247,0.5)]"
+              >
+                {isLoading ? "Enviando..." : "Recibir Enlace Mágico"}
+              </button>
+            </div>
+          </div>
+        )}
+        
+
+        {/* Footer links */}
+        <p className="text-center text-[11px] font-light text-white/40 animate-fade-up mt-4" style={{ animationDelay: "300ms" }}>
+          Al continuar, aceptas nuestros{" "}
+          <a
+            href="https://opitacode.com/legal/terminos.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-aura-cyan/70 hover:text-aura-cyan hover:underline transition-colors"
           >
-            {isLoading ? (
-              <>
-                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                Iniciando sesión...
-              </>
-            ) : (
-              "Iniciar sesión con Vibe Studio"
-            )}
-          </button>
-        </div>
-
-        {/* Separador */}
-        <div className="flex w-full items-center gap-2">
-          <div className="h-px flex-1 bg-[#333]" />
-          <span className="text-xs text-[#616161]">o</span>
-          <div className="h-px flex-1 bg-[#333]" />
-        </div>
-
-        {/* Modo invitado */}
-        <button
-          onClick={handleGuestMode}
-          disabled={isLoading}
-          style={{ color: "var(--vibe-indigo)" }}
-          className="text-sm hover:opacity-80 transition-opacity disabled:opacity-50"
-        >
-          Continuar sin cuenta
-        </button>
-
-        {/* Footer info */}
-        <p className="text-center text-xs text-[#616161]">
-          Al continuar, aceptás nuestros{" "}
-          <span className="text-[var(--vibe-indigo)]">términos y condiciones</span>.
+            términos
+          </a>{" "}
+          y la{" "}
+          <a
+            href="https://opitacode.com/legal/privacidad.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-aura-cyan/70 hover:text-aura-cyan hover:underline transition-colors"
+          >
+            política de privacidad
+          </a>
+          .
         </p>
       </div>
     </div>

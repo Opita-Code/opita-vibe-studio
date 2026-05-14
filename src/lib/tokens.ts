@@ -5,55 +5,33 @@ import type { TokenUsage, UserPlan } from "./types";
 export const PLAN_LIMITS: Record<UserPlan, number> = {
   free: 30,
   estudiante: 200,
-  creador: 500,
   pro: 2000,
-  universidad: 2000,
 };
 
 export const PLAN_NAMES: Record<UserPlan, string> = {
   free: "Gratis",
   estudiante: "Estudiante",
-  creador: "Creador",
-  pro: "Pro",
-  universidad: "Universidad",
+  pro: "Vibe Pro",
 };
 
 export const PLAN_FEATURES: Record<UserPlan, string[]> = {
   free: [
     "30 prompts por mes",
-    "Modelos gratuitos (DeepSeek, Gemini)",
+    "Modelos básicos",
     "Vista previa en vivo",
     "Editor de código",
   ],
   estudiante: [
     "200 prompts por mes",
-    "BYOK: usa tu propia API key",
+    "Chat IA ilimitado",
     "Vista previa en vivo",
-    "Editor de código",
-    "Verificación de estudiante requerida",
-  ],
-  creador: [
-    "500 prompts por mes",
-    "BYOK: usa tu propia API key",
-    "Modelos premium (GPT-4o, Claude)",
-    "Vista previa en vivo",
-    "Soporte prioritario",
+    "Requiere correo .edu",
   ],
   pro: [
-    "2000 prompts por mes",
-    "BYOK: usa tu propia API key",
+    "Prompts ilimitados",
+    "Subagentes Autónomos (SDD)",
     "Todos los modelos disponibles",
-    "Vista previa en vivo",
-    "Soporte prioritario 24/7",
-    "Acceso anticipado a nuevas funciones",
-  ],
-  universidad: [
-    "2000 prompts por mes",
-    "BYOK: usa tu propia API key",
-    "Todos los modelos disponibles",
-    "Gestión de múltiples estudiantes",
-    "Panel de administración",
-    "Soporte dedicado",
+    "Despliegue a AWS 1-click",
   ],
 };
 

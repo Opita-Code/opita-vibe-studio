@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import type { UserProfile, Session, TokenUsage, UserPlan } from "@/lib/types";
 
+// ─── Types ─────────────────────────────────────────────────────
+
+export type AuthMode = "unauthenticated" | "authenticated";
+
 // ─── State ─────────────────────────────────────────────────────
 
 interface AuthState {
@@ -8,8 +12,14 @@ interface AuthState {
   session: Session | null;
   plan: UserPlan;
   tokenUsage: TokenUsage;
-  isAuthenticated: boolean;
+  authMode: AuthMode;
+  sessionDetected: boolean;
   isLoading: boolean;
+  /** Stored guest email for migration detection */
+  guestEmail: string | null;
+  /** Whether a pending migration from guest to cloud exists */
+  needsMigration: boolean;
+  hasCompletedOnboarding: boolean;
 }
 
 // ─── Actions ───────────────────────────────────────────────────
@@ -22,8 +32,18 @@ interface AuthActions {
   setLoading: (loading: boolean) => void;
   login: (user: UserProfile, session: Session) => void;
   logout: () => void;
-  enableGuestMode: () => void;
   incrementPromptsUsed: () => void;
+  detectSession: () => Promise<void>;
+  /**
+   * Checks if the OAuth user's email matches the guest's stored email.
+   * If so, sets needsMigration = true so the sync engine (PR 4) can
+   * migrate local guest data to the cloud.
+   *
+   * @param email - The authenticated user's email from OAuth
+   * @returns true if migration is needed, false otherwise
+   */
+  migrateFromGuest: (email: string) => boolean;
+  completeOnboarding: () => void;
 }
 
 // ─── Defaults ──────────────────────────────────────────────────
@@ -44,10 +64,14 @@ export const useAuthStore = create<AuthStore>((set) => ({
   session: null,
   plan: "free",
   tokenUsage: defaultTokenUsage,
-  isAuthenticated: false,
+  authMode: "unauthenticated",
+  sessionDetected: false,
   isLoading: false,
+  guestEmail: "test@example.com",
+  needsMigration: false,
+  hasCompletedOnboarding: localStorage.getItem("vibe-onboarding-done") === "true",
 
-  setUser: (user) => set({ user, isAuthenticated: user !== null }),
+  setUser: (user) => set({ user }),
 
   setSession: (session) => set({ session }),
 
@@ -57,12 +81,17 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   setLoading: (loading) => set({ isLoading: loading }),
 
+  completeOnboarding: () => {
+    localStorage.setItem("vibe-onboarding-done", "true");
+    set({ hasCompletedOnboarding: true });
+  },
+
   login: (user, session) =>
     set({
       user,
       session,
       plan: user.plan,
-      isAuthenticated: true,
+      authMode: "authenticated",
       isLoading: false,
     }),
 
@@ -71,15 +100,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
       user: null,
       session: null,
       plan: "free",
-      isAuthenticated: false,
+      authMode: "unauthenticated",
       tokenUsage: defaultTokenUsage,
+      guestEmail: null,
+      needsMigration: false,
     }),
 
-  enableGuestMode: () =>
-    set({
-      isAuthenticated: true,
-      plan: "free",
-    }),
+
 
   incrementPromptsUsed: () =>
     set((state) => ({
@@ -88,4 +115,51 @@ export const useAuthStore = create<AuthStore>((set) => ({
         promptsUsed: state.tokenUsage.promptsUsed + 1,
       },
     })),
+
+  detectSession: async () => {
+    const { restoreSession } = await import("@/auth/sso");
+    try {
+      const result = await restoreSession();
+      if (result) {
+        set({
+          user: result.user,
+          session: result.session,
+          plan: result.user.plan,
+          authMode: "authenticated",
+        });
+      }
+    } catch {
+      // No session or error — stay in guest mode (already default)
+    } finally {
+      set({ sessionDetected: true });
+    }
+  },
+
+  migrateFromGuest: (email: string): boolean => {
+    if (!email) return false;
+
+    // Read the guest email that was stored during guest mode usage
+    const storedGuestEmail = (() => {
+      try {
+        return localStorage.getItem("vibe-guest-email");
+      } catch {
+        return null;
+      }
+    })();
+
+    if (!storedGuestEmail) return false;
+
+    const emailMatch =
+      storedGuestEmail.toLowerCase() === email.toLowerCase();
+
+    if (emailMatch) {
+      set({
+        guestEmail: storedGuestEmail,
+        needsMigration: true,
+      });
+      return true;
+    }
+
+    return false;
+  },
 }));
