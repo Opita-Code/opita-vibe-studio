@@ -30,3 +30,5 @@ jobs:
 
       - name: Deploy via SST
         run: npx sst deploy --stage production
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
