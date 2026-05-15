@@ -10,6 +10,7 @@
 
 import { useMemo } from "react";
 import { useProjectStore } from "@/stores/project";
+import { useUIStore } from "@/stores/ui";
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -135,6 +136,8 @@ function toSandpackPath(relativePath: string, rootPath: string): string {
 export function usePreviewFiles(): PreviewFiles {
   const fileContents = useProjectStore((s) => s.fileContents);
   const rootPath = useProjectStore((s) => s.activeWorkspaceId) || "";
+  const previewTarget = useUIStore((s) => s.previewTarget);
+  const vibeLensEnabled = useUIStore((s) => s.vibeLensEnabled);
 
   return useMemo(() => {
     const entries = Object.entries(fileContents);
@@ -164,6 +167,40 @@ export function usePreviewFiles(): PreviewFiles {
       count++;
     }
 
+    // Modo Aislado (Intelligent Preview)
+    // Si tenemos un previewTarget (ej. /src/components/Boton.tsx) y está habilitado,
+    // inyectamos un App.tsx efímero que lo monta centrado.
+    if (vibeLensEnabled && previewTarget) {
+      // previewTarget usualmente viene como ruta absoluta local, debemos pasarla a ruta Sandpack
+      const targetSandpackPath = toSandpackPath(previewTarget, rootPath);
+      
+      // Verificamos si existe en los archivos que estamos mandando
+      if (sandpackFiles[targetSandpackPath]) {
+        // Le quitamos la extensión para el import
+        const importPath = "." + targetSandpackPath.replace(/\.[jt]sx?$/, "");
+        
+        sandpackFiles["/App.tsx"] = `
+import React from 'react';
+import Component from '${importPath}';
+
+export default function IsolatedPreview() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '2rem' }}>
+      <Component />
+    </div>
+  );
+}
+`;
+        // Forzamos la plantilla a react-ts para que use nuestro App.tsx
+        return {
+          files: sandpackFiles,
+          template: "react-ts",
+          hasPreviewableFiles: true,
+          fileCount: count + 1,
+        };
+      }
+    }
+
     const hasPreviewableFiles = count > 0;
     const template = hasPreviewableFiles ? detectTemplate(includedPaths) : "react-ts";
 
@@ -173,5 +210,5 @@ export function usePreviewFiles(): PreviewFiles {
       hasPreviewableFiles,
       fileCount: count,
     };
-  }, [fileContents, rootPath]);
+  }, [fileContents, rootPath, previewTarget, vibeLensEnabled]);
 }
