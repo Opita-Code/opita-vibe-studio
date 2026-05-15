@@ -53,48 +53,71 @@ export async function initiateSSO(email?: string, options?: SSOOptions): Promise
   }
 }
 
+function getCookie(name: string) {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  if (match) return match[2];
+  return null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function decodeJWT(token: string): any {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    let payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    switch (payload.length % 4) {
+      case 0: break;
+      case 2: payload += '=='; break;
+      case 3: payload += '='; break;
+      default: return null;
+    }
+    const decoded = decodeURIComponent(atob(payload).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Intenta restaurar una sesión leyendo la cookie opita_session
- * contra el backend de AWS.
+ * Intenta restaurar una sesión leyendo la cookie de Cognito
+ * o cayendo hacia el backend de AWS antiguo.
  */
 export async function restoreSession(): Promise<AuthResult | null> {
   try {
-    const response = await fetch(`${API_URL}/auth/me`, {
-      method: "GET",
-      credentials: "include", // Envia cookies cross-origin si CORS lo permite
-    });
-
-    if (!response.ok) {
-      return null;
+    // 1. Intentar con Cognito Cookie primero
+    const cognitoToken = getCookie("opita_id_token");
+    if (cognitoToken) {
+      const claims = decodeJWT(cognitoToken);
+      if (claims && claims.sub) {
+        const user: UserProfile = {
+          id: `user-${claims.email}`,
+          email: claims.email,
+          name: claims.given_name || claims.name || claims.email.split("@")[0] || "Usuario",
+          plan: claims['custom:plan'] || claims.plan || "free",
+          verified: true,
+        };
+        const session: Session = {
+          token: cognitoToken, // Pasamos el JWT real para que aiService.ts lo mande a la Lambda
+          expiresAt: claims.exp ? claims.exp * 1000 : Date.now() + 3600000,
+        };
+        useAuthStore.getState().migrateFromGuest(user.email);
+        return { user, session };
+      }
     }
 
-    const data = await response.json();
-    
-    if (!data.user) return null;
-
-    const user: UserProfile = {
-      id: `user-${data.user.email}`,
-      email: data.user.email,
-      name: data.user.email.split("@")[0] || "Usuario",
-      plan: data.user.plan || "free",
-      verified: true,
-    };
-
-    // La sesión real vive en la cookie HttpOnly. 
-    // Para compatibilidad con el resto del app, proveemos un mock token.
-    const session: Session = {
-      token: "httponly_cookie_active",
-      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-    };
-
-    // Check and flag guest-to-cloud migration
-    useAuthStore.getState().migrateFromGuest(user.email);
-
-    return { user, session };
+    // No Cognito cookie found — user is not authenticated.
+    // Legacy /auth/me fallback removed (caused CORS errors and is no longer needed
+    // since the Identity Hub sets cookies with domain=.opitacode.com).
+    return null;
   } catch (err) {
     console.error("Failed to restore session via AWS", err);
     return null;
   }
+}
+
+function removeSSOCookie(name: string) {
+  const domain = window.location.hostname.includes('opitacode.com') ? 'domain=.opitacode.com;' : '';
+  document.cookie = `${name}=; ${domain} path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax`;
 }
 
 /**
@@ -109,6 +132,11 @@ export async function logout(): Promise<void> {
   } catch {
     // Local logout must always succeed
   }
+
+  // Eliminar cookies compartidas de Cognito
+  removeSSOCookie('opita_id_token');
+  removeSSOCookie('opita_access_token');
+  removeSSOCookie('opita_refresh_token');
 
   useAuthStore.getState().logout();
 }

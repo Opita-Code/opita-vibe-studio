@@ -4,6 +4,7 @@ import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand } from "@a
 import { Resource as SSTResource } from "sst";
 import { z } from "zod";
 import { randomUUID, createHmac, scryptSync, randomBytes, timingSafeEqual } from "crypto";
+import { getProfile, getMissions, completeMission, awardXP } from "./gamification.js";
 
 function base64url(buf: Buffer) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
@@ -25,6 +26,40 @@ function verifyJWT(token: string, secret: string) {
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp && now > payload.exp) throw new Error("Token expired");
   return payload;
+}
+
+// ─── Cognito Plan Extraction (source of truth) ─────────────────
+// Decode Cognito ID token (RSA-signed) WITHOUT verification.
+// Safe because: plan is used for display/quota, not authorization.
+// Actual auth enforcement happens in chat.ts which does JWKS verification.
+function decodeJWTPayload(token: string): any {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    return JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** Extract plan from Cognito opita_id_token cookie, fallback to DynamoDB */
+async function resolvePlan(event: any, email: string): Promise<string> {
+  // 1. Try Cognito ID token (source of truth)
+  const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
+  const idMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
+  if (idMatch) {
+    const claims = decodeJWTPayload(idMatch[1]);
+    if (claims?.['custom:plan']) {
+      return claims['custom:plan'];
+    }
+  }
+
+  // 2. Fallback: DynamoDB Users table
+  const userDb = await docClient.send(new GetCommand({
+    TableName: Resource.Users.name,
+    Key: { email }
+  }));
+  return userDb.Item?.plan || "free";
 }
 
 // ─── Password Hashing (crypto.scrypt — native, zero deps) ────
@@ -50,7 +85,35 @@ const sesClient = new SESClient(awsConfig);
 const ddbClient = new DynamoDBClient(awsConfig);
 const docClient = DynamoDBDocumentClient.from(ddbClient);
 
+// ─── Auth Helper ────────────────────────────────────────────────
 
+/** Extract authenticated email from session cookie. Returns null if not authenticated. */
+async function extractAuthEmail(event: any): Promise<string | null> {
+  const cookies = event.cookies || [];
+  const cookieHeader = event.headers?.cookie || "";
+  let sessionToken = null;
+
+  const match = cookieHeader.match(/opita_session=([^;]+)/);
+  if (match) {
+    sessionToken = match[1];
+  } else {
+    for (const c of cookies) {
+      if (c.startsWith("opita_session=")) {
+        sessionToken = c.split("=")[1];
+        break;
+      }
+    }
+  }
+
+  if (!sessionToken) return null;
+
+  try {
+    const payload = verifyJWT(sessionToken, process.env.JWT_SECRET || "");
+    return payload.email as string;
+  } catch {
+    return null;
+  }
+}
 
 // ─── Service Config ─────────────────────────────────────────────
 
@@ -385,12 +448,7 @@ export const handler = async (event: any) => {
       try {
         const payload = verifyJWT(sessionToken, process.env.JWT_SECRET || "") as any;
         
-        const userDb = await docClient.send(new GetCommand({
-          TableName: Resource.Users.name,
-          Key: { email: payload.email }
-        }));
-        
-        const plan = userDb.Item?.plan || "free";
+        const plan = await resolvePlan(event, payload.email);
 
         return {
           statusCode: 200,
@@ -644,12 +702,8 @@ export const handler = async (event: any) => {
 
       const email = payload.email as string;
 
-      // Get user plan
-      const userDb = await docClient.send(new GetCommand({
-        TableName: Resource.Users.name,
-        Key: { email }
-      }));
-      const plan = userDb.Item?.plan || "free";
+      // Resolve plan from Cognito (source of truth), fallback to DynamoDB
+      const plan = await resolvePlan(event, email);
 
       // Token quota constants (must match chat.ts)
       const TOKEN_QUOTAS: Record<string, { daily: number; hourly: number }> = {
@@ -658,6 +712,16 @@ export const handler = async (event: any) => {
         pro:        { daily: 1_000_000, hourly: 200_000 },
       };
       const quota = TOKEN_QUOTAS[plan] || TOKEN_QUOTAS.pro;
+
+      // Get effective quota including gamification bonuses
+      const effectiveDailyLimit = await (async () => {
+        try {
+          const earned = await import("./gamification.js");
+          return await earned.getEffectiveQuota(email, plan);
+        } catch {
+          return quota.daily;
+        }
+      })();
 
       // Read current counters
       const now = new Date();
@@ -693,13 +757,66 @@ export const handler = async (event: any) => {
         headers: getCorsHeaders(event),
         body: JSON.stringify({
           tokensUsedToday,
-          tokensLimitDaily: quota.daily,
+          tokensLimitDaily: Math.max(quota.daily, effectiveDailyLimit),
+          tokensLimitDailyBase: quota.daily,
           tokensUsedThisHour,
           tokensLimitHourly: quota.hourly,
           plan,
           resetDailyAt: resetDaily.toISOString(),
           resetHourlyAt: resetHourly.toISOString(),
         }),
+      };
+    }
+
+    // ─── Gamification Endpoints ──────────────────────────────────
+
+    if (path === "/gamification" && method === "GET") {
+      const email = await extractAuthEmail(event);
+      if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      const plan = await resolvePlan(event, email);
+      const profile = await getProfile(email, plan);
+      return {
+        statusCode: 200,
+        headers: getCorsHeaders(event),
+        body: JSON.stringify(profile),
+      };
+    }
+
+    if (path === "/gamification/missions" && method === "POST") {
+      const email = await extractAuthEmail(event);
+      if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      const plan = await resolvePlan(event, email);
+      const missions = await getMissions(email, plan);
+      return {
+        statusCode: 200,
+        headers: getCorsHeaders(event),
+        body: JSON.stringify({ missions }),
+      };
+    }
+
+    if (path?.startsWith("/gamification/missions/") && path.endsWith("/complete") && method === "POST") {
+      const email = await extractAuthEmail(event);
+      if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      const plan = await resolvePlan(event, email);
+      const missionId = path.replace("/gamification/missions/", "").replace("/complete", "");
+      const result = await completeMission(email, missionId, plan);
+      return {
+        statusCode: 200,
+        headers: getCorsHeaders(event),
+        body: JSON.stringify(result),
+      };
+    }
+
+    if (path === "/gamification/xp/award" && method === "POST") {
+      const email = await extractAuthEmail(event);
+      if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      const plan = await resolvePlan(event, email);
+      const body = JSON.parse(event.body || "{}");
+      const result = await awardXP(email, body.action || "chat_message", plan);
+      return {
+        statusCode: 200,
+        headers: getCorsHeaders(event),
+        body: JSON.stringify(result),
       };
     }
 

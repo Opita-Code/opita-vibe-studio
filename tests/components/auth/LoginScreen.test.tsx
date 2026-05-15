@@ -1,56 +1,55 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { LoginScreen } from "../../../src/components/auth/LoginScreen";
-import { useAuthStore } from "../../../src/stores/auth";
+
+// Mock SSO to prevent actual fetch calls
+vi.mock("../../../src/auth/sso", () => ({
+  initiateSSO: vi.fn().mockRejectedValue(new Error("Email inválido")),
+  loginWithPassword: vi.fn().mockRejectedValue(new Error("Invalid credentials")),
+  registerWithPassword: vi.fn().mockRejectedValue(new Error("Registration failed")),
+}));
 
 beforeEach(() => {
-  useAuthStore.setState({
-    user: null,
-    session: null,
-    plan: "free",
-    isAuthenticated: false,
-    isLoading: false,
-    tokenUsage: {
-      promptsUsed: 0,
-      promptsLimit: 30,
-      billingPeriodStart: new Date().toISOString(),
-      billingPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  });
+  vi.clearAllMocks();
 });
 
 describe("LoginScreen", () => {
-  it("should render login form", () => {
+  it("should render Vibe Studio branding", () => {
     render(<LoginScreen />);
     expect(screen.getByText("Vibe Studio")).toBeTruthy();
-    expect(screen.getByText("Iniciar sesión")).toBeTruthy();
+    expect(screen.getByText(/Vibecodea en español/)).toBeTruthy();
   });
 
-  it("should render email input", () => {
+  it("should render login form with email and password inputs", () => {
     render(<LoginScreen />);
+    // Default mode is "password" with "login" view
     expect(screen.getByPlaceholderText("tu@email.com")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Contraseña")).toBeTruthy();
+    expect(screen.getByText("Iniciar Sesión")).toBeTruthy();
   });
 
-  it("should show error for invalid email when not an @ format", () => {
-    const onAuth = vi.fn();
-    render(<LoginScreen onAuthenticated={onAuth} />);
+  it("should show error for invalid email when submitting", async () => {
+    const { initiateSSO } = await import("../../../src/auth/sso");
+    (initiateSSO as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Email inválido"));
 
-    // Empty email → button is disabled, so click does nothing
-    const button = screen.getByText("Iniciar sesión");
-    expect(button.hasAttribute("disabled")).toBe(true);
-  });
-
-
-
-  it("should show loading state after submitting a valid email", () => {
     render(<LoginScreen />);
 
-    const input = screen.getByPlaceholderText("tu@email.com");
-    fireEvent.change(input, { target: { value: "test@opita.co" } });
+    // Switch to magic link mode
+    fireEvent.click(screen.getByText("Enlace Mágico"));
 
-    const button = screen.getByText("Iniciar sesión");
-    fireEvent.click(button);
+    // Type an invalid email and submit
+    const emailInput = screen.getByPlaceholderText("tu@email.com");
+    fireEvent.change(emailInput, { target: { value: "invalid" } });
+    fireEvent.click(screen.getByText("Recibir Enlace Mágico"));
 
-    expect(screen.getByText("Iniciando sesión...")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeTruthy();
+    });
+  });
+
+  it("should have auth mode tabs (Contraseña and Enlace Mágico)", () => {
+    render(<LoginScreen />);
+    expect(screen.getByText("Contraseña")).toBeTruthy();
+    expect(screen.getByText("Enlace Mágico")).toBeTruthy();
   });
 });

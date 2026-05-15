@@ -10,10 +10,13 @@ beforeEach(() => {
     authMode: "unauthenticated",
     isLoading: false,
     tokenUsage: {
-      promptsUsed: 0,
-      promptsLimit: 30,
-      billingPeriodStart: expect.any(String) as unknown as string,
-      billingPeriodEnd: expect.any(String) as unknown as string,
+      tokensUsedToday: 0,
+      tokensLimitDaily: 150_000,
+      tokensUsedThisHour: 0,
+      tokensLimitHourly: 30_000,
+      plan: "free",
+      resetDailyAt: new Date().toISOString(),
+      resetHourlyAt: new Date().toISOString(),
     },
   });
 });
@@ -56,10 +59,19 @@ describe("AuthStore", () => {
     expect(state.plan).toBe("free");
   });
 
-  it("should increment prompts used", () => {
-    expect(useAuthStore.getState().tokenUsage.promptsUsed).toBe(0);
-    useAuthStore.getState().incrementPromptsUsed();
-    expect(useAuthStore.getState().tokenUsage.promptsUsed).toBe(1);
+  it("should update token usage via setTokenUsage", () => {
+    const newUsage = {
+      tokensUsedToday: 50_000,
+      tokensLimitDaily: 250_000,
+      tokensUsedThisHour: 10_000,
+      tokensLimitHourly: 60_000,
+      plan: "estudiante" as const,
+      resetDailyAt: new Date().toISOString(),
+      resetHourlyAt: new Date().toISOString(),
+    };
+    useAuthStore.getState().setTokenUsage(newUsage);
+    expect(useAuthStore.getState().tokenUsage.tokensUsedToday).toBe(50_000);
+    expect(useAuthStore.getState().tokenUsage.tokensLimitDaily).toBe(250_000);
   });
 
   it("should set loading state", () => {
