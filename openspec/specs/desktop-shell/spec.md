@@ -1,72 +1,113 @@
 # Desktop Shell Specification
 
-## Summary
+## Purpose
 
-Tauri v2 desktop shell with a micro-kernel extension architecture. The shell uses a CoreHost to register extensions (views, commands) at boot, rendering them into layout slots (SidebarSlot, EditorSlot, StatusbarSlot).
+Layout principal de Vibe Studio — un IDE web-first con soporte Tauri v2 para escritorio. Usa ActivityBar como navegación primaria, con panels responsivos para chat, editor, y preview.
 
 ## Architecture
 
-### Extension System
+- **Entry**: `src/App.tsx` — Router principal, detección de sesión, layout mounting
+- **Layout**: ActivityBar-driven — NO usa el sistema de Extensions/CoreHost (deprecado)
+- **Store**: `src/stores/ui.ts` — UIStore (sidebar, views, panels, fullscreen)
+- **Responsive**: Mobile-first con breakpoints para desktop
 
-- **CoreHost**: `src/core/CoreHost.ts` — Boots extensions, provides `ExtensionContext` with `views.registerView()` and `commands.registerCommand()`
-- **coreStore**: `src/core/state/coreStore.ts` — Zustand store holding registered views and commands
-- **Extensions**: `src/extensions/` — Self-registering modules:
-  - `vibe-ai` — Registers ChatPanel as sidebar view (lazy-loaded)
-  - `vibe-preview` — Registers preview as editor view
-  - `vibe-viewtabs` — Registers ViewTabs as editor chrome
+### Layout Structure
 
-### Layout Slots
+```
+┌─────────────────────────────────────────────────┐
+│                   ActionBar                     │
+├──────┬────────────────────────┬─────────────────┤
+│      │                        │                 │
+│  AB  │     Chat / Editor      │    Preview      │
+│      │      (split view)      │                 │
+│      │                        │                 │
+├──────┴────────────────────────┴─────────────────┤
+│                   StatusBar                     │
+└─────────────────────────────────────────────────┘
+AB = ActivityBar (vertical sidebar icons)
+```
 
-- **SidebarSlot**: `src/renderer/layouts/SidebarSlot.tsx` — Renders views with `target: "sidebar"`, sorted by `order`
-- **EditorSlot**: `src/renderer/layouts/EditorSlot.tsx` — Renders editor-target views
-- **StatusbarSlot**: `src/renderer/layouts/StatusbarSlot.tsx` — Renders statusbar-target views
+### Key Components
 
-### Desktop-Specific Features
+| Component | Path | Purpose |
+|-----------|------|---------|
+| ActivityBar | `src/components/layout/ActivityBar.tsx` | Vertical icon sidebar: explorer, chat, search, settings, profile popover |
+| ActionBar | `src/components/layout/ActionBar.tsx` | Top bar: model selector, mode buttons, branding |
+| StatusBar | `src/components/layout/StatusBar.tsx` | Bottom bar: status messages, compact TokenBar, sync status |
+| CommandPalette | `src/components/layout/CommandPalette.tsx` | Ctrl+K omnibar with commands, settings, search |
+| EditorPanel | `src/components/layout/EditorPanel.tsx` | Code editor wrapper (Monaco-based) |
+| ChatPanel | `src/components/layout/ChatPanel.tsx` | AI chat with agent handler integration |
 
-- **TitleBar**: `src/components/layout/TitleBar.tsx` — Custom window title bar with traffic lights
-- **Window management**: Single instance enforcement, custom window controls
-- **Native FS**: Tauri IPC commands for file system access (`src-tauri/src/commands/fs.rs`)
-- **MCP Bridge**: `src/services/mcpClient.ts` — Rust-React bridge for local terminal commands
+### View Modes (UIStore)
+
+| ActiveView | Description |
+|------------|-------------|
+| `"editor"` | Code editor only |
+| `"preview"` | Live preview only |
+| `"split"` | Side-by-side editor + preview |
+
+### Sidebar (ActiveSidebar)
+
+| Value | Panel |
+|-------|-------|
+| `"explorer"` | File tree |
+| `"chat"` | AI chat |
+| `"search"` | Search panel |
+| `null` | Sidebar collapsed |
 
 ## Requirements
 
-### Requirement: Extension Registration
-
-All UI panels MUST be registered as extensions via `CoreHost.boot()`. Hardcoded panel rendering is legacy and being migrated to slot-based architecture.
-
-#### Scenario: Chat panel registration
-
-- GIVEN the `vibe-ai` extension is loaded
-- WHEN `CoreHost.boot()` runs
-- THEN `registerView({ id: 'vibe.view.chat', target: 'sidebar', component: ChatPanelLazy })` is called
-- AND the ChatPanel becomes available in SidebarSlot when `activeSidebar === "chat"`
-
-### Requirement: Platform Detection
-
-The app detects Tauri vs browser at runtime via `src/lib/platform.ts`. Desktop-specific features (TitleBar, native FS, MCP) are only enabled in Tauri context.
-
 ### Requirement: ActivityBar Navigation
 
-The ActivityBar (`src/components/layout/ActivityBar.tsx`) provides primary navigation:
-- Explorer (`Ctrl+B`) — toggles ExplorerDock
-- Search (`Ctrl+Shift+F`) — toggles search sidebar
-- Vibe AI Chat (`Ctrl+L`) — toggles chat sidebar
-- Bug Report — opens BugReportModal
-- Settings (`Ctrl+,`) — opens SettingsPanel
-- Landing link (guests only) — external link to vibe.opitacode.com
-- User avatar (authenticated) — shows initial, click to logout
+The ActivityBar MUST provide icon-based navigation for all primary panels.
+
+#### Scenario: Switch to explorer
+- GIVEN any sidebar is active
+- WHEN user clicks the explorer icon
+- THEN `activeSidebar` = `"explorer"` and file tree renders
+
+#### Scenario: Profile popover with gamification
+- GIVEN user is authenticated
+- WHEN user clicks the avatar icon
+- THEN a popover shows: Level, Total XP, Streak, plan, logout button
+
+### Requirement: Command Palette
+
+Ctrl+K or Ctrl+P opens the CommandPalette with all registered commands.
+
+#### Scenario: Available commands
+- GIVEN the palette is open
+- THEN 10 commands are available: New File, Report Bug, Toggle Theme, Missions, Chat Fullscreen, New Chat, Explorer, Export, Editor Settings, AI Settings
+
+### Requirement: Chat Fullscreen Mode
+
+The chat panel MUST support fullscreen mode, hiding all other panels.
+
+### Requirement: Responsive Mobile Layout
+
+On mobile viewports (<768px), the ActivityBar collapses and navigation uses a bottom tab bar or hamburger menu.
+
+### Requirement: Gamification Integration
+
+XPBar and MilestoneToast overlay are rendered globally in App.tsx.
+
+## Desktop-Specific (Tauri v2)
+
+- **TitleBar**: Custom window title bar with traffic lights (macOS) or min/max/close (Windows)
+- **Native FS**: Tauri IPC commands for file system access via `src-tauri/src/commands/fs.rs`
+- **MCP Bridge**: `src/services/mcpClient.ts` — Rust-React bridge for local terminal commands
+- **Single instance**: Window management enforces single app instance
 
 ## Files
 
-- `src/core/CoreHost.ts`
-- `src/core/state/coreStore.ts`
-- `src/core/types.ts`
-- `src/extensions/vibe-ai/index.ts`
-- `src/extensions/vibe-preview/index.ts`
-- `src/extensions/vibe-viewtabs/index.ts`
-- `src/renderer/layouts/SidebarSlot.tsx`
-- `src/renderer/layouts/EditorSlot.tsx`
-- `src/renderer/layouts/StatusbarSlot.tsx`
-- `src/components/layout/ActivityBar.tsx`
-- `src/components/layout/TitleBar.tsx`
-- `src/lib/platform.ts`
+- `src/App.tsx` — Root component, layout orchestration
+- `src/stores/ui.ts` — UIStore (views, sidebar, panels, fullscreen)
+- `src/components/layout/ActivityBar.tsx` — Primary navigation
+- `src/components/layout/ActionBar.tsx` — Top toolbar
+- `src/components/layout/StatusBar.tsx` — Bottom status bar
+- `src/components/layout/CommandPalette.tsx` — Omnibar (Ctrl+K)
+- `src/components/layout/ChatPanel.tsx` — AI chat panel
+- `src/components/layout/EditorPanel.tsx` — Code editor
+- `src/components/gamification/XPBar.tsx` — XP progress bar
+- `src/components/gamification/MilestoneToast.tsx` — Achievement overlay
+- `src/renderer/LegacyLogicManager.tsx` — TEMPORARY: legacy business logic (pending decomposition)

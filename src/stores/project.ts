@@ -3,6 +3,8 @@ import { persist } from "zustand/middleware";
 import type { FileNode } from "@/lib/types";
 import { loadProject, readFileContent, saveFileContent, isGitRepo } from "@/lib/fs";
 import { getGitBranch } from "@/lib/git";
+import type { ProjectTemplate } from "@/lib/templates";
+import { persistToOPFS, startAutoPersist } from "@/lib/fs-backend/opfs-persistence";
 
 export interface Workspace {
   id: string; // The root path is the id
@@ -25,6 +27,11 @@ interface ProjectState {
   /** Contenido de archivos abiertos (path → contenido actual) */
   fileContents: Record<string, string>;
 
+  /** Modo de Diff (Antes y Después) */
+  diffMode: boolean;
+  diffOriginalContent: string;
+  diffModifiedContent: string;
+
   /** Indica si se está cargando un proyecto */
   isLoading: boolean;
   /** Mensaje de estado de la última operación */
@@ -34,6 +41,10 @@ interface ProjectState {
   isSyncing: boolean;
   lastSyncedAt: Date | null;
   hasUnsyncedChanges: boolean;
+  /** Auto-backup on save (debounced 10s) */
+  autoBackupEnabled: boolean;
+  /** Last sync error message */
+  syncError: string | null;
 }
 
 // ─── Actions ───────────────────────────────────────────────────
@@ -62,6 +73,12 @@ interface ProjectActions {
   /** Sincroniza el workspace activo hacia la nube */
   syncProject: () => Promise<void>;
 
+  /** Restaura el workspace desde la nube */
+  restoreProject: () => Promise<void>;
+
+  /** Toggle auto-backup on save */
+  setAutoBackup: (enabled: boolean) => void;
+
   /** Abre un archivo: lo lee de disco, lo agrega a tabs, carga su contenido */
   openFile: (path: string) => Promise<void>;
 
@@ -77,13 +94,47 @@ interface ProjectActions {
   /** Actualiza la lista de archivos de un workspace específico (útil para el file watcher) */
   updateWorkspaceFiles: (id: string, files: FileNode[]) => void;
 
+  /** Funciones para el modo Diff */
+  openDiffMode: (path: string) => Promise<void>;
+  closeDiffMode: () => void;
+
   /** Limpia el mensaje de estado */
   clearStatusMessage: () => void;
+
+  /** Crea un proyecto virtual desde un template pre-cargado */
+  scaffoldTemplate: (template: ProjectTemplate) => void;
 }
 
 // ─── Store ─────────────────────────────────────────────────────
 
 export type ProjectStore = ProjectState & ProjectActions;
+
+// ─── OPFS Auto-Persist ──────────────────────────────────────────
+
+/** Triggers an OPFS persist of the current workspace state. */
+function _triggerOPFSPersist(): void {
+  const state = useProjectStore.getState();
+  const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+  if (!ws) return;
+
+  persistToOPFS(
+    ws.id,
+    ws.name,
+    state.fileContents,
+    state.openTabs,
+    state.activeTab,
+  ).catch(() => {/* silent */});
+}
+
+// Start auto-persist timer (runs once at module load)
+if (typeof window !== "undefined") {
+  // Defer to avoid circular reference during store initialization
+  queueMicrotask(() => {
+    startAutoPersist(_triggerOPFSPersist);
+  });
+}
+
+// ─── Store ─────────────────────────────────────────────────────
 
 export const useProjectStore = create<ProjectStore>()(
   persist(
@@ -95,12 +146,18 @@ export const useProjectStore = create<ProjectStore>()(
       activeTab: null,
       isDirty: {},
       fileContents: {},
+
+      diffMode: false,
+      diffOriginalContent: "",
+      diffModifiedContent: "",
       
       isLoading: false,
       statusMessage: null,
       isSyncing: false,
       lastSyncedAt: null,
       hasUnsyncedChanges: false,
+      autoBackupEnabled: false,
+      syncError: null,
 
       // ── Síncronos (ya existentes) ──────────────────────────────
 
@@ -301,12 +358,57 @@ export const useProjectStore = create<ProjectStore>()(
             }
           }, 3000);
         } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : "Desconocido";
           set({
             isSyncing: false,
-            statusMessage: `Error al sincronizar: ${error instanceof Error ? error.message : "Desconocido"}`,
+            statusMessage: `Error al sincronizar: ${errorMsg}`,
+            syncError: errorMsg,
           });
         }
       },
+
+      restoreProject: async () => {
+        const { activeWorkspaceId } = get();
+        if (!activeWorkspaceId) return;
+
+        set({ isSyncing: true, statusMessage: "Restaurando desde la nube...", syncError: null });
+
+        try {
+          const { SyncEngine } = await import("@/lib/sync");
+          const { getFileSystemBackend } = await import("@/lib/fs-backend");
+
+          await SyncEngine.pullFromCloud(
+            activeWorkspaceId,
+            getFileSystemBackend(),
+            (msg) => set({ statusMessage: msg })
+          );
+
+          // Reload workspace to pick up restored files
+          await get().reloadWorkspace(activeWorkspaceId);
+
+          set({
+            isSyncing: false,
+            statusMessage: "Proyecto restaurado exitosamente",
+            lastSyncedAt: new Date(),
+            hasUnsyncedChanges: false,
+          });
+
+          setTimeout(() => {
+            if (get().statusMessage === "Proyecto restaurado exitosamente") {
+              set({ statusMessage: null });
+            }
+          }, 3000);
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : "Desconocido";
+          set({
+            isSyncing: false,
+            statusMessage: `Error al restaurar: ${errorMsg}`,
+            syncError: errorMsg,
+          });
+        }
+      },
+
+      setAutoBackup: (enabled) => set({ autoBackupEnabled: enabled }),
 
       updateWorkspaceGitInfo: (id, branch, isRepo) => {
         set((state) => ({
@@ -360,6 +462,20 @@ export const useProjectStore = create<ProjectStore>()(
         const content = get().fileContents[path];
         if (content === undefined) return;
 
+        const workspaceId = get().activeWorkspaceId;
+        const isVirtual = workspaceId?.startsWith("template://");
+
+        if (isVirtual) {
+          // Virtual workspace: mark clean + trigger OPFS persist (no FS permission needed)
+          set((state) => ({
+            isDirty: { ...state.isDirty, [path]: false },
+            statusMessage: "Guardado",
+          }));
+          // Persist to OPFS silently
+          _triggerOPFSPersist();
+          return;
+        }
+
         try {
           await saveFileContent(path, content);
           set((state) => ({
@@ -384,6 +500,105 @@ export const useProjectStore = create<ProjectStore>()(
       },
 
       clearStatusMessage: () => set({ statusMessage: null }),
+
+      openDiffMode: async (path) => {
+        const { workspaces, activeWorkspaceId, openFile } = get();
+        const workspace = workspaces.find((w) => w.id === activeWorkspaceId);
+        if (!workspace) return;
+        
+        const sep = workspace.path.includes("\\") ? "\\" : "/";
+        const fullPath = `${workspace.path}${sep}${path.replace(/\//g, sep)}`;
+        
+        // Ensure file is open and loaded
+        await openFile(fullPath);
+        
+        // Dynamically import snapshot util
+        const { getLastSnapshot } = await import("@/tools/fileSnapshot");
+        const snapshot = getLastSnapshot(path);
+        
+        set({
+          diffMode: true,
+          diffOriginalContent: snapshot ? snapshot.content : "", // If new file, empty original
+          diffModifiedContent: get().fileContents[fullPath] || ""
+        });
+      },
+
+      closeDiffMode: () => {
+        set({
+          diffMode: false,
+          diffOriginalContent: "",
+          diffModifiedContent: ""
+        });
+      },
+
+      scaffoldTemplate: (template) => {
+        // Build virtual file tree from template files
+        const virtualPath = `template://${template.id}`;
+        const fileNodes: FileNode[] = [];
+        const fileContents: Record<string, string> = {};
+        const dirs = new Map<string, FileNode[]>();
+
+        for (const [relativePath, content] of Object.entries(template.files)) {
+          const parts = relativePath.split("/");
+          const fileName = parts.pop()!;
+          const fullPath = `${virtualPath}/${relativePath}`;
+
+          // Store content
+          fileContents[fullPath] = content;
+
+          // Create file node
+          const fileNode: FileNode = {
+            name: fileName,
+            path: fullPath,
+            type: "file",
+          };
+
+          // Build directory structure
+          const dirPath = parts.join("/");
+          if (dirPath) {
+            if (!dirs.has(dirPath)) dirs.set(dirPath, []);
+            dirs.get(dirPath)!.push(fileNode);
+          } else {
+            fileNodes.push(fileNode);
+          }
+        }
+
+        // Convert dirs map to nested FileNode tree
+        for (const [dirPath, children] of dirs) {
+          const dirParts = dirPath.split("/");
+          const dirNode: FileNode = {
+            name: dirParts[dirParts.length - 1],
+            path: `${virtualPath}/${dirPath}`,
+            type: "directory",
+            children,
+          };
+          fileNodes.push(dirNode);
+        }
+
+        // Find first file to auto-open
+        const firstFile = Object.keys(template.files)[0];
+        const firstFullPath = firstFile ? `${virtualPath}/${firstFile}` : null;
+
+        const workspace: Workspace = {
+          id: virtualPath,
+          path: virtualPath,
+          name: template.name,
+          files: fileNodes,
+          isGitRepo: false,
+          gitBranch: null,
+        };
+
+        set({
+          workspaces: [workspace],
+          activeWorkspaceId: virtualPath,
+          fileContents,
+          openTabs: firstFullPath ? [firstFullPath] : [],
+          activeTab: firstFullPath,
+          isDirty: {},
+          isLoading: false,
+          statusMessage: `Template "${template.name}" cargado`,
+        });
+      },
     }),
     {
       name: "vibe-studio-project",

@@ -1,57 +1,68 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ExplorerDock } from "../../../src/components/layout/ExplorerDock";
 import { useUIStore } from "../../../src/stores/ui";
+import { useProjectStore } from "../../../src/stores/project";
+
+// Mock FileTree to avoid deep component rendering
+vi.mock("../../../src/components/files/FileTree", () => ({
+  FileTree: ({ nodes }: { nodes: unknown[] }) => (
+    <div data-testid="file-tree">{nodes.length} files</div>
+  ),
+}));
+
+// Mock fs-backend
+vi.mock("../../../src/lib/fs-backend", () => ({
+  getFileSystemBackend: () => ({
+    isAvailable: () => false,
+    selectDirectory: vi.fn(),
+  }),
+}));
 
 beforeEach(() => {
   useUIStore.setState({
-    sidebarWidth: 240,
-    statusMessage: "Listo",
-    activeModel: "deepseek-chat",
-    connectedProvider: "DeepSeek",
-    tokensRemaining: 0,
-    terminalVisible: false,
-    terminalHeight: 200,
-    settingsVisible: false,
-    activeView: "preview",
-    explorerVisible: false,
-    chatWidth: 320,
-    splitRatio: 0.5,
+    activeSidebar: null,
+    setActiveSidebar: (val: string | null) => useUIStore.setState({ activeSidebar: val }),
+  });
+  useProjectStore.setState({
+    workspaces: [],
+    activeWorkspaceId: null,
+    isLoading: false,
+    openTabs: [],
+    activeTab: null,
   });
 });
 
 describe("ExplorerDock", () => {
-  it("should render collapsed by default with folder icon", () => {
-    render(<ExplorerDock />);
-    // Should have a folder icon button
-    const folderButton = screen.getByRole("button", { name: /explorador/i });
-    expect(folderButton).toBeDefined();
-    // Should not show the expanded file tree header
-    expect(screen.queryByText("Explorador")).toBeNull();
+  it("should render nothing when activeSidebar is not 'explorer'", () => {
+    const { container } = render(<ExplorerDock />);
+    expect(container.querySelector('[data-testid="explorer-dock"]')).toBeNull();
   });
 
-  it("should expand when folder icon is clicked", () => {
+  it("should render dock when activeSidebar is 'explorer'", () => {
+    useUIStore.setState({ activeSidebar: "explorer" });
     render(<ExplorerDock />);
-    const toggleBtn = screen.getByRole("button", { name: /explorador/i });
-    fireEvent.click(toggleBtn);
-    expect(useUIStore.getState().explorerVisible).toBe(true);
-  });
-
-  it("should show 'Explorador' header when expanded", () => {
-    useUIStore.getState().setExplorerVisible(true);
-    render(<ExplorerDock />);
+    expect(screen.getByTestId("explorer-dock")).toBeDefined();
     expect(screen.getByText("Explorador")).toBeDefined();
   });
 
-  it("should collapse when close button is clicked in expanded header", () => {
-    useUIStore.getState().setExplorerVisible(true);
+  it("should show empty state with 'Añadir Proyecto' when no workspaces", () => {
+    useUIStore.setState({ activeSidebar: "explorer" });
+    render(<ExplorerDock />);
+    expect(screen.getByText("Explorador de Archivos")).toBeDefined();
+    expect(screen.getByText("Añadir Proyecto")).toBeDefined();
+  });
+
+  it("should close when collapse button is clicked", () => {
+    useUIStore.setState({ activeSidebar: "explorer" });
     render(<ExplorerDock />);
     const closeBtn = screen.getByRole("button", { name: /colapsar/i });
     fireEvent.click(closeBtn);
-    expect(useUIStore.getState().explorerVisible).toBe(false);
+    expect(useUIStore.getState().activeSidebar).toBeNull();
   });
 
   it("should apply transition class for smooth animation", () => {
+    useUIStore.setState({ activeSidebar: "explorer" });
     render(<ExplorerDock />);
     const dock = screen.getByTestId("explorer-dock");
     expect(dock.className).toContain("transition-all");

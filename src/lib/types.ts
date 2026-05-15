@@ -20,6 +20,14 @@ export interface Attachment {
   size?: number;
 }
 
+export interface SubagentStep {
+  id: string;
+  tool: string;
+  target: string;
+  phrase: string;
+  timestamp: number;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant" | "system";
@@ -28,6 +36,7 @@ export interface Message {
   /** If the message contains file operations, list paths here */
   filePaths?: string[];
   attachments?: Attachment[];
+  subagentSteps?: SubagentStep[];
 }
 
 export interface ChatChunk {
@@ -126,3 +135,37 @@ export interface AppConfig {
   activeProviderId: string;
   providers: ProviderConfig[];
 }
+
+// ─── Gamification ──────────────────────────────────────────────
+
+export interface GamificationProfile {
+  totalXp: number;
+  level: number;
+  streakDays: number;
+  lastActiveDate: string;
+  earnedQuota: number;
+  /** Effective daily quota = base plan quota + earned quota (after decay) */
+  effectiveDailyQuota: number;
+}
+
+export interface Mission {
+  id: string;
+  type: "aprender" | "construir" | "explorar";
+  title: string;
+  description: string;
+  xpReward: number;
+  quotaReward: number;
+  difficulty: "novato" | "intermedio" | "avanzado";
+  completed: boolean;
+  completedAt?: string;
+}
+
+export interface MilestoneProgress {
+  level: number;
+  badge: string;
+  label: string;
+  unlocked: boolean;
+  unlockedAt?: string;
+  reward: { type: "quota_boost" | "badge"; value: number };
+}
+

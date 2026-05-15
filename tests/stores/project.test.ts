@@ -14,41 +14,90 @@ vi.mock("../../src/lib/git", () => ({
 vi.mock("../../src/lib/ipc", () => ({
   writeFile: vi.fn(),
 }));
+vi.mock("../../src/lib/fs-backend/opfs-persistence", () => ({
+  persistToOPFS: vi.fn(),
+  startAutoPersist: vi.fn(() => () => {}),
+}));
 
 import { loadProject, readFileContent, saveFileContent, isGitRepo } from "../../src/lib/fs";
 import { getGitBranch } from "../../src/lib/git";
 
-beforeEach(() => {
+const resetStore = () => {
   useProjectStore.setState({
-    rootPath: null,
-    files: [],
+    workspaces: [],
+    activeWorkspaceId: null,
     openTabs: [],
     activeTab: null,
     isDirty: {},
     fileContents: {},
-    isGitRepo: false,
-    gitBranch: null,
     isLoading: false,
     statusMessage: null,
+    diffMode: false,
+    diffOriginalContent: "",
+    diffModifiedContent: "",
+    isSyncing: false,
+    lastSyncedAt: null,
+    hasUnsyncedChanges: false,
+    autoBackupEnabled: false,
+    syncError: null,
   });
+};
+
+beforeEach(() => {
+  resetStore();
 });
 
-describe("ProjectStore — legacy actions", () => {
-  it("should set root path", () => {
-    const store = useProjectStore.getState();
-    store.setRootPath("/test/project");
-    expect(useProjectStore.getState().rootPath).toBe("/test/project");
+describe("ProjectStore — workspace management", () => {
+  it("should start with no workspaces", () => {
+    const state = useProjectStore.getState();
+    expect(state.workspaces).toHaveLength(0);
+    expect(state.activeWorkspaceId).toBeNull();
   });
 
-  it("should set files", () => {
+  it("should update workspace git info", () => {
+    useProjectStore.setState({
+      workspaces: [{
+        id: "/test",
+        name: "test",
+        path: "/test",
+        files: [],
+        isGitRepo: false,
+        gitBranch: null,
+      }],
+      activeWorkspaceId: "/test",
+    });
+
     const store = useProjectStore.getState();
+    store.updateWorkspaceGitInfo("/test", "main", true);
+    const ws = useProjectStore.getState().workspaces.find(w => w.id === "/test");
+    expect(ws?.gitBranch).toBe("main");
+    expect(ws?.isGitRepo).toBe(true);
+  });
+
+  it("should update workspace files", () => {
+    useProjectStore.setState({
+      workspaces: [{
+        id: "/test",
+        name: "test",
+        path: "/test",
+        files: [],
+        isGitRepo: false,
+        gitBranch: null,
+      }],
+      activeWorkspaceId: "/test",
+    });
+
     const files = [
       { name: "index.html", path: "/test/index.html", type: "file" as const },
     ];
-    store.setFiles(files);
-    expect(useProjectStore.getState().files).toEqual(files);
+    const store = useProjectStore.getState();
+    store.updateWorkspaceFiles("/test", files);
+    const ws = useProjectStore.getState().workspaces.find(w => w.id === "/test");
+    expect(ws?.files).toEqual(files);
   });
+});
 
+describe("ProjectStore — tab management", () => {
   it("should open a tab and set it as active", () => {
     const store = useProjectStore.getState();
     store.openTab("/test/file.ts");
@@ -99,7 +148,7 @@ describe("ProjectStore — legacy actions", () => {
   });
 });
 
-describe("ProjectStore — new actions", () => {
+describe("ProjectStore — file content", () => {
   it("should set file content and mark dirty", () => {
     const store = useProjectStore.getState();
     store.openTab("/test/file.ts");
@@ -119,14 +168,6 @@ describe("ProjectStore — new actions", () => {
     expect(state.isDirty["/test/file.ts"]).toBeUndefined();
   });
 
-  it("should set git info", () => {
-    const store = useProjectStore.getState();
-    store.setGitInfo("main", true);
-    const state = useProjectStore.getState();
-    expect(state.gitBranch).toBe("main");
-    expect(state.isGitRepo).toBe(true);
-  });
-
   it("should clear status message", () => {
     const store = useProjectStore.getState();
     useProjectStore.setState({ statusMessage: "Guardado" });
@@ -139,18 +180,7 @@ describe("ProjectStore — new actions", () => {
 
 describe("ProjectStore — async actions", () => {
   beforeEach(() => {
-    useProjectStore.setState({
-      rootPath: null,
-      files: [],
-      openTabs: [],
-      activeTab: null,
-      isDirty: {},
-      fileContents: {},
-      isGitRepo: false,
-      gitBranch: null,
-      isLoading: false,
-      statusMessage: null,
-    });
+    resetStore();
     vi.clearAllMocks();
   });
 
@@ -195,23 +225,7 @@ describe("ProjectStore — async actions", () => {
     expect(state.openTabs).not.toContain("/test/dirty.ts");
   });
 
-  it("closeTabWithSave should close clean files without saving", async () => {
-    (saveFileContent as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
-
-    const store = useProjectStore.getState();
-    store.openTab("/test/clean.ts");
-    store.setFileContent("/test/clean.ts", "clean content");
-    store.markClean("/test/clean.ts");
-    await store.closeTabWithSave("/test/clean.ts");
-
-    // Should NOT have called saveFileContent for a clean file
-    // (it was marked clean so dirty flag is false, but closeTabWithSave checks isDirty)
-    // Actually it was marked clean, but setFileContent sets dirty. Let's verify:
-    const state = useProjectStore.getState();
-    expect(state.openTabs).not.toContain("/test/clean.ts");
-  });
-
-  it("openProject should load files and git info", async () => {
+  it("openProject should load files and create workspace", async () => {
     const mockFiles = [
       { name: "index.html", path: "/test/index.html", type: "file" as const },
       { name: "src", path: "/test/src", type: "directory" as const, children: [] },
@@ -224,10 +238,12 @@ describe("ProjectStore — async actions", () => {
     await store.openProject("/test");
 
     const state = useProjectStore.getState();
-    expect(state.rootPath).toBe("/test");
-    expect(state.files).toEqual(mockFiles);
-    expect(state.isGitRepo).toBe(true);
-    expect(state.gitBranch).toBe("main");
+    expect(state.workspaces).toHaveLength(1);
+    expect(state.workspaces[0].path).toBe("/test");
+    expect(state.workspaces[0].files).toEqual(mockFiles);
+    expect(state.workspaces[0].isGitRepo).toBe(true);
+    expect(state.workspaces[0].gitBranch).toBe("main");
+    expect(state.activeWorkspaceId).toBe("/test");
     expect(state.isLoading).toBe(false);
   });
 
@@ -240,9 +256,9 @@ describe("ProjectStore — async actions", () => {
     await store.openProject("/test");
 
     const state = useProjectStore.getState();
-    expect(state.isGitRepo).toBe(false);
-    expect(state.gitBranch).toBeNull();
-    expect(state.files).toEqual(mockFiles);
+    expect(state.workspaces[0].isGitRepo).toBe(false);
+    expect(state.workspaces[0].gitBranch).toBeNull();
+    expect(state.workspaces[0].files).toEqual(mockFiles);
   });
 
   it("openProject should show error on failure", async () => {

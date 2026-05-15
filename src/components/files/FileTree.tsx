@@ -229,7 +229,7 @@ function InlineRenameInput({
       }
     } catch (e) {
       console.error(e);
-      alert(e instanceof Error ? e.message : "Error al renombrar");
+      useProjectStore.setState({ statusMessage: e instanceof Error ? e.message : "Error al renombrar" });
     }
     onComplete();
   }, [name, node, activeWs, reloadWorkspace, onComplete]);
@@ -608,7 +608,7 @@ export function FileTree({ nodes, level = 0 }: { nodes: FileNode[]; level?: numb
         }
       } catch (e) {
         console.error(e);
-        alert(e instanceof Error ? e.message : "Error al eliminar");
+        useProjectStore.setState({ statusMessage: e instanceof Error ? e.message : "Error al eliminar" });
       }
     }
   }, [contextMenu.node, closeContext]);
