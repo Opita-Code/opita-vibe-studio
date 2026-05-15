@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { MAX_CONTEXT_MESSAGES, getContextCount } from "@/stores/chat";
 import type { Message } from "@/lib/types";
 import { MessageBubble } from "@/components/chat/MessageBubble";
-import { StreamingIndicator } from "@/components/chat/StreamingIndicator";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
 
 // ─── Props ─────────────────────────────────────────────────────
@@ -10,6 +9,7 @@ import vibeLogoUrl from "@/assets/vibe-logo.svg";
 interface MessageListProps {
   messages: Message[];
   isStreaming: boolean;
+  hasPipelinePhase?: boolean;
   onSuggestionClick?: (text: string) => void;
   onNewChat?: () => void;
 }
@@ -32,9 +32,9 @@ export function MessageList({ messages, isStreaming, onSuggestionClick, onNewCha
   }, [messages, isStreaming]);
 
   const starterPrompts = [
-    { icon: "🎨", text: "Crear un componente Navbar responsive" },
-    { icon: "🔍", text: "Explicar la arquitectura del proyecto" },
-    { icon: "🐞", text: "Encontrar un bug en el último archivo" }
+    { icon: "🔍", text: "Explora la estructura de mi proyecto" },
+    { icon: "🏗️", text: "Crea un componente con TypeScript y tests" },
+    { icon: "📖", text: "Lee mi package.json y explícame las dependencias" },
   ];
 
   return (
@@ -77,12 +77,12 @@ export function MessageList({ messages, isStreaming, onSuggestionClick, onNewCha
       {messages.length === 0 && !isStreaming ? (
         <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-6 animate-fade-in">
           <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-obsidian-800 to-obsidian-900 flex items-center justify-center border border-white/5 shadow-[0_0_30px_rgba(168,85,247,0.15)] backdrop-blur-md mb-2">
-            <img src={vibeLogoUrl} alt="Vibe Studio" className="w-10 h-10 animate-breathe opacity-80" />
+            <img src={vibeLogoUrl} alt="Aura" className="w-10 h-10 animate-breathe opacity-80" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-lg font-medium text-slate-200">¿Qué vamos a construir hoy?</h3>
+            <h3 className="text-lg font-medium text-slate-200">Hola, soy <span className="text-aura-cyan font-semibold">Aura</span> 👋</h3>
             <p className="text-sm text-slate-500 max-w-[260px] mx-auto leading-relaxed">
-              Describe tu idea, pide un componente o haz preguntas sobre el código para empezar a vibecodear.
+              Tu copiloto de código. Describe tu idea o empieza explorando tu proyecto.
             </p>
           </div>
           
@@ -102,11 +102,18 @@ export function MessageList({ messages, isStreaming, onSuggestionClick, onNewCha
         </div>
       ) : (
         <div className="p-4">
-          {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
+          {messages.map((msg, idx) => (
+            <MessageBubble
+              key={msg.id}
+              message={msg}
+              isThinking={
+                isStreaming &&
+                msg.role === "assistant" &&
+                idx === messages.length - 1 &&
+                !msg.content
+              }
+            />
           ))}
-
-          {isStreaming && <StreamingIndicator />}
         </div>
       )}
     </div>

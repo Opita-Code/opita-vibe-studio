@@ -13,98 +13,11 @@ export class SseError extends Error {
   }
 }
 
-/**
- * Procesa líneas individuales de un stream SSE de API compatible con OpenAI.
- * Cada línea debe empezar con "data: ".
- */
-function processOpenAILine(line: string, onContent: (content: string) => void): void {
-  const trimmed = line.trim();
-  if (!trimmed.startsWith("data: ")) return;
-
-  const data = trimmed.slice(6).trim();
-  if (data === "[DONE]") return;
-
-  try {
-    const parsed = JSON.parse(data);
-    const content = parsed.choices?.[0]?.delta?.content;
-    if (content) {
-      onContent(content);
-    }
-  } catch {
-    // Línea SSE no parseable — se omite silenciosamente
-  }
-}
-
-/**
- * Procesa líneas individuales de un stream SSE de Gemini.
- */
-function processGeminiLine(line: string, onContent: (content: string) => void): void {
-  const trimmed = line.trim();
-  if (!trimmed.startsWith("data: ")) return;
-
-  const data = trimmed.slice(6).trim();
-  if (!data) return;
-
-  try {
-    const parsed = JSON.parse(data);
-    const candidates = parsed.candidates;
-    if (!candidates || candidates.length === 0) return;
-
-    const parts = candidates[0]?.content?.parts;
-    if (!parts) return;
-
-    for (const part of parts) {
-      if (part.text) {
-        onContent(part.text);
-      }
-    }
-  } catch {
-    // Línea no parseable — se omite
-  }
-}
-
-/**
- * Lee un stream SSE desde un ReadableStream, dividiendo por líneas
- * y procesando cada línea completa.
- * El buffer retiene líneas incompletas entre lecturas.
- */
-async function readSSEStream(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  decoder: TextDecoder,
-  processLine: (line: string) => void,
-): Promise<void> {
-  let buffer = "";
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-
-      const lines = buffer.split("\n");
-      // La última línea puede estar incompleta — guardarla
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        processLine(line);
-      }
-    }
-
-    // Procesar el buffer restante después de que el stream se cierre
-    if (buffer.trim()) {
-      for (const line of buffer.split("\n")) {
-        processLine(line);
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
 
 /**
  * Consume un stream SSE de una API compatible con OpenAI.
- * Retorna un AsyncGenerator que emite cada delta de contenido.
+ * Retorna un AsyncGenerator que emite cada delta de contenido
+ * EN TIEMPO REAL conforme llegan del stream.
  *
  * Formato esperado por línea:
  *   data: {"choices":[{"delta":{"content":"..."}}]}
@@ -114,6 +27,7 @@ export async function* streamOpenAICompatible(
   url: string,
   headers: Record<string, string>,
   body: Record<string, unknown>,
+  signal?: AbortSignal,
 ): AsyncGenerator<string> {
   const response = await fetch(url, {
     method: "POST",
@@ -122,6 +36,7 @@ export async function* streamOpenAICompatible(
       ...headers,
     },
     body: JSON.stringify({ ...body, stream: true }),
+    signal,
   });
 
   if (!response.ok) {
@@ -135,29 +50,63 @@ export async function* streamOpenAICompatible(
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  let buffer = "";
 
-  const pending: string[] = [];
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-  await readSSEStream(reader, decoder, (line) => {
-    processOpenAILine(line, (content) => {
-      pending.push(content);
-    });
-  });
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
-  // Emitir los deltas recolectados
-  for (const content of pending) {
-    yield content;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data: ")) continue;
+        const data = trimmed.slice(6).trim();
+        if (data === "[DONE]") return;
+
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) {
+            yield content;
+          }
+        } catch {
+          // Non-parseable SSE line — skip
+        }
+      }
+    }
+
+    // Process remaining buffer
+    if (buffer.trim()) {
+      for (const line of buffer.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data: ")) continue;
+        const data = trimmed.slice(6).trim();
+        if (data === "[DONE]") return;
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) yield content;
+        } catch { /* skip */ }
+      }
+    }
+  } finally {
+    reader.releaseLock();
   }
 }
 
 /**
- * Parsea el stream SSE de Gemini.
+ * Parsea el stream SSE de Gemini EN TIEMPO REAL.
  * Gemini usa un formato diferente: candidates[0].content.parts[0].text
  */
 export async function* streamGemini(
   url: string,
   headers: Record<string, string>,
   body: Record<string, unknown>,
+  signal?: AbortSignal,
 ): AsyncGenerator<string> {
   const response = await fetch(url, {
     method: "POST",
@@ -166,6 +115,7 @@ export async function* streamGemini(
       ...headers,
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!response.ok) {
@@ -179,16 +129,59 @@ export async function* streamGemini(
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  let buffer = "";
 
-  const pending: string[] = [];
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-  await readSSEStream(reader, decoder, (line) => {
-    processGeminiLine(line, (content) => {
-      pending.push(content);
-    });
-  });
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
-  for (const content of pending) {
-    yield content;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data: ")) continue;
+        const data = trimmed.slice(6).trim();
+        if (!data) continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          const candidates = parsed.candidates;
+          if (!candidates || candidates.length === 0) continue;
+          const parts = candidates[0]?.content?.parts;
+          if (!parts) continue;
+          for (const part of parts) {
+            if (part.text) {
+              yield part.text;
+            }
+          }
+        } catch {
+          // Non-parseable line — skip
+        }
+      }
+    }
+
+    // Process remaining buffer
+    if (buffer.trim()) {
+      for (const line of buffer.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data: ")) continue;
+        const data = trimmed.slice(6).trim();
+        if (!data) continue;
+        try {
+          const parsed = JSON.parse(data);
+          const parts = parsed.candidates?.[0]?.content?.parts;
+          if (parts) {
+            for (const part of parts) {
+              if (part.text) yield part.text;
+            }
+          }
+        } catch { /* skip */ }
+      }
+    }
+  } finally {
+    reader.releaseLock();
   }
 }

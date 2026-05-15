@@ -24,7 +24,7 @@ export interface RouteResult {
  */
 export async function* routeRequest(
   contextMessages: Message[],
-  options?: ChatOptions & { preferredProvider?: string },
+  options?: ChatOptions & { preferredProvider?: string; signal?: AbortSignal },
 ): AsyncGenerator<ChatChunk & RouteResult> {
   const preferred = options?.preferredProvider;
 
@@ -53,6 +53,7 @@ export async function* routeRequest(
 
   // ── Intentar cada provider en orden ──────────────────────
   let lastError: string | null = null;
+  let preferredError: string | null = null;
 
   for (const providerId of tryOrder) {
     try {
@@ -76,9 +77,11 @@ export async function* routeRequest(
       for await (const chunk of provider.chat(contextMessages, {
         ...options,
         model: usedModel,
+        signal: options?.signal,
       })) {
         if (chunk.type === "error") {
           lastError = chunk.content;
+          if (providerId === preferred) preferredError = chunk.content;
           hasError = true;
           break; // Salir del for-await para probar el siguiente provider
         }
@@ -97,28 +100,38 @@ export async function* routeRequest(
       // Si el provider no produjo errores ni se completó (stream vacío),
       // consideramos que falló silenciosamente
       if (!hasError) {
-        lastError = `${providerId} responded with empty stream`;
+        lastError = `${providerId} respondió con un stream vacío.`;
+        if (providerId === preferred) preferredError = lastError;
       }
     } catch (err) {
-      lastError = `Error con ${providerId}: ${String(err)}`;
+      lastError = `Falla en conexión con ${providerId}: ${err instanceof Error ? err.message : "Error desconocido"}`;
+      if (providerId === preferred) preferredError = lastError;
       console.warn(`[Router] Failover desde ${providerId}: ${lastError}`);
       continue; // Probar siguiente provider
     }
   }
 
   // ── Fallback: ningún provider funcionó ───────────────────
+  const errorToShow = preferredError || lastError;
+  const isFreeModel = tryOrder.length > 0 && providers.find(p => p.id === preferred)?.tier === 'free';
+  
+  const mainMessage = isFreeModel 
+    ? "No pudimos conectar con el motor de IA seleccionado. Verifica tu conexión a internet o intenta con otro modelo."
+    : "No pudimos conectar con ningún motor de IA disponible. Si estás usando modelos Pro, verifica tus configuraciones en BYOK.";
+
   yield {
     type: "error",
-    content: "Configura una API key en Configuración > BYOK para usar modelos reales.",
+    content: mainMessage,
     providerId: "fallback",
     model: "none",
   } as ChatChunk & RouteResult;
 
-  // Si hubo un error previo, mostrarlo
-  if (lastError) {
+  // Si hubo un error previo y es diferente al mensaje principal, añadirlo como contexto
+  // (los errores ya vienen traducidos al español desde aiService.ts)
+  if (errorToShow && errorToShow !== mainMessage && !/^[a-z_]+$/.test(errorToShow)) {
     yield {
       type: "error",
-      content: `Motivo: ${lastError}`,
+      content: `⚠️ ${errorToShow}`,
       providerId: "fallback",
       model: "none",
     } as ChatChunk & RouteResult;
@@ -134,32 +147,22 @@ export async function* routeRequest(
 
 /**
  * Versión simplificada que acepta prompt y contexto por separado.
- * Útil cuando se quiere enviar un solo mensaje del usuario
- * más el historial de contexto.
+ * Inyecta el system prompt con herramientas y contexto del proyecto.
  */
 export async function* streamFromProvider(
   context: Message[],
   preferredProvider?: string,
-  options?: { action?: string; subagentId?: string; model?: string }
+  options?: { action?: string; subagentId?: string; model?: string; signal?: AbortSignal }
 ): AsyncGenerator<ChatChunk> {
-  const MAX_CONTEXT = 50; // Límite actual en el store
-  const contextRatio = context.length / MAX_CONTEXT;
-  
-  let systemContent = `Eres Vibe Studio AI, el asistente inteligente integrado en Vibe Studio, un IDE moderno y elegante.
-Tienes la capacidad de ayudar al usuario a programar, explicar conceptos de manera clara y profesional, y usar las herramientas disponibles en el entorno local a través del protocolo MCP. Responde siempre de forma concisa y amigable.`;
+  const { buildToolSystemPrompt, buildContextWarning } = await import("@/tools/prompts");
 
-  systemContent += `\n\n[SISTEMA: Herramientas de Navegación UI]
-Puedes controlar la interfaz del editor para mostrarle cosas al usuario dinámicamente insertando estos tags XML en tu respuesta. Se ejecutarán automáticamente y el usuario no verá los tags:
-- <vibe-action type="set-view" value="preview" /> (Muestra la vista previa a pantalla completa)
-- <vibe-action type="set-view" value="editor" /> (Muestra el editor de código)
-- <vibe-action type="set-view" value="split" /> (Muestra código y vista previa divididos)
-- <vibe-action type="open-file" value="ruta/al/archivo.ext" /> (Abre un archivo en el editor)
-- <vibe-action type="toggle-explorer" value="true" /> (Abre el explorador de archivos)
-- <vibe-action type="preview-component" value="ruta/al/archivo.tsx" /> (Abre VibeLens en Modo Aislado para previsualizar un componente específico en solitario)
-Usa estos tags inteligentemente cuando el usuario pida ver algo, revisar código, o cuando creas que es útil cambiar la vista para mejorar su experiencia. ¡Hazlo ver como magia!`;
+  let systemContent = await buildToolSystemPrompt();
 
-  if (contextRatio >= 0.8) {
-    systemContent += `\n\n⚠️ AVISO DEL SISTEMA: El contexto de esta conversación está casi lleno (${context.length}/${MAX_CONTEXT} mensajes). Sugiere sutilmente y de manera muy amable al usuario que inicie una "Nueva conversación" pronto para mantener un buen rendimiento y no olvidar detalles importantes.`;
+  // Estimate tokens from context for the warning
+  const contextTokenEstimate = context.reduce((sum, m) => sum + Math.ceil(m.content.length / 4), 0);
+  const warning = buildContextWarning(contextTokenEstimate);
+  if (warning) {
+    systemContent += warning;
   }
 
   const systemMessage: Message = {
@@ -177,7 +180,7 @@ Usa estos tags inteligentemente cuando el usuario pida ver algo, revisar código
     ...cleanContext
   ];
 
-  for await (const chunk of routeRequest(messages, { preferredProvider, ...options })) {
+  for await (const chunk of routeRequest(messages, { preferredProvider, ...options, signal: options?.signal })) {
     yield chunk;
   }
 }

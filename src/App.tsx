@@ -11,7 +11,7 @@ import { FileWatcher } from "@/components/editor/FileWatcher";
 import { MobileNotSupportedScreen } from "@/components/layout/MobileNotSupportedScreen";
 import { useAuthStore } from "@/stores/auth";
 import { useKeybindings } from "@/lib/useKeybindings";
-import { LegacyLogicManager } from "./renderer/LegacyLogicManager";
+import { AppLifecycle } from "./renderer/AppLifecycle";
 import { SidebarSlot } from "./renderer/layouts/SidebarSlot";
 import { EditorSlot } from "./renderer/layouts/EditorSlot";
 import { StatusbarSlot } from "./renderer/layouts/StatusbarSlot";
@@ -21,6 +21,9 @@ import { ActivityBar } from "@/components/layout/ActivityBar";
 import { ExplorerDock } from "@/components/layout/ExplorerDock";
 import { ChatHistoryPanel } from "@/components/chat/ChatHistoryPanel";
 import { CommandPalette } from "@/components/layout/CommandPalette";
+import { MissionPanel } from "@/components/gamification/MissionPanel";
+import { MilestoneToast } from "@/components/gamification/MilestoneToast";
+import { useGamificationStore } from "@/stores/gamification";
 
 function GlobalKeybindings() {
   useKeybindings();
@@ -28,24 +31,41 @@ function GlobalKeybindings() {
 }
 
 /**
- * Dumb Workspace that relies on Core Slots instead of hardcoded panels.
+ * Chat-first Workspace layout.
+ *
+ * Rules:
+ * 1. Chat is ALWAYS visible — never hidden by sidebar toggles.
+ * 2. `activeSidebar` controls explorer/search in the left panel — independent of chat.
+ * 3. `chatFullscreen` hides the editor entirely → multi-chat focus mode.
  */
 function Workspace() {
-  const activeSidebar = useUIStore((s) => s.activeSidebar);
   const chatPosition = useUIStore((s) => s.chatPosition);
   const chatWidth = useUIStore((s) => s.chatWidth);
   const setChatWidth = useUIStore((s) => s.setChatWidth);
   const chatHistoryVisible = useUIStore((s) => s.chatHistoryVisible);
+  const chatFullscreen = useUIStore((s) => s.chatFullscreen);
+
+  // Chat-first: always render the chat panel
+  const chatPanel = (
+    <div
+      className={`z-10 h-full ${chatFullscreen ? "flex-1 min-w-0" : "flex-shrink-0"}`}
+      style={chatFullscreen ? undefined : { width: chatWidth }}
+    >
+      <SidebarSlot />
+    </div>
+  );
 
   return (
     <div className="flex flex-1 overflow-hidden relative w-full h-full pb-16 md:pb-0">
-      {/* 1. Barra de actividad (Izquierda) */}
-      <ActivityBar />
+      {/* 1. Activity bar (izquierda) — oculta en fullscreen */}
+      {!chatFullscreen && <ActivityBar />}
 
-      {/* 2. Primary Sidebar (Izquierda) */}
-      <ExplorerDock />
+      {/* 2. Explorer/Search panels (izquierda) — independiente del chat */}
+      {!chatFullscreen && <ExplorerDock />}
+
+      {/* 3. Chat History panel — visible con chat activo */}
       <AnimatePresence>
-        {activeSidebar === "chat" && chatHistoryVisible && (
+        {chatHistoryVisible && (
           <motion.div
             initial={{ opacity: 0, width: 0, marginLeft: -10 }}
             animate={{ opacity: 1, width: "auto", marginLeft: 0 }}
@@ -57,27 +77,27 @@ function Workspace() {
           </motion.div>
         )}
       </AnimatePresence>
-      
-      {/* Si el chat está a la izquierda, renderizamos SidebarSlot aquí */}
-      {activeSidebar === "chat" && chatPosition === "left" && (
+
+      {/* 4. Chat a la izquierda (si aplica) */}
+      {chatPosition === "left" && (
         <>
-          <div className="flex-shrink-0 z-10" style={{ width: chatWidth }}>
-            <SidebarSlot />
-          </div>
-          <ResizeHandle onResize={(delta) => setChatWidth(chatWidth + delta)} />
+          {chatPanel}
+          {!chatFullscreen && (
+            <ResizeHandle onResize={(delta) => setChatWidth(chatWidth + delta)} />
+          )}
         </>
       )}
 
-      {/* 3. Área del Editor (Centro) */}
-      <EditorSlot />
+      {/* 5. Editor (centro) — oculto en fullscreen mode */}
+      {!chatFullscreen && <EditorSlot />}
 
-      {/* Si el chat está a la derecha, renderizamos SidebarSlot aquí */}
-      {activeSidebar === "chat" && chatPosition === "right" && (
+      {/* 6. Chat a la derecha (si aplica) */}
+      {chatPosition === "right" && (
         <>
-          <ResizeHandle onResize={(delta) => setChatWidth(chatWidth - delta)} />
-          <div className="flex-shrink-0 z-10" style={{ width: chatWidth }}>
-            <SidebarSlot />
-          </div>
+          {!chatFullscreen && (
+            <ResizeHandle onResize={(delta) => setChatWidth(chatWidth - delta)} />
+          )}
+          {chatPanel}
         </>
       )}
     </div>
@@ -92,6 +112,9 @@ export default function App() {
   const loginModalOpen = useAuthStore((s) => s.loginModalOpen);
   const setLoginModalOpen = useAuthStore((s) => s.setLoginModalOpen);
 
+  const pendingMilestone = useGamificationStore((s) => s.pendingMilestone);
+  const dismissMilestone = useGamificationStore((s) => s.dismissMilestone);
+
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
   useEffect(() => {
@@ -102,18 +125,24 @@ export default function App() {
 
   useEffect(() => {
     detectSession();
-    
+  }, [detectSession]);
+
+  useEffect(() => {
+    // Only check URL intents AFTER session detection has completed
+    if (!sessionDetected) return;
+
     // Auto-open login modal if requested via URL intent
     const params = new URLSearchParams(window.location.search);
     if (params.get("login") === "true" && authMode === "unauthenticated") {
-      setLoginModalOpen(true);
-      
-      // Clear the login param so it doesn't trigger a loop if the user logs out later
+      // Clear the login param
       params.delete("login");
       const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
       window.history.replaceState({}, document.title, newUrl);
+      
+      // Redirect to Identity Hub
+      window.location.href = `https://cuenta.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`;
     }
-  }, [detectSession, authMode, setLoginModalOpen]);
+  }, [sessionDetected, authMode, setLoginModalOpen]);
 
   if (isMobile) {
     return <MobileNotSupportedScreen />;
@@ -133,7 +162,9 @@ export default function App() {
         <div className="flex-1 relative">
           <OnboardingFlow 
             onEnterGuest={() => useAuthStore.getState().completeOnboarding()}
-            onLogin={() => setLoginModalOpen(true)} 
+            onLogin={() => {
+              window.location.href = `https://cuenta.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`;
+            }} 
           />
         </div>
         {loginModalOpen && (
@@ -158,7 +189,7 @@ export default function App() {
       </div>
     }>
       <GlobalKeybindings />
-      <LegacyLogicManager />
+      <AppLifecycle />
       <CommandPalette />
       
       <div className="flex h-full w-full flex-col text-slate-200 bg-obsidian-900">
@@ -183,6 +214,16 @@ export default function App() {
 
         <SettingsPanel />
         <BugReportModal />
+        <MissionPanel />
+        {pendingMilestone && (
+          <MilestoneToast
+            level={pendingMilestone.level}
+            badge={pendingMilestone.badge}
+            label={pendingMilestone.label}
+            quotaBoost={pendingMilestone.quotaBoost}
+            onDismiss={dismissMilestone}
+          />
+        )}
         <MobileNavBar />
         
         {/* We keep the legacy StatusBar and inject the new slot next to it for now */}

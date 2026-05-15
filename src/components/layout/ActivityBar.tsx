@@ -1,7 +1,9 @@
 import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
+import { useGamificationStore } from "@/stores/gamification";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
 import { useState, useRef, useEffect } from "react";
+import { XPBar } from "@/components/gamification/XPBar";
 
 export function ActivityBar() {
   const { 
@@ -10,11 +12,21 @@ export function ActivityBar() {
     activityBarVisible, 
     setSettingsVisible,
     settingsVisible,
-    setBugReportVisible
+    setBugReportVisible,
+    chatFullscreen,
+    toggleChatFullscreen,
   } = useUIStore();
   const { authMode, user, logout } = useAuthStore();
+  const { missionPanelOpen, setMissionPanelOpen, missions, fetchProfile, profile } = useGamificationStore();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Initialize gamification on auth
+  useEffect(() => {
+    if (authMode === "authenticated") {
+      fetchProfile();
+    }
+  }, [authMode]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -86,17 +98,17 @@ export function ActivityBar() {
           </svg>
         </button>
 
-        {/* Vibe AI */}
+        {/* Vibe AI — Toggle Multi-Chat Focus */}
         <button
-          onClick={() => setActiveSidebar(activeSidebar === "chat" ? null : "chat")}
+          onClick={toggleChatFullscreen}
           className={`w-full flex justify-center py-2 relative group transition-colors ${
-            activeSidebar === "chat" ? "text-aura-purple" : "text-slate-500 hover:text-aura-purple/70"
+            chatFullscreen ? "text-aura-purple" : "text-slate-500 hover:text-aura-purple/70"
           }`}
-          title="Vibe AI Chat (Ctrl+L)"
-          aria-label="Vibe AI Chat"
-          aria-pressed={activeSidebar === "chat"}
+          title={chatFullscreen ? "Salir de modo enfoque (Ctrl+L)" : "Modo Enfoque Multi-Chat (Ctrl+L)"}
+          aria-label={chatFullscreen ? "Salir de modo enfoque" : "Modo Enfoque Multi-Chat"}
+          aria-pressed={chatFullscreen}
         >
-          {activeSidebar === "chat" && (
+          {chatFullscreen && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-aura-purple shadow-[0_0_8px_rgba(168,85,247,0.6)]" aria-hidden="true"></div>
           )}
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -106,6 +118,31 @@ export function ActivityBar() {
             <path d="M16 10h.01"></path>
           </svg>
         </button>
+
+        {/* Missions */}
+        {authMode === "authenticated" && (
+          <button
+            onClick={() => setMissionPanelOpen(!missionPanelOpen)}
+            className={`w-full flex justify-center py-2 relative group transition-colors ${
+              missionPanelOpen ? "text-amber-400" : "text-slate-500 hover:text-amber-400/70"
+            }`}
+            title="Misiones Diarias"
+            aria-label="Misiones Diarias"
+            aria-pressed={missionPanelOpen}
+          >
+            {missionPanelOpen && (
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" aria-hidden="true"></div>
+            )}
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+            </svg>
+            {/* Notification dot for incomplete missions */}
+            {missions.filter(m => !m.completed).length > 0 && (
+              <div className="absolute top-1.5 right-2.5 w-2 h-2 bg-amber-400 rounded-full shadow-[0_0_6px_rgba(251,191,36,0.8)]" aria-hidden="true" />
+            )}
+          </button>
+        )}
       </div>
 
       {/* Bottom: Settings & User */}
@@ -156,11 +193,18 @@ export function ActivityBar() {
           </svg>
         </a>
 
+        {/* XP Bar — only for authenticated users */}
+        {authMode === "authenticated" && (
+          <div className="w-full flex justify-center py-1">
+            <XPBar />
+          </div>
+        )}
+
         {/* User Account */}
         <div className="w-full flex justify-center py-2 relative mb-2" ref={menuRef}>
           {authMode === "unauthenticated" ? (
             <button
-              onClick={() => useAuthStore.getState().setLoginModalOpen(true)}
+              onClick={() => window.location.href = `https://cuenta.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`}
               className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all duration-200 border border-white/5 hover:border-white/10"
               title="Iniciar sesión"
               aria-label="Iniciar sesión"
@@ -204,6 +248,20 @@ export function ActivityBar() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Gamification Stats */}
+                  {profile && (
+                    <div className="flex items-center justify-between border-b border-white/5 pb-3 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-aura-cyan font-bold tabular-nums">Lv.{profile.level}</span>
+                        <span className="text-white/30">•</span>
+                        <span className="text-white/50 tabular-nums">{profile.totalXp.toLocaleString()} XP</span>
+                      </div>
+                      {profile.streakDays > 0 && (
+                        <span className="text-amber-400/80 font-medium">🔥 {profile.streakDays}d</span>
+                      )}
+                    </div>
+                  )}
 
                   {/* Actions */}
                   <div className="flex flex-col gap-1">

@@ -1,22 +1,144 @@
+/**
+ * VibeLens — Motor de preview nativo de Vibe Studio.
+ *
+ * Renderiza los archivos del proyecto en tiempo real usando
+ * un entorno aislado (sandbox). Soporta React, TypeScript,
+ * vanilla JS, y sitios estáticos.
+ *
+ * Arquitectura:
+ * - usePreviewFiles() → mapea archivos del proyecto al sandbox
+ * - SandpackProvider → motor de bundling interno (detalle de implementación)
+ * - VibeLensOverlay → UX de carga/error personalizada
+ * - VibeLensRenderer → iframe de renderizado
+ *
+ * El usuario NUNCA ve "Sandpack" — todo es "VibeLens" o "Vista Previa".
+ */
+
+import { useState } from "react";
+import {
+  SandpackProvider,
+  SandpackPreview,
+} from "@codesandbox/sandpack-react";
+import { usePreviewFiles } from "./usePreviewFiles";
+import { VibeSandpackOverlay } from "./VibeSandpackOverlay";
 import { EmptyPreviewState } from "./EmptyPreviewState";
+import { DeviceFrame } from "./DeviceFrame";
+import { useUIStore } from "@/stores/ui";
+
+// ─── Types ──────────────────────────────────────────────────────
 
 interface LivePreviewProps {
+  /** Version counter — increments on save/tab-switch to force refresh */
   version: number;
 }
 
-export function LivePreview({ version: _version }: LivePreviewProps) {
-  // Desactivado temporalmente: Entorno estricto Backend-First.
-  // El renderizado de Sandpack consumía recursos y no es necesario para programar APIs.
+// ─── VibeLens Renderer ──────────────────────────────────────────
+
+/**
+ * Internal renderer that wraps the sandbox preview iframe.
+ * Handles the loading → ready transition with opacity animation.
+ */
+function VibeLensRenderer() {
+  const [isReady, setIsReady] = useState(false);
+
+  return (
+    <div className="relative w-full h-full bg-obsidian-950 overflow-hidden">
+      {/* VibeLens branded overlay — shows while sandbox initializes */}
+      <VibeSandpackOverlay onDismiss={() => setIsReady(true)} />
+
+      {/* Preview iframe — hidden until ready to prevent flash */}
+      <div
+        className="w-full h-full transition-opacity duration-700 ease-in-out"
+        style={{
+          opacity: isReady ? 1 : 0,
+          pointerEvents: isReady ? "auto" : "none",
+        }}
+      >
+        <SandpackPreview
+          showOpenInCodeSandbox={false}
+          showRefreshButton={false}
+          showNavigator={false}
+          className="bg-obsidian-950 h-full w-full border-none"
+          style={{ height: "100%", flex: 1, backgroundColor: "#020617" }}
+        />
+      </div>
+
+      {/* Kill residual Sandpack UI chrome */}
+      <style>{`
+        .sp-overlay, .sp-loading-overlay, .sp-error-overlay { display: none !important; }
+        .sp-preview-iframe { border: none !important; background-color: #020617 !important; }
+        .sp-navigator { display: none !important; }
+        .sp-layout { border: none !important; background-color: transparent !important; }
+      `}</style>
+    </div>
+  );
+}
+
+// ─── Main Component ─────────────────────────────────────────────
+
+/**
+ * LivePreview — Entry point for VibeLens.
+ *
+ * Reads project files from the store, maps them to a virtual filesystem,
+ * auto-detects the framework, and renders a live preview.
+ * Wraps content in a DeviceFrame when mobile/tablet preview is active.
+ *
+ * Falls back to EmptyPreviewState when there are no previewable files.
+ */
+export function LivePreview({ version }: LivePreviewProps) {
+  const { files, template, hasPreviewableFiles, fileCount } = usePreviewFiles();
+  const previewDevice = useUIStore((s) => s.previewDevice);
+
+  // If no previewable files, show the branded empty state
+  if (!hasPreviewableFiles) {
+    return (
+      <div className="flex flex-col flex-1 overflow-hidden relative">
+        <div className="flex-1 relative w-full h-full bg-obsidian-950">
+          <EmptyPreviewState />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden relative group">
-      <div className="flex-1 relative w-full h-full bg-slate-950">
-        <EmptyPreviewState />
+      <div className="flex-1 relative w-full h-full bg-obsidian-950">
+        {/* 
+          key includes version + device to force remount on save or device change.
+        */}
+        <SandpackProvider
+          key={`vibelens-${version}-${previewDevice}`}
+          template={template}
+          theme="dark"
+          files={files}
+          options={{
+            classes: {
+              "sp-wrapper": "h-full w-full",
+              "sp-layout": "h-full w-full bg-transparent border-0",
+              "sp-preview": "h-full w-full",
+              "sp-preview-iframe": "h-full w-full",
+            },
+            initMode: "user-visible",
+          }}
+        >
+          <DeviceFrame device={previewDevice}>
+            <VibeLensRenderer />
+          </DeviceFrame>
+        </SandpackProvider>
+
+        {/* VibeLens status badge */}
+        <div className="absolute bottom-3 right-3 flex items-center gap-2 px-2.5 py-1 rounded-md bg-black/60 backdrop-blur-sm border border-white/5 z-10 pointer-events-none">
+          <span className="w-1.5 h-1.5 rounded-full bg-aura-cyan animate-pulse" />
+          <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">
+            VibeLens · {fileCount} archivo{fileCount !== 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
-// Dummy export to keep EditorPanel happy before we refactor it
+// Backward compatibility — used by legacy code paths
 export function buildPreviewContent() {
   return { html: "", isFullDocument: false };
 }

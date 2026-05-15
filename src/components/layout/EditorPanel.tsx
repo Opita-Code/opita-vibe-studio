@@ -33,6 +33,11 @@ export function EditorPanel() {
   const saveFile = useProjectStore((s) => s.saveFile);
   const statusMessage = useProjectStore((s) => s.statusMessage);
 
+  const diffMode = useProjectStore((s) => s.diffMode);
+  const diffOriginalContent = useProjectStore((s) => s.diffOriginalContent);
+  const diffModifiedContent = useProjectStore((s) => s.diffModifiedContent);
+  const closeDiffMode = useProjectStore((s) => s.closeDiffMode);
+
   const activeContent = activeTab ? (fileContents[activeTab] ?? "") : "";
   // Preview version counter — increments on save/tab-switch to trigger refresh
   const [version, setVersion] = useState(0);
@@ -85,10 +90,26 @@ export function EditorPanel() {
             <span className="animate-pulse">Iniciando motor del editor...</span>
           </div>
         }>
+          {diffMode && (
+            <div className="absolute top-12 right-6 z-50">
+              <button
+                onClick={closeDiffMode}
+                className="flex items-center gap-2 px-3 py-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 rounded-md border border-red-500/30 shadow-lg backdrop-blur-md transition-all font-medium text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Salir del Diff
+              </button>
+            </div>
+          )}
           <MonacoEditor
             path={activeTab}
             value={activeContent}
             onChange={(value) => setFileContent(activeTab, value)}
+            isDiff={diffMode}
+            originalValue={diffOriginalContent}
+            modifiedValue={diffModifiedContent}
           />
         </Suspense>
       </div>
@@ -97,6 +118,9 @@ export function EditorPanel() {
     <WelcomeScreen />
   );
 
+  const previewDevice = useUIStore((s) => s.previewDevice);
+  const setPreviewDevice = useUIStore((s) => s.setPreviewDevice);
+
   const previewSection = (
     <div className="flex flex-col flex-1 overflow-hidden min-w-0 bg-transparent">
       {/* Preview toolbar */}
@@ -104,6 +128,33 @@ export function EditorPanel() {
         <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
           Vista Previa
         </span>
+
+        {/* Device selector */}
+        <div className="flex items-center gap-0.5 bg-white/5 rounded-md p-0.5">
+          {([
+            { id: "desktop" as const, icon: "M3 5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm5 14h8", label: "Escritorio" },
+            { id: "iphone" as const, icon: "M7 2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm5 18h.01", label: "iPhone" },
+            { id: "android" as const, icon: "M7 2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm3 18h4", label: "Android" },
+            { id: "tablet" as const, icon: "M6 2h12a2 2 0 012 2v16a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2zm6 18h.01", label: "Tablet" },
+          ]).map(({ id, icon, label }) => (
+            <button
+              key={id}
+              onClick={() => setPreviewDevice(id)}
+              aria-label={`Vista ${label}`}
+              title={label}
+              className={`p-1 rounded transition-all ${
+                previewDevice === id
+                  ? "bg-aura-cyan/20 text-aura-cyan shadow-sm"
+                  : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                <path d={icon} />
+              </svg>
+            </button>
+          ))}
+        </div>
+
         <div className="flex items-center gap-1">
           <button
             onClick={() => setVersion((v) => v + 1)}

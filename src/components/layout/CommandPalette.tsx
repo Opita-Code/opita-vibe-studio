@@ -143,15 +143,49 @@ export function CommandPalette() {
   }, [selectedIndex]);
 
   // Execute Action
-  const executeAction = (item: OmniItem) => {
+  const executeAction = async (item: OmniItem) => {
     setOmnibarOpen(false);
     
-    // Wire up specific actions
-    if (item.action === "REPORT_BUG") setBugReportVisible(true);
-    if (item.action === "OPEN_SETTINGS") setSettingsVisible(true);
-    
-    // For mocked actions, we can just console.log or show status
-    console.log(`Ejecutando acción: ${item.action}`);
+    switch (item.action) {
+      case "REPORT_BUG":
+        setBugReportVisible(true);
+        break;
+      case "OPEN_SETTINGS":
+      case "OPEN_AI_SETTINGS":
+        setSettingsVisible(true);
+        break;
+      case "NEW_FILE":
+        window.dispatchEvent(new CustomEvent("vibe:create-file"));
+        break;
+      case "TOGGLE_MISSIONS": {
+        const { setMissionPanelOpen, missionPanelOpen } = (await import("@/stores/gamification")).useGamificationStore.getState();
+        setMissionPanelOpen(!missionPanelOpen);
+        break;
+      }
+      case "TOGGLE_CHAT_FULLSCREEN": {
+        const uiStore = (await import("@/stores/ui")).useUIStore.getState();
+        uiStore.toggleChatFullscreen();
+        break;
+      }
+      case "NEW_CHAT": {
+        const chatStore = (await import("@/stores/chat")).useChatStore.getState();
+        chatStore.createNewSession();
+        break;
+      }
+      case "TOGGLE_EXPLORER": {
+        const uiStore2 = (await import("@/stores/ui")).useUIStore.getState();
+        uiStore2.setActiveSidebar(uiStore2.activeSidebar === "explorer" ? null : "explorer");
+        break;
+      }
+      case "EXPORT_PROJECT": {
+        // Export is handled via the export panel component
+        const uiStore3 = (await import("@/stores/ui")).useUIStore.getState();
+        uiStore3.setStatusMessage("Usa el panel de exportación para descargar tu proyecto.");
+        break;
+      }
+      default:
+        break;
+    }
   };
 
   let globalIndex = 0; // To track index across categories

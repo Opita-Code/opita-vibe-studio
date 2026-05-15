@@ -1,15 +1,16 @@
-import { useCallback } from "react";
-import { useChatStore, getContextMessages } from "@/stores/chat";
-import { useProjectStore } from "@/stores/project";
+import { useCallback, useState } from "react";
+import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { PhaseConfirmationBar } from "@/components/chat/ModeButtons";
+import { AuraNudgeBar } from "@/components/chat/AuraNudgeBar";
+import { AgentStepAccordion } from "@/components/chat/AgentStepAccordion";
+import { useAgentHandler } from "@/agent";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
 
-import { detectCodeRequest, runPipeline } from "@/pipeline/engine";
-import { isLimitReached } from "@/lib/tokens";
-import type { Message, Attachment } from "@/lib/types";
+import type { Attachment } from "@/lib/types";
 
 // ─── Props ─────────────────────────────────────────────────────
 
@@ -17,307 +18,74 @@ interface ChatPanelProps {
   width?: number;
 }
 
-// ─── Helpers ───────────────────────────────────────────────────
-
-let idCounter = 0;
-function generateId(): string {
-  idCounter += 1;
-  return `msg-${Date.now()}-${idCounter}`;
-}
-
-const PHASE_STATUS_TEXT: Record<string, string> = {
-  entender: "Sincronizando el aura del proyecto...",
-  construir: "Inyectando flow en los componentes...",
-  verificar: "Auditando la estética del algoritmo...",
-};
-
-async function sendMessage(
-  text: string,
-  attachments: Attachment[] | undefined,
-  activeProvider: string,
-  activeModelId: string,
-  addMessage: (msg: Message) => void,
-  appendToLastMessage: (content: string) => void,
-  replaceLastMessageContent: (content: string) => void,
-  setStreaming: (v: boolean) => void,
-  setPipelinePhase: (phase: "entender" | "construir" | "verificar" | null) => void,
-  fetchTokenUsage: () => Promise<void>,
-  isRetry: boolean = false
-) {
-  const usage = useAuthStore.getState().tokenUsage;
-  if (!isRetry && isLimitReached(usage)) {
-    const limitMsg: Message = {
-      id: generateId(),
-      role: "assistant",
-      content:
-        "⚠️ Llegaste al límite de tokens de tu plan.\n\n" +
-        "Puedes:\n" +
-        "1. **Actualizar plan** → más tokens diarios\n" +
-        "2. **Configurar BYOK** → tus tokens no cuentan en el límite\n\n" +
-        "Los tokens se renuevan cada día.",
-      timestamp: Date.now(),
-    };
-    addMessage(limitMsg);
-    return;
-  }
-
-  if (!isRetry) {
-    const userMsg: Message = {
-      id: generateId(),
-      role: "user",
-      content: text,
-      timestamp: Date.now(),
-      attachments: attachments,
-    };
-    addMessage(userMsg);
-  }
-
-  const assistantMsg: Message = {
-    id: generateId(),
-    role: "assistant",
-    content: "",
-    timestamp: Date.now(),
-  };
-  
-  if (isRetry) {
-    // Si es reintento, ya tenemos el mensaje del usuario, solo añadimos/reemplazamos el del asistente
-    addMessage(assistantMsg);
-  } else {
-    addMessage(assistantMsg);
-  }
-  
-  setStreaming(true);
-
-  try {
-    const state = useChatStore.getState();
-    const allMessages = state.sessions[state.activeSessionId]?.messages || [];
-    let context = getContextMessages(allMessages);
-    const projectState = useProjectStore.getState();
-    const hasProjectOpen = projectState.workspaces.length > 0;
-
-    // Inyectar el contexto del archivo activo antes del último mensaje del usuario
-    if (hasProjectOpen && projectState.activeTab && projectState.fileContents[projectState.activeTab]) {
-      const activeFilePath = projectState.activeTab;
-      const activeFileContent = projectState.fileContents[activeFilePath];
-      
-      const fileContextMsg: Message = {
-        id: generateId(),
-        role: "system",
-        content: `[SISTEMA: Contexto del Editor]\nEl usuario está viendo o editando actualmente el archivo: ${activeFilePath}\n\nContenido actual del archivo:\n\`\`\`\n${activeFileContent}\n\`\`\`\nTen en cuenta este código si el usuario pide revisar, explicar o modificar "este código" o "este archivo".`,
-        timestamp: Date.now() - 1,
-      };
-
-      // Si el último mensaje en context es el del asistente (vacío) y el penúltimo es el del usuario:
-      // Insertamos el contexto justo antes del mensaje del usuario.
-      const lastUserIndex = context.map(m => m.role).lastIndexOf("user");
-      if (lastUserIndex !== -1) {
-        context = [
-          ...context.slice(0, lastUserIndex),
-          fileContextMsg,
-          ...context.slice(lastUserIndex)
-        ];
-      } else {
-        context = [...context, fileContextMsg];
-      }
-    }
-
-    if (detectCodeRequest(text, hasProjectOpen)) {
-      let accumulatedContent = "";
-
-      for await (const event of runPipeline(text, context, activeProvider, activeModelId)) {
-        switch (event.type) {
-          case "phase_change": {
-            setPipelinePhase(event.phase);
-            const statusText = PHASE_STATUS_TEXT[event.phase] ?? "Procesando...";
-            replaceLastMessageContent(statusText);
-            break;
-          }
-          case "file_created": {
-            const fileName = event.path.split(/[/\\]/).pop() ?? event.path;
-            const fileNote = `\n\n✅ Archivo creado: \`${fileName}\``;
-            accumulatedContent += fileNote;
-            replaceLastMessageContent(accumulatedContent);
-            break;
-          }
-          case "retry": {
-            const retryNote = `\n\n🔄 Reintento ${event.attempt}: ${event.reason}`;
-            accumulatedContent += retryNote;
-            replaceLastMessageContent(accumulatedContent);
-            break;
-          }
-          case "result": {
-            accumulatedContent = event.content;
-            if (event.files.length > 0) {
-              const fileList = event.files.map((f) => `- \`${f.path}\``).join("\n");
-              accumulatedContent += `\n\n---\n**Archivos generados:**\n${fileList}`;
-              
-              // Open the first generated file in the editor automatically
-              const firstFile = event.files[0].path;
-              useProjectStore.getState().openFile(firstFile);
-            }
-            replaceLastMessageContent(accumulatedContent);
-            break;
-          }
-          case "error": {
-            accumulatedContent += `\n\n⚠️ ${event.message}`;
-            replaceLastMessageContent(accumulatedContent);
-            break;
-          }
-        }
-      }
-      setPipelinePhase(null);
-    } else {
-      const { streamFromProvider } = await import("@/providers/router");
-      let rawContent = "";
-      const executedActions = new Set<string>();
-
-      for await (const chunk of streamFromProvider(context, activeProvider, { model: activeModelId })) {
-        if (chunk.type === "text") {
-          rawContent += chunk.content;
-
-          // Process UI Navigation Tags
-          const regex = /<vibe-action\s+type="([^"]+)"\s+value="([^"]+)"\s*\/>/g;
-          let match;
-          while ((match = regex.exec(rawContent)) !== null) {
-            const actionRaw = match[0];
-            if (!executedActions.has(actionRaw)) {
-              executedActions.add(actionRaw);
-              const type = match[1];
-              const value = match[2];
-
-              if (type === "set-view") {
-                useUIStore.getState().setActiveView(value as any);
-              } else if (type === "open-file") {
-                useProjectStore.getState().openFile(value);
-              } else if (type === "toggle-explorer") {
-                useUIStore.getState().setExplorerVisible(value === "true");
-              } else if (type === "preview-component") {
-                useUIStore.getState().setPreviewTarget(value);
-                useUIStore.getState().setActiveView("split");
-              }
-            }
-          }
-
-          const cleanedContent = rawContent.replace(/<vibe-action[^>]+>\s*/g, "");
-          replaceLastMessageContent(cleanedContent);
-        } else if (chunk.type === "error") {
-          if (chunk.content.startsWith("UPGRADE_REQUIRED:")) {
-            const msg = chunk.content.replace("UPGRADE_REQUIRED:", "").trim();
-            rawContent += `\n\n💎 **Vibe Pro Requerido**\n${msg}\n\n[Mejorar Plan](#)`;
-          } else {
-            rawContent += `\n\n⚠️ ${chunk.content}`;
-          }
-          const cleanedContent = rawContent.replace(/<vibe-action[^>]+>\s*/g, "");
-          replaceLastMessageContent(cleanedContent);
-        } else if (chunk.type === "mcp_tool_request") {
-          if (chunk.tool) {
-            useChatStore.getState().setExecutingMCP(true);
-            const { handleMcpToolRequest } = await import("@/services/mcpClient");
-            await handleMcpToolRequest(chunk.tool, chunk.args, "local");
-            useChatStore.getState().setExecutingMCP(false);
-          }
-        }
-      }
-    }
-
-    if (!isRetry) {
-      fetchTokenUsage();
-    }
-  } catch (_err) {
-    appendToLastMessage(`\n\n⚠️ Error inesperado: ${_err}\n<!--RETRY_NETWORK-->`);
-  } finally {
-    setStreaming(false);
-  }
-}
-
 export function ChatPanel({ width }: ChatPanelProps) {
   const session = useChatStore((s) => s.sessions[s.activeSessionId]);
   const messages = session?.messages || [];
-  
+  const [inputText, setInputText] = useState("");
+
   const isStreaming = useChatStore((s) => s.isStreaming);
   const isExecutingMCP = useChatStore((s) => s.isExecutingMCP);
-  const abortStreaming = useChatStore((s) => s.abortStreaming);
-  const activeProvider = useChatStore((s) => s.activeProvider);
-  const activeModelId = useChatStore((s) => s.activeModelId);
+  const pipelinePhase = useChatStore((s) => s.pipelinePhase);
+  const createNewSession = useChatStore((s) => s.createNewSession);
   const useSubagent = useChatStore((s) => s.useSubagent);
   const setUseSubagent = useChatStore((s) => s.setUseSubagent);
 
   const authMode = useAuthStore((s) => s.authMode);
   const plan = useAuthStore((s) => s.plan);
-  
+
   const chatFullscreen = useUIStore((s) => s.chatFullscreen);
   const toggleChatFullscreen = useUIStore((s) => s.toggleChatFullscreen);
   const chatHistoryVisible = useUIStore((s) => s.chatHistoryVisible);
   const toggleChatHistory = useUIStore((s) => s.toggleChatHistory);
 
-  const addMessage = useChatStore((s) => s.addMessage);
-  const appendToLastMessage = useChatStore((s) => s.appendToLastMessage);
-  const replaceLastMessageContent = useChatStore((s) => s.replaceLastMessageContent);
-  const setStreaming = useChatStore((s) => s.setStreaming);
-  const setPipelinePhase = useChatStore((s) => s.setPipelinePhase);
-  const createNewSession = useChatStore((s) => s.createNewSession);
-  const fetchTokenUsage = useAuthStore((s) => s.fetchTokenUsage);
+  // ─── Agent Hook (replaces the 345-line sendMessage function) ───
+  const { send, abort } = useAgentHandler();
+
+  // ─── Steps for accordion (from last assistant message) ─────────
+  const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
+  const steps = (lastAssistantMsg?.subagentSteps || []).map((s) => ({
+    id: s.id,
+    icon: "⚙️",
+    label: s.phrase,
+    detail: s.target || undefined,
+    status: "done" as const,
+    timestamp: s.timestamp,
+  }));
 
   const handleSend = useCallback(
     (text: string, attachments?: Attachment[]) => {
-      const currentAuthMode = useAuthStore.getState().authMode;
-      if (currentAuthMode === "unauthenticated") {
-        useAuthStore.getState().setLoginModalOpen(true);
-        return;
-      }
-
-      sendMessage(
-        text,
-        attachments,
-        activeProvider,
-        activeModelId,
-        addMessage,
-        appendToLastMessage,
-        replaceLastMessageContent,
-        setStreaming,
-        setPipelinePhase,
-        fetchTokenUsage,
-        false
-      );
+      send(text, attachments);
     },
-    [activeProvider, activeModelId, addMessage, appendToLastMessage, replaceLastMessageContent, setStreaming, setPipelinePhase, fetchTokenUsage]
+    [send]
   );
 
   const handleRetryLast = useCallback(() => {
-    // Remove the last assistant error message
     if (messages.length === 0) return;
     const lastMsg = messages[messages.length - 1];
-    
-    // Find the last user message to resend
-    const userMessages = messages.filter(m => m.role === "user");
-    if (userMessages.length === 0) return;
-    const textToResend = userMessages[userMessages.length - 1].content;
-    
-    // Truncate to before the error message
-    if (lastMsg.role === "assistant" && lastMsg.content.includes("<!--RETRY_NETWORK-->")) {
-       useChatStore.getState().editMessage(lastMsg.id, ""); // This isn't perfect for truncation but works for UI
-       // Actually a better approach is to delete the last message. We can use editMessage on the USER message to truncate.
-       useChatStore.getState().editMessage(userMessages[userMessages.length - 1].id, textToResend);
-    }
-    
-    sendMessage(
-      textToResend,
-      userMessages[userMessages.length - 1].attachments,
-      activeProvider,
-      activeModelId,
-      addMessage,
-      appendToLastMessage,
-      replaceLastMessageContent,
-      setStreaming,
-      setPipelinePhase,
-      fetchTokenUsage,
-      true // isRetry
-    );
-  }, [messages, activeProvider, activeModelId, addMessage, appendToLastMessage, replaceLastMessageContent, setStreaming, setPipelinePhase, fetchTokenUsage]);
 
-  // If the last message is an error with the retry tag, show the retry button below it
+    // Find the last user message to resend
+    const userMessages = messages.filter((m) => m.role === "user");
+    if (userMessages.length === 0) return;
+    const lastUserMsg = userMessages[userMessages.length - 1];
+
+    // Clean up the error message
+    if (
+      lastMsg.role === "assistant" &&
+      lastMsg.content.includes("<!--RETRY_NETWORK-->")
+    ) {
+      useChatStore.getState().editMessage(lastMsg.id, "");
+      useChatStore.getState().editMessage(lastUserMsg.id, lastUserMsg.content);
+    }
+
+    send(lastUserMsg.content, lastUserMsg.attachments, true);
+  }, [messages, send]);
+
+  // If the last message is an error with the retry tag, show the retry button
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-  const canRetry = !isStreaming && lastMessage?.role === "assistant" && lastMessage.content.includes("<!--RETRY_NETWORK-->");
+  const canRetry =
+    !isStreaming &&
+    lastMessage?.role === "assistant" &&
+    lastMessage.content.includes("<!--RETRY_NETWORK-->");
 
   return (
     <aside
@@ -390,7 +158,7 @@ export function ChatPanel({ width }: ChatPanelProps) {
       {isStreaming && (
         <div className="absolute bottom-24 left-0 right-0 flex justify-center z-20">
           <button
-            onClick={() => abortStreaming()}
+            onClick={() => abort()}
             className="flex items-center gap-2 bg-obsidian-800 hover:bg-red-500/10 border border-white/10 hover:border-red-500/50 text-slate-300 hover:text-red-400 px-4 py-1.5 rounded-full text-xs font-medium shadow-md transition-all"
             aria-label="Detener generación de la respuesta"
           >
@@ -402,8 +170,12 @@ export function ChatPanel({ width }: ChatPanelProps) {
         </div>
       )}
 
-      <MessageList messages={messages} isStreaming={isStreaming} onSuggestionClick={handleSend} onNewChat={createNewSession} />
+      <MessageList messages={messages} isStreaming={isStreaming} hasPipelinePhase={pipelinePhase !== null} onSuggestionClick={handleSend} onNewChat={createNewSession} />
       
+      <AgentStepAccordion steps={steps} isActive={isStreaming} />
+
+      <PhaseConfirmationBar />
+
       {canRetry && (
         <div className="flex justify-center -mt-2 mb-2 relative z-10">
           <button 
@@ -422,7 +194,7 @@ export function ChatPanel({ width }: ChatPanelProps) {
             Despierta a Vibe AI para potenciar tu código
           </p>
           <button 
-            onClick={() => useAuthStore.getState().setLoginModalOpen(true)} 
+            onClick={() => window.location.href = `https://cuenta.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`} 
             className="w-full py-2.5 bg-white text-black text-sm font-semibold rounded-lg shadow hover:bg-slate-200 transition-colors"
             aria-describedby="chat-cta-description"
           >
@@ -431,7 +203,7 @@ export function ChatPanel({ width }: ChatPanelProps) {
         </div>
       ) : (
         <div className="flex flex-col border-t border-white/5 mt-auto bg-black/20">
-          {plan === "pro" && (
+          {(plan === "pro" || plan === "estudiante") && (
             <div className="px-4 py-2 flex justify-between items-center bg-obsidian-800 border-b border-white/5">
               <span className="text-[10px] font-bold text-vibe-cyan uppercase tracking-wider flex items-center gap-1.5">
                 <span className="text-[12px]">🚀</span> Vibe Pro Engine
@@ -449,7 +221,8 @@ export function ChatPanel({ width }: ChatPanelProps) {
               </label>
             </div>
           )}
-          <ChatInput onSend={handleSend} disabled={isStreaming} />
+          <AuraNudgeBar inputText={inputText} />
+          <ChatInput onSend={handleSend} disabled={isStreaming} onTextChange={setInputText} />
         </div>
       )}
     </aside>

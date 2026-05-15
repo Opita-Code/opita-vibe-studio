@@ -4,6 +4,7 @@ import { useAuthStore } from "@/stores/auth";
 import type { Attachment } from "@/lib/types";
 import { listProviders } from "@/providers/registry";
 import { ChevronDown, CheckCircle2, Zap } from "lucide-react";
+import { ModeButtons } from "./ModeButtons";
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -14,6 +15,10 @@ const CHAR_LIMIT = 500000; // Frontier LLM limit
 interface ChatInputProps {
   onSend: (text: string, attachments?: Attachment[]) => void;
   disabled: boolean;
+  /** Callback cuando el usuario escribe (para nudges de Aura) */
+  onTextChange?: (text: string) => void;
+  /** Texto a inyectar externamente (desde step chips de Aura) */
+  injectText?: string;
 }
 
 // ─── Component ─────────────────────────────────────────────────
@@ -21,7 +26,7 @@ interface ChatInputProps {
 /**
  * Área de entrada multilineal con soporte para adjuntos y Drag & Drop.
  */
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatInputProps) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -36,6 +41,15 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Handle injected text from Aura step chips
+  useEffect(() => {
+    if (injectText) {
+      setText(injectText);
+      onTextChange?.(injectText);
+      setTimeout(() => textareaRef.current?.focus(), 50);
+    }
+  }, [injectText, onTextChange]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -217,25 +231,12 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
     >
-      {/* Quick AI Actions */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        <button onClick={() => { setText("Explica el siguiente código:\n\n```\n\n```"); setTimeout(() => textareaRef.current?.focus(), 50); }} aria-label="Insertar prompt: Explicar código" className="px-2 py-1 text-[11px] font-medium text-slate-300 bg-white/5 hover:bg-aura-cyan/20 border border-white/10 hover:border-aura-cyan/30 rounded-md transition-all flex items-center gap-1.5">
-          <svg className="w-3 h-3 text-aura-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          Explicar
-        </button>
-        <button onClick={() => { setText("Optimiza el siguiente código:\n\n```\n\n```"); setTimeout(() => textareaRef.current?.focus(), 50); }} aria-label="Insertar prompt: Optimizar código" className="px-2 py-1 text-[11px] font-medium text-slate-300 bg-white/5 hover:bg-aura-purple/20 border border-white/10 hover:border-aura-purple/30 rounded-md transition-all flex items-center gap-1.5">
-          <svg className="w-3 h-3 text-aura-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-          Optimizar
-        </button>
-        <button onClick={() => { setText("Encuentra y corrige errores en este código:\n\n```\n\n```"); setTimeout(() => textareaRef.current?.focus(), 50); }} aria-label="Insertar prompt: Corregir errores" className="px-2 py-1 text-[11px] font-medium text-slate-300 bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 rounded-md transition-all flex items-center gap-1.5">
-          <svg className="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          Fix
-        </button>
-        <button onClick={() => { setText("Genera tests unitarios para este código:\n\n```\n\n```"); setTimeout(() => textareaRef.current?.focus(), 50); }} aria-label="Insertar prompt: Generar tests" className="px-2 py-1 text-[11px] font-medium text-slate-300 bg-white/5 hover:bg-aura-blue/20 border border-white/10 hover:border-aura-blue/30 rounded-md transition-all flex items-center gap-1.5">
-          <svg className="w-3 h-3 text-aura-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          Tests
-        </button>
-      </div>
+      {/* Modos de IA — Activación rápida */}
+      <ModeButtons onActivate={(mode, prompt) => {
+        useChatStore.getState().setActiveMode(mode);
+        setText(prompt);
+        setTimeout(() => textareaRef.current?.focus(), 50);
+      }} />
 
       {/* Zona de adjuntos */}
       {attachments.length > 0 && (
@@ -294,6 +295,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           onChange={(e) => {
             if (e.target.value.length <= CHAR_LIMIT) {
               setText(e.target.value);
+              onTextChange?.(e.target.value);
             }
           }}
           onKeyDown={handleKeyDown}
