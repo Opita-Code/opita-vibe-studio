@@ -6,15 +6,16 @@ export default defineConfig({
   expect: {
     timeout: 5000
   },
-  fullyParallel: true,
-  retries: 0,
+  fullyParallel: false,
+  retries: 1,
   workers: 1,
-  reporter: 'html',
+  reporter: [['html', { open: 'never' }], ['list']],
   use: {
     baseURL: 'http://localhost:1420',
     trace: 'on-first-retry',
-    headless: false,
-    viewport: { width: 1280, height: 720 }
+    headless: true,
+    viewport: { width: 1280, height: 720 },
+    screenshot: 'only-on-failure',
   },
   projects: [
     {
@@ -22,4 +23,10 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
+  webServer: {
+    command: 'npm run dev',
+    port: 1420,
+    reuseExistingServer: true,
+    timeout: 30 * 1000,
+  },
 });

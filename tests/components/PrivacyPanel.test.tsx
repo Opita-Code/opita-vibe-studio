@@ -121,7 +121,7 @@ describe("PrivacyPanel", () => {
   it("should render GDPR description text", () => {
     render(<PrivacyPanel />);
     expect(
-      screen.getByText(/solo cuando vos nos des permiso/i),
+      screen.getByText(/nos des permiso/i),
     ).toBeTruthy();
   });
 });

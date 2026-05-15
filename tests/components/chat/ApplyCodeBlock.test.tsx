@@ -14,16 +14,14 @@ vi.mock("../../../src/lib/ipc", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
 
-  // Reset project store with a root path (project open)
+  // Reset project store with an active workspace (project open)
   useProjectStore.setState({
-    rootPath: "/test/project",
-    files: [],
+    workspaces: [{ id: "/test/project", path: "/test/project", name: "project", files: [], isGitRepo: false, gitBranch: null }],
+    activeWorkspaceId: "/test/project",
     openTabs: [],
     activeTab: null,
     isDirty: {},
     fileContents: {},
-    isGitRepo: false,
-    gitBranch: null,
     isLoading: false,
     statusMessage: null,
   });
@@ -105,7 +103,7 @@ describe("ApplyCodeBlock", () => {
   });
 
   it("should show message when no project is open", () => {
-    useProjectStore.setState({ rootPath: null });
+    useProjectStore.setState({ activeWorkspaceId: null, workspaces: [] });
 
     render(<ApplyCodeBlock code={"<h1>Hola</h1>"} language="html" />);
 

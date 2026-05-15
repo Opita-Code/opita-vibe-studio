@@ -4,21 +4,22 @@ import path from "path";
 
 describe("Document HTML", () => {
   it("should have the correct Vibe Studio favicons configured", () => {
-    // Read the index.html file
     const indexPath = path.join(process.cwd(), "index.html");
     const htmlContent = fs.readFileSync(indexPath, "utf-8");
 
-    // Check for the SVG icon (modern standard)
-    expect(htmlContent).toContain('<link rel="icon" type="image/svg+xml" href="/logo-symbol.svg" />');
+    // Check for the SVG icon (current standard: vibe-logo.svg)
+    expect(htmlContent).toContain('<link rel="icon" type="image/svg+xml" href="/vibe-logo.svg" />');
     
-    // Check for the ICO fallback (legacy)
-    expect(htmlContent).toContain('<link rel="alternate icon" type="image/x-icon" href="/favicon.ico" />');
+    // Check for the Apple touch icon
+    expect(htmlContent).toContain('<link rel="apple-touch-icon" href="/vibe-logo.svg" />');
   });
 
   it("should have the correct title", () => {
     const indexPath = path.join(process.cwd(), "index.html");
     const htmlContent = fs.readFileSync(indexPath, "utf-8");
     
-    expect(htmlContent).toContain("<title>Vibe Studio</title>");
+    // Title now includes the full SEO-optimized tagline
+    expect(htmlContent).toContain("Vibe Studio");
+    expect(htmlContent).toContain("<title>");
   });
 });

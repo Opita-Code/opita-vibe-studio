@@ -50,7 +50,7 @@ describe("Provider Registry", () => {
     const provider = getProvider("deepseek");
     expect(provider).toBeDefined();
     expect(provider.id).toBe("deepseek");
-    expect(provider.name).toBe("DeepSeek V3");
+    expect(provider.name).toBe("Opita AI");
   });
 
   it("should throw when getting unknown provider", () => {

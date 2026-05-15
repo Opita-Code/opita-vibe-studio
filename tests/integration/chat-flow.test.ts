@@ -195,7 +195,7 @@ describe("Provider Failover — caída y recuperación", () => {
       .filter((c) => c.type === "error")
       .map((c) => c.content)
       .join("");
-    expect(text).toContain("Configurá una API key");
+    expect(text).toContain("No pudimos conectar");
   });
 });
 
@@ -213,31 +213,26 @@ describe("BYOK Flow — configuración y uso de API keys", () => {
   });
 
   it("debería guardar y recuperar una API key enmascarada", async () => {
-    const { saveProviderKey, getProviderKey, maskKey } =
+    const { maskKey } =
       await import("../../src/lib/byok-store");
 
-    await saveProviderKey("openai", "sk-proj-abc123def456");
-    const entry = await getProviderKey("openai");
-    expect(entry).not.toBeNull();
-    expect(entry!.key).toBe("sk-proj-abc123def456");
-
+    // BYOK now requires authentication for save — test maskKey which is pure
     const masked = maskKey("sk-proj-abc123def456");
     expect(masked).toBe("sk-...f456");
+
+    // Verify mask for short keys
+    const maskedShort = maskKey("short");
+    expect(maskedShort).toBe("***");
   });
 
-  it("debería eliminar una API key y actualizar la lista de configurados", async () => {
-    const { saveProviderKey, deleteProviderKey, listConfiguredProviders } =
+  it("debería requerir autenticación para operaciones CRUD de keys", async () => {
+    const { saveProviderKey } =
       await import("../../src/lib/byok-store");
 
-    await saveProviderKey("openai", "sk-test-123");
-    await saveProviderKey("openrouter", "or-test-456");
-
-    expect((await listConfiguredProviders()).length).toBe(2);
-
-    await deleteProviderKey("openai");
-    const configured = await listConfiguredProviders();
-    expect(configured).not.toContain("openai");
-    expect(configured).toContain("openrouter");
+    // BYOK operations now require auth — unauthenticated should throw
+    await expect(saveProviderKey("openai", "sk-test-123")).rejects.toThrow(
+      /cuenta gratuita|autenticación|sesión/i,
+    );
   });
 
   it("debería listar proveedores con estado no configurado por defecto", async () => {
@@ -270,10 +265,13 @@ describe("Auth Flow — inicio de sesión y cierre", () => {
       authMode: "unauthenticated",
       isLoading: false,
       tokenUsage: {
-        promptsUsed: 0,
-        promptsLimit: 30,
-        billingPeriodStart: new Date().toISOString(),
-        billingPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        tokensUsedToday: 0,
+        tokensLimitDaily: 150_000,
+        tokensUsedThisHour: 0,
+        tokensLimitHourly: 30_000,
+        plan: "free",
+        resetDailyAt: new Date().toISOString(),
+        resetHourlyAt: new Date().toISOString(),
       },
     });
   });
@@ -357,38 +355,43 @@ describe("Auth Flow — inicio de sesión y cierre", () => {
 // THEN el sistema bloquea el envío y muestra opciones de upgrade
 //
 describe("Token Limit — enforcement y upgrade", () => {
-  it("debería detectar que se alcanzó el límite", async () => {
+  it("debería detectar que se alcanzó el límite diario", async () => {
     const { isLimitReached } = await import("../../src/lib/tokens");
-    const { getRemainingPrompts } = await import("../../src/lib/tokens");
+    const { getRemainingTokens } = await import("../../src/lib/tokens");
 
     const usage = {
-      promptsUsed: 30,
-      promptsLimit: 30,
-      billingPeriodStart: "2026-05-01T00:00:00.000Z",
-      billingPeriodEnd: "2026-06-01T00:00:00.000Z",
+      tokensUsedToday: 150_000,
+      tokensLimitDaily: 150_000,
+      tokensUsedThisHour: 10_000,
+      tokensLimitHourly: 30_000,
+      plan: "free" as const,
+      resetDailyAt: new Date().toISOString(),
+      resetHourlyAt: new Date().toISOString(),
     };
 
     expect(isLimitReached(usage)).toBe(true);
-    expect(getRemainingPrompts(usage)).toBe(0);
+    expect(getRemainingTokens(usage)).toBe(0);
   });
 
-  it("debería permitir prompts cuando hay límite disponible", async () => {
+  it("debería permitir tokens cuando hay límite disponible", async () => {
     const { isLimitReached } = await import("../../src/lib/tokens");
 
     const usage = {
-      promptsUsed: 25,
-      promptsLimit: 30,
-      billingPeriodStart: "2026-05-01T00:00:00.000Z",
-      billingPeriodEnd: "2026-06-01T00:00:00.000Z",
+      tokensUsedToday: 100_000,
+      tokensLimitDaily: 150_000,
+      tokensUsedThisHour: 10_000,
+      tokensLimitHourly: 30_000,
+      plan: "free" as const,
+      resetDailyAt: new Date().toISOString(),
+      resetHourlyAt: new Date().toISOString(),
     };
 
     expect(isLimitReached(usage)).toBe(false);
   });
 
-  it("debería incrementar el contador después de enviar un prompt", async () => {
+  it("debería actualizar el token usage via setTokenUsage", async () => {
     const { useAuthStore } = await import("../../src/stores/auth");
 
-    // Resetear estado
     useAuthStore.setState({
       user: {
         id: "u1",
@@ -402,26 +405,35 @@ describe("Token Limit — enforcement y upgrade", () => {
       authMode: "authenticated",
       isLoading: false,
       tokenUsage: {
-        promptsUsed: 0,
-        promptsLimit: 30,
-        billingPeriodStart: new Date().toISOString(),
-        billingPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        tokensUsedToday: 0,
+        tokensLimitDaily: 150_000,
+        tokensUsedThisHour: 0,
+        tokensLimitHourly: 30_000,
+        plan: "free",
+        resetDailyAt: new Date().toISOString(),
+        resetHourlyAt: new Date().toISOString(),
       },
     });
 
-    expect(useAuthStore.getState().tokenUsage.promptsUsed).toBe(0);
-    useAuthStore.getState().incrementPromptsUsed();
-    expect(useAuthStore.getState().tokenUsage.promptsUsed).toBe(1);
+    expect(useAuthStore.getState().tokenUsage.tokensUsedToday).toBe(0);
+    useAuthStore.getState().setTokenUsage({
+      ...useAuthStore.getState().tokenUsage,
+      tokensUsedToday: 50_000,
+    });
+    expect(useAuthStore.getState().tokenUsage.tokensUsedToday).toBe(50_000);
   });
 
   it("debería mostrar advertencia al 80% de uso", async () => {
     const { getUsagePercent } = await import("../../src/lib/tokens");
 
     const usage = {
-      promptsUsed: 24,
-      promptsLimit: 30,
-      billingPeriodStart: "2026-05-01T00:00:00.000Z",
-      billingPeriodEnd: "2026-06-01T00:00:00.000Z",
+      tokensUsedToday: 120_000,
+      tokensLimitDaily: 150_000,
+      tokensUsedThisHour: 10_000,
+      tokensLimitHourly: 30_000,
+      plan: "free" as const,
+      resetDailyAt: new Date().toISOString(),
+      resetHourlyAt: new Date().toISOString(),
     };
 
     expect(getUsagePercent(usage)).toBe(80);

@@ -34,7 +34,7 @@ describe("DeepSeek Provider", () => {
   it("should have correct id, name, and tier", () => {
     const provider = createDeepSeekProvider("sk-test-key");
     expect(provider.id).toBe("deepseek");
-    expect(provider.name).toBe("DeepSeek V3");
+    expect(provider.name).toBe("Opita AI");
     expect(provider.tier).toBe("free");
   });
 
@@ -77,7 +77,11 @@ describe("DeepSeek Provider", () => {
     expect(lastChunk!.type).toBe("done");
   });
 
-  it("should yield error chunk when no API key", async () => {
+  it("should fall through to backend when no API key (backend uses its own)", async () => {
+    mockStreamAwsSse.mockImplementation(async function* () {
+      yield { type: "text", content: "Backend response" };
+    });
+
     const provider = createDeepSeekProvider();
     const chunks: ChatChunk[] = [];
 
@@ -85,8 +89,9 @@ describe("DeepSeek Provider", () => {
       chunks.push(chunk);
     }
 
-    expect(chunks.length).toBeGreaterThan(0);
-    expect(chunks[0].type).toBe("error");
+    // Should succeed — backend handles auth
+    const textChunks = chunks.filter((c) => c.type === "text");
+    expect(textChunks.length).toBeGreaterThan(0);
   });
 
   it("should yield error chunk on non-ok response", async () => {
@@ -137,7 +142,7 @@ describe("DeepSeek Provider", () => {
   it("should conform to AIProvider interface", () => {
     const provider: AIProvider = createDeepSeekProvider("sk-test-key");
     expect(provider.id).toBe("deepseek");
-    expect(provider.name).toBe("DeepSeek V3");
+    expect(provider.name).toBe("Opita AI");
     expect(provider.tier).toBe("free");
     expect(typeof provider.chat).toBe("function");
     expect(typeof provider.countTokens).toBe("function");

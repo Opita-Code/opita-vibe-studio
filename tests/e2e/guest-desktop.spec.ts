@@ -21,9 +21,9 @@ test.describe('Guest Desktop — Flujo completo de invitado', () => {
     await enterAsGuest(page);
 
     // Activity Bar completo visible
-    await expect(page.locator('button[title*="Explorador"]')).toBeVisible();
-    await expect(page.locator('button[title*="Vibe AI"]')).toBeVisible();
-    await expect(page.locator('button[title*="Configuración"]')).toBeVisible();
+    await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeVisible();
+    await expect(page.locator('[aria-label="Modo Enfoque Multi-Chat"]')).toBeVisible();
+    await expect(page.locator('[aria-label="Configuración"]')).toBeVisible();
   });
 
   // ─── Chat Gate ─────────────────────────────────────────────────
@@ -49,13 +49,12 @@ test.describe('Guest Desktop — Flujo completo de invitado', () => {
     ).toBeHidden();
   });
 
-  test('Welcome screen muestra heading', async ({ page }) => {
+  test('Welcome screen muestra heading de templates', async ({ page }) => {
     await page.goto('/app/');
     await enterAsGuest(page);
-    await ensureChatOpen(page);
 
     await expect(
-      page.locator('text="¿Qué vamos a construir hoy?"')
+      page.locator('text="Comienza con un template"')
     ).toBeVisible({ timeout: 10000 });
   });
 
@@ -94,13 +93,11 @@ test.describe('Guest Desktop — Flujo completo de invitado', () => {
 
   // ─── Landing Link ──────────────────────────────────────────────
 
-  test('Invitado ve enlace a Landing en WelcomeScreen', async ({ page }) => {
+  test('Invitado ve enlace a Landing en ActivityBar', async ({ page }) => {
     await page.goto('/app/');
     await enterAsGuest(page);
 
-    // The link lives in WelcomeScreen (EditorPanel main area)
-    // It may be behind the sidebar, so we check the DOM rather than visual visibility
-    const landingLink = page.locator('a:has-text("Conoce Vibe Studio")');
-    await expect(landingLink).toBeAttached({ timeout: 5000 });
+    const landingLink = page.locator('[aria-label="Ir a la Landing"]');
+    await expect(landingLink).toBeVisible({ timeout: 5000 });
   });
 });

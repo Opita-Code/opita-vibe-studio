@@ -75,8 +75,8 @@ vi.mock("../../../src/stores/chat", () => ({
 vi.mock("../../../src/stores/project", () => ({
   useProjectStore: Object.assign(
     (selector: (state: Record<string, unknown>) => unknown) =>
-      selector({ rootPath: "/test" }),
-    { getState: () => ({ rootPath: "/test" }) },
+      selector({ workspaces: [{ id: "ws-1", path: "/test", name: "test", files: [] }] }),
+    { getState: () => ({ workspaces: [{ id: "ws-1", path: "/test", name: "test", files: [] }] }) },
   ),
 }));
 
@@ -86,17 +86,19 @@ describe("ChatPanel — voseo compliance", () => {
 
     // Set auth store to limit-reached state
     useAuthStore.setState({
-      user: { id: "test", name: "Test User", email: "test@example.com" },
+      user: { id: "test", name: "Test User", email: "test@example.com", plan: "free", verified: false },
       session: null,
       plan: "free",
-      isAuthenticated: true,
       authMode: "authenticated",
       isLoading: false,
       tokenUsage: {
-        promptsUsed: 30,
-        promptsLimit: 30,
-        billingPeriodStart: new Date().toISOString(),
-        billingPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        tokensUsedToday: 150_000,
+        tokensLimitDaily: 150_000,
+        tokensUsedThisHour: 30_000,
+        tokensLimitHourly: 30_000,
+        plan: "free",
+        resetDailyAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+        resetHourlyAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
       },
     });
 

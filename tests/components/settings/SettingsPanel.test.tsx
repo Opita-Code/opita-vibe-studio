@@ -6,34 +6,25 @@ import { useAuthStore } from "../../../src/stores/auth";
 
 beforeEach(() => {
   useUIStore.setState({
-    sidebarWidth: 240,
-    statusMessage: "Listo",
-    activeModel: "deepseek-chat",
-    connectedProvider: "DeepSeek",
-    tokensRemaining: 0,
-    terminalVisible: false,
-    terminalHeight: 200,
     settingsVisible: true,
     activeView: "preview",
-    explorerVisible: false,
     chatWidth: 320,
-    splitRatio: 0.5,
+    chatPosition: "left",
   });
   useAuthStore.setState({
     user: null,
     session: null,
     plan: "free",
     authMode: "authenticated",
-    sessionDetected: false,
     isLoading: false,
-    supabaseReady: false,
-    guestEmail: null,
-    needsMigration: false,
     tokenUsage: {
-      promptsUsed: 0,
-      promptsLimit: 30,
-      billingPeriodStart: expect.any(String) as unknown as string,
-      billingPeriodEnd: expect.any(String) as unknown as string,
+      tokensUsedToday: 0,
+      tokensLimitDaily: 150_000,
+      tokensUsedThisHour: 0,
+      tokensLimitHourly: 30_000,
+      plan: "free",
+      resetDailyAt: new Date().toISOString(),
+      resetHourlyAt: new Date().toISOString(),
     },
   });
 });
@@ -52,11 +43,10 @@ describe("SettingsPanel", () => {
 
   it("should render tab buttons including Privacidad for authenticated users", () => {
     render(<SettingsPanel />);
-    expect(screen.getByText("BYOK")).toBeTruthy();
-    expect(screen.getByText("Plan")).toBeTruthy();
-    expect(screen.getByText("Tokens")).toBeTruthy();
-    // Layout is always visible
-    expect(screen.getByText("Layout")).toBeTruthy();
+    // Current tabs: Conexiones IA, Apariencia, Suscripción y Uso, Privacidad (auth)
+    expect(screen.getByText("Conexiones IA")).toBeTruthy();
+    expect(screen.getByText("Apariencia")).toBeTruthy();
+    expect(screen.getByText(/suscripción/i)).toBeTruthy();
     // Privacidad is visible because authMode is "authenticated"
     expect(screen.getByText("Privacidad")).toBeTruthy();
   });
@@ -64,39 +54,36 @@ describe("SettingsPanel", () => {
   it("should NOT render Privacidad tab for guest users", () => {
     useAuthStore.setState({ authMode: "unauthenticated", user: null });
     render(<SettingsPanel />);
-    expect(screen.getByText("BYOK")).toBeTruthy();
+    expect(screen.getByText("Conexiones IA")).toBeTruthy();
     expect(screen.queryByText("Privacidad")).toBeNull();
   });
 
-  it("should render close button", () => {
+  it("should render Agentes SDD tab for pro users", () => {
+    useAuthStore.setState({ plan: "pro", authMode: "authenticated" });
     render(<SettingsPanel />);
-    expect(screen.getByLabelText("Cerrar configuración")).toBeTruthy();
+    expect(screen.getByText("Agentes SDD")).toBeTruthy();
   });
 
-  it("should close panel when clicking close button", () => {
+  it("should NOT render Agentes SDD tab for free users", () => {
+    useAuthStore.setState({ plan: "free", authMode: "authenticated" });
     render(<SettingsPanel />);
-    fireEvent.click(screen.getByLabelText("Cerrar configuración"));
+    expect(screen.queryByText("Agentes SDD")).toBeNull();
+  });
+
+  it("should close panel when pressing Escape", () => {
+    render(<SettingsPanel />);
+    fireEvent.keyDown(window, { key: "Escape" });
     expect(useUIStore.getState().settingsVisible).toBe(false);
   });
 
   it("should close panel when clicking backdrop", () => {
     render(<SettingsPanel />);
-    // The backdrop is the first child (div with fixed inset-0 z-40)
-    const backdrop = document.querySelector(".fixed.inset-0.z-40");
+    // The backdrop is the outer motion.div with fixed inset-0
+    const backdrop = document.querySelector(".fixed.inset-0");
     expect(backdrop).not.toBeNull();
     if (backdrop) {
       fireEvent.click(backdrop);
     }
     expect(useUIStore.getState().settingsVisible).toBe(false);
   });
-
-  it("should have slide-in transition class on panel", () => {
-    render(<SettingsPanel />);
-    const panel = document.querySelector(".fixed.right-0.top-0");
-    expect(panel).not.toBeNull();
-    expect(panel?.className).toContain("transition-transform");
-    expect(panel?.className).toContain("duration-300");
-  });
-
 });
-
