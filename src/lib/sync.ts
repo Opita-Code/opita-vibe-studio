@@ -2,21 +2,23 @@ import JSZip from "jszip";
 import { exportProjectAsZip } from "./export";
 import type { FileNode } from "./types";
 import type { FileSystemBackend } from "./fs-backend/types";
+import { useAuthStore } from "@/stores/auth";
+import { STORAGE_LIMITS } from "./tokens";
+import { usePurchaseIntentStore } from "@/hooks/usePurchaseIntent";
 
 /**
  * SyncEngine: Handles compressing the local OPFS/native workspace into a ZIP
  * and sending it to the cloud, as well as downloading and extracting it.
  */
 
-import { useAuthStore } from "@/stores/auth";
-
-const API_BASE_URL = "https://suy2kd74af.execute-api.us-east-1.amazonaws.com/v1";
+// Use the dynamic Vite environment variable
+const API_BASE_URL = import.meta.env.VITE_STORAGE_API_URL || "https://suy2kd74af.execute-api.us-east-1.amazonaws.com/v1";
 
 export class SyncEngine {
   /**
    * Pushes the current workspace to the cloud.
    * 1. Zips the files.
-   * 2. Checks if it's under 25MB.
+   * 2. Checks size limit based on user plan.
    * 3. Uploads to the cloud backend via S3 Pre-signed URL.
    */
   static async pushToCloud(
@@ -27,6 +29,7 @@ export class SyncEngine {
   ): Promise<void> {
     const authState = useAuthStore.getState();
     const token = authState.session?.token;
+    const plan = authState.plan || "free";
 
     if (!token) {
       throw new Error("Se requiere iniciar sesión para sincronizar a la nube.");
@@ -37,10 +40,12 @@ export class SyncEngine {
     // 1. Create ZIP Blob
     const zipBlob = await exportProjectAsZip(files, rootPath, backend);
     
-    // 2. Validate Size (Free Tier = 25MB)
-    const MAX_BYTES = 25 * 1024 * 1024;
+    // 2. Validate Size dynamically based on user plan
+    const MAX_BYTES = STORAGE_LIMITS[plan] || STORAGE_LIMITS.free;
     if (zipBlob.size > MAX_BYTES) {
-      throw new Error(`El proyecto excede el límite de 25MB de la capa gratuita. Tamaño actual: ${(zipBlob.size / 1024 / 1024).toFixed(2)}MB`);
+      // Trigger Purchase Intent if limit is exceeded
+      usePurchaseIntentStore.getState().setForcedIntent("storage_limit");
+      throw new Error(`El proyecto excede tu límite de almacenamiento de ${(MAX_BYTES / 1024 / 1024).toFixed(0)}MB. Tamaño actual: ${(zipBlob.size / 1024 / 1024).toFixed(2)}MB`);
     }
 
     // 3. Obtener Pre-signed URL
@@ -49,13 +54,14 @@ export class SyncEngine {
     
     let uploadUrl = "";
     try {
-      const urlRes = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
-        method: "POST", // o GET dependiendo de la API final
+      // Usamos POST directo a la base de la URL asumiendo que VITE_STORAGE_API_URL apunta a la función StorageAPI
+      const urlRes = await fetch(`${API_BASE_URL}`, {
+        method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ action: "get_upload_url" })
+        body: JSON.stringify({ action: "upload", projectId })
       });
       
       if (!urlRes.ok) {
@@ -66,7 +72,6 @@ export class SyncEngine {
       uploadUrl = data.uploadUrl;
     } catch (err) {
       console.warn("Fallo al obtener Pre-signed URL real. Haciendo fallback a simulación para desarrollo.", err);
-      // Fallback a localStorage si el endpoint real no está expuesto aún
       await new Promise((resolve) => setTimeout(resolve, 1500));
       const reader = new FileReader();
       reader.readAsDataURL(zipBlob);
@@ -97,15 +102,8 @@ export class SyncEngine {
       throw new Error(`Fallo al subir archivo a S3: ${uploadRes.status}`);
     }
 
-    // 5. Notificar Sync Complete
+    // 5. Notificar Sync Complete (Optional - Currently removed as it might require a separate backend event)
     onProgress?.("Finalizando sincronización...");
-    await fetch(`${API_BASE_URL}/projects/${projectId}/sync-complete`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-      }
-    });
   }
 
   /**
@@ -131,13 +129,13 @@ export class SyncEngine {
 
     let downloadUrl = "";
     try {
-      const urlRes = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+      const urlRes = await fetch(`${API_BASE_URL}`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ action: "get_download_url" })
+        body: JSON.stringify({ action: "download", projectId })
       });
 
       if (!urlRes.ok) {

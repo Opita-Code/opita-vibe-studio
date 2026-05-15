@@ -1,14 +1,16 @@
 import { useCallback, useRef, useState, useEffect, DragEvent, ClipboardEvent } from "react";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
+import { usePurchaseIntent } from "@/hooks/usePurchaseIntent";
 import type { Attachment } from "@/lib/types";
 import { listProviders } from "@/providers/registry";
-import { ChevronDown, CheckCircle2, Zap } from "lucide-react";
+import { ChevronDown, CheckCircle2, Zap, Lock } from "lucide-react";
 import { ModeButtons } from "./ModeButtons";
 
 // ─── Constants ─────────────────────────────────────────────────
 
 const CHAR_LIMIT = 500000; // Frontier LLM limit
+const PRO_MODELS = ["deepseek-reasoner", "gemini-2.5-pro"];
 
 // ─── Props ─────────────────────────────────────────────────────
 
@@ -38,6 +40,7 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
   const sessions = useChatStore(s => s.sessions);
 
   const plan = useAuthStore(s => s.plan);
+  const { setIntent } = usePurchaseIntent();
   const [isUploading, setIsUploading] = useState(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -71,7 +74,7 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
 
     if (isLarge) {
       if (plan !== "pro") {
-      setUploadError("Archivo demasiado grande (>5MB). Necesitas Vibe Pro para Vibe Storage.");
+        setIntent("large_file");
         return;
       }
       
@@ -145,7 +148,7 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
     } else {
       reader.readAsText(file);
     }
-  }, [plan]);
+  }, [plan, setIntent]);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -363,31 +366,43 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
                     <div className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white/40">
                       {p.name} {p.tier === "free" ? "(Gratis)" : "(BYOK)"}
                     </div>
-                    {p.models.map(m => (
-                      <button
-                        key={m.id}
-                        onClick={() => {
-                          setActiveModelId(m.id);
-                          setActiveProvider(p.id);
-                          setIsModelDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-2 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between ${
-                          activeModelId === m.id ? "bg-aura-purple/20 text-aura-purple" : "text-white/70 hover:bg-white/5 hover:text-white"
-                        }`}
-                      >
-                        <span className="flex items-center">
-                          {m.name.includes("Opita") ? (
-                            <strong className="text-aura-purple flex items-center font-bold">
-                              <Zap className="w-3 h-3 mr-1" />
-                              {m.name}
-                            </strong>
-                          ) : (
-                            m.name
-                          )}
-                        </span>
-                        {activeModelId === m.id && <CheckCircle2 className="w-3 h-3" />}
-                      </button>
-                    ))}
+                    {p.models.map(m => {
+                      const isProLocked = plan !== "pro" && PRO_MODELS.includes(m.id);
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => {
+                            if (isProLocked) {
+                              setIntent("pro_model");
+                              setIsModelDropdownOpen(false);
+                            } else {
+                              setActiveModelId(m.id);
+                              setActiveProvider(p.id);
+                              setIsModelDropdownOpen(false);
+                            }
+                          }}
+                          className={`w-full text-left px-2 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between ${
+                            activeModelId === m.id ? "bg-aura-purple/20 text-aura-purple" : "text-white/70 hover:bg-white/5 hover:text-white"
+                          }`}
+                        >
+                          <span className={`flex items-center ${isProLocked ? "opacity-50" : ""}`}>
+                            {m.name.includes("Opita") ? (
+                              <strong className={`flex items-center font-bold ${activeModelId === m.id || isProLocked ? "" : "text-aura-purple"}`}>
+                                <Zap className="w-3 h-3 mr-1" />
+                                {m.name}
+                              </strong>
+                            ) : (
+                              m.name
+                            )}
+                          </span>
+                          {isProLocked ? (
+                            <Lock className="w-3 h-3 text-aura-purple opacity-50" />
+                          ) : activeModelId === m.id ? (
+                            <CheckCircle2 className="w-3 h-3" />
+                          ) : null}
+                        </button>
+                      );
+                    })}
                   </div>
                 ))}
                 {visibleProviders.length === 1 && visibleProviders[0].tier === "free" && (

@@ -10,6 +10,7 @@ import type { ProviderDisplayInfo, ProviderDefinition } from "@/lib/byok-store";
 import { listen } from "@tauri-apps/api/event";
 import { isTauri } from "@tauri-apps/api/core";
 import { motion, AnimatePresence } from "framer-motion";
+import { useUIStore } from "@/stores/ui";
 import { Trash2, Link as LinkIcon, AlertCircle, CheckCircle2, ChevronRight, Zap } from "lucide-react";
 
 export function ByokPanel() {
@@ -274,7 +275,7 @@ export function ByokPanel() {
                                 onClick={async () => {
                                   try {
                                     if (!isTauri()) {
-                                      alert("Estás en el navegador web. Esta función requiere la app de escritorio.");
+                                      useUIStore.setState({ statusMessage: "Esta función requiere la app de escritorio." });
                                       return;
                                     }
 
@@ -348,11 +349,11 @@ export function ByokPanel() {
                                           setSaveError("Error al obtener token de OpenAI");
                                         }
                                       } catch(e) {
-                                        alert("Error en la conexión con OpenAI: " + String(e));
+                                        useUIStore.setState({ statusMessage: "Error en la conexión con OpenAI: " + String(e) });
                                       }
                                     });
                                   } catch (err) {
-                                    alert("Hubo un error interno: " + String(err));
+                                    useUIStore.setState({ statusMessage: "Hubo un error interno: " + String(err) });
                                   }
                                 }}
                                 className="mt-1 w-full py-2 bg-aura-purple/20 hover:bg-aura-purple/30 text-aura-purple border border-aura-purple/40 font-semibold rounded-md transition-colors"

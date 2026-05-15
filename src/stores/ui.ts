@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { PreviewDevice } from "@/components/preview/DeviceFrame";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -57,6 +58,8 @@ interface UIState {
   omnibarOpen: boolean;
   /** Query de búsqueda actual en el OmniBar */
   omnibarQuery: string;
+  /** Dispositivo de previsualización activo (VibeLens) */
+  previewDevice: PreviewDevice;
 }
 
 // ─── Actions ───────────────────────────────────────────────────
@@ -91,6 +94,7 @@ interface UIActions {
   setBugReportVisible: (visible: boolean) => void;
   setOmnibarOpen: (open: boolean) => void;
   setOmnibarQuery: (query: string) => void;
+  setPreviewDevice: (device: PreviewDevice) => void;
 }
 
 // ─── Clamp helpers ─────────────────────────────────────────────
@@ -130,6 +134,7 @@ export const useUIStore = create<UIStore>()(
   bugReportVisible: false,
   omnibarOpen: false,
   omnibarQuery: "",
+  previewDevice: "desktop",
 
   setSidebarWidth: (width) => set({ sidebarWidth: Math.max(180, Math.min(400, width)) }),
 
@@ -188,6 +193,7 @@ export const useUIStore = create<UIStore>()(
   setBugReportVisible: (visible) => set({ bugReportVisible: visible }),
   setOmnibarOpen: (open) => set({ omnibarOpen: open }),
   setOmnibarQuery: (query) => set({ omnibarQuery: query }),
+  setPreviewDevice: (device) => set({ previewDevice: device }),
 }),
     {
       name: "vibe-studio-ui",
@@ -203,6 +209,7 @@ export const useUIStore = create<UIStore>()(
         vibeLensEnabled: state.vibeLensEnabled,
         activeSidebar: state.activeSidebar,
         activityBarVisible: state.activityBarVisible,
+        previewDevice: state.previewDevice,
       }),
     },
   ),

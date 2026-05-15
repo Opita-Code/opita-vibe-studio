@@ -331,7 +331,7 @@ export const useProjectStore = create<ProjectStore>()(
         const workspace = workspaces.find((w) => w.id === activeWorkspaceId);
         if (!workspace) return;
 
-        set({ isSyncing: true, statusMessage: "Preparando sincronización..." });
+        set({ isSyncing: true, statusMessage: "Preparando sincronización...", syncError: null });
 
         try {
           const { SyncEngine } = await import("@/lib/sync");

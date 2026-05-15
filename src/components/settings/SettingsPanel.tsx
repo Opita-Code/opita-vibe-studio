@@ -76,7 +76,7 @@ export function SettingsPanel() {
     { id: "conexiones", label: "Conexiones IA", icon: Blocks },
     { id: "apariencia", label: "Apariencia", icon: Palette },
     { id: "uso", label: "Suscripción y Uso", icon: CreditCard },
-    ...(plan === "pro" ? [{ id: "agentes", label: "Agentes Pro", icon: Bot }] : []),
+    ...(plan === "pro" || plan === "estudiante" ? [{ id: "agentes", label: "Agentes SDD", icon: Bot }] : []),
     ...(isAuthenticated ? [{ id: "privacidad", label: "Privacidad", icon: ShieldCheck }] : []),
   ] as const;
 
@@ -187,7 +187,7 @@ export function SettingsPanel() {
                       </div>
                     )}
 
-                    {activeTab === "agentes" && plan === "pro" && (
+                    {activeTab === "agentes" && (plan === "pro" || plan === "estudiante") && (
                       <div className="space-y-8">
                         <div>
                           <h3 className="text-lg font-semibold text-slate-200 mb-1">Agentes Pro</h3>

@@ -69,6 +69,7 @@ export default $config({
         JWT_SECRET: process.env.JWT_SECRET || "",
         DEEP_SEEK_KEY: process.env.DEEP_SEEK_KEY || "",
         OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+        AI_STUDIO_GOOGLE: process.env.AI_STUDIO_GOOGLE || "",
         GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
         OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
       },

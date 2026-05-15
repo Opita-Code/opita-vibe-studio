@@ -1,0 +1,499 @@
+/**
+ * Gamification Engine — Backend
+ *
+ * Handles XP tracking, daily missions, streak management, and quota rewards.
+ * Reuses the TokenUsage DynamoDB table with different sort key patterns.
+ *
+ * Data model (all under pk = "user#{email}"):
+ *   sk: "xp#profile"       → XP profile (totalXp, level, streak, earnedQuota)
+ *   sk: "mission#YYYY-MM-DD" → Daily missions
+ *   sk: "milestone#{level}" → Unlocked milestones
+ */
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import {
+  DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+  UpdateCommand,
+} from "@aws-sdk/lib-dynamodb";
+import { Resource as SSTResource } from "sst";
+
+const Resource = SSTResource as any;
+
+const ddbClient = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(ddbClient);
+
+// ─── Constants (mirrored from frontend xp-constants.ts) ─────────
+
+const XP_ACTIONS: Record<string, number> = {
+  chat_message: 5,
+  template_use: 25,
+  project_create: 50,
+  feature_explore: 10,
+  daily_login: 15,
+  mission_complete_novato: 100,
+  mission_complete_intermedio: 200,
+  mission_complete_avanzado: 350,
+  streak_3_bonus: 50,
+  streak_7_bonus: 150,
+  streak_14_bonus: 300,
+  streak_30_bonus: 500,
+};
+
+const QUOTA_REWARDS: Record<string, number> = {
+  mission_novato: 5_000,
+  mission_intermedio: 10_000,
+  mission_avanzado: 15_000,
+  streak_3: 10_000,
+  streak_7: 25_000,
+  streak_14: 40_000,
+  streak_30: 75_000,
+};
+
+const PLAN_MULTIPLIERS: Record<string, number> = {
+  free: 1,
+  estudiante: 1.5,
+  pro: 2,
+};
+
+const QUOTA_CAPS: Record<string, number> = {
+  free: 300_000,
+  estudiante: 400_000,
+  pro: 1_000_000,
+};
+
+const QUOTA_DECAY_RATE = 0.10;
+
+const QUOTA_DECAY_FLOOR: Record<string, number> = {
+  free: 150_000,
+  estudiante: 250_000,
+  pro: 1_000_000,
+};
+
+const MILESTONES = [
+  { level: 3, badge: "🌱", label: "Semilla", quotaBoost: 20_000 },
+  { level: 5, badge: "🔍", label: "Explorador", quotaBoost: 30_000 },
+  { level: 10, badge: "🔨", label: "Constructor", quotaBoost: 50_000 },
+  { level: 15, badge: "⚡", label: "Veloz", quotaBoost: 40_000 },
+  { level: 25, badge: "🏗️", label: "Arquitecto", quotaBoost: 60_000 },
+  { level: 50, badge: "👑", label: "Maestro", quotaBoost: 100_000 },
+];
+
+function calculateLevel(totalXp: number): number {
+  return Math.floor(Math.sqrt(totalXp / 100));
+}
+
+// ─── Mission Templates ──────────────────────────────────────────
+
+interface MissionTemplate {
+  type: "aprender" | "construir" | "explorar";
+  title: string;
+  description: string;
+  validationHint: string;
+}
+
+const MISSION_POOL: Record<string, MissionTemplate[]> = {
+  novato: [
+    { type: "aprender", title: "¿Qué es un componente?", description: "Pregúntale a la IA qué es un componente en React y cuándo usarlo.", validationHint: "chat_about_components" },
+    { type: "construir", title: "Tu primer componente", description: "Crea un componente de tarjeta con título, imagen y descripción.", validationHint: "create_card_component" },
+    { type: "explorar", title: "Vista previa en vivo", description: "Abre la vista previa y observa cómo tu código se renderiza en tiempo real.", validationHint: "use_preview" },
+    { type: "aprender", title: "Entendiendo useState", description: "Pídele a la IA que te explique useState con un ejemplo interactivo.", validationHint: "chat_about_state" },
+    { type: "construir", title: "Contador interactivo", description: "Crea un contador con botones de incrementar y decrementar.", validationHint: "create_counter" },
+    { type: "explorar", title: "Exporta tu proyecto", description: "Descarga tu proyecto como ZIP y revisa la estructura de archivos.", validationHint: "export_zip" },
+  ],
+  intermedio: [
+    { type: "aprender", title: "Efectos secundarios", description: "Pregúntale a la IA cuándo usar useEffect y cuándo NO usarlo.", validationHint: "chat_about_effects" },
+    { type: "construir", title: "Formulario con validación", description: "Crea un formulario de contacto con validación de email y nombre.", validationHint: "create_form" },
+    { type: "explorar", title: "Modo VibeLens", description: "Activa VibeLens y envía contexto del editor a la IA para obtener sugerencias.", validationHint: "use_vibelens" },
+    { type: "aprender", title: "Patrones de estado", description: "Pregúntale a la IA la diferencia entre estado local y global.", validationHint: "chat_about_patterns" },
+    { type: "construir", title: "Lista con filtros", description: "Crea una lista de elementos con un campo de búsqueda que filtre en tiempo real.", validationHint: "create_filtered_list" },
+    { type: "explorar", title: "Conecta tu llave", description: "Configura una llave BYOK de cualquier proveedor de IA.", validationHint: "configure_byok" },
+  ],
+  avanzado: [
+    { type: "aprender", title: "Arquitectura limpia", description: "Discute con la IA cómo separar lógica de negocio de la UI en React.", validationHint: "chat_about_architecture" },
+    { type: "construir", title: "Dashboard responsivo", description: "Crea un dashboard con gráficas, tarjetas de métricas y sidebar.", validationHint: "create_dashboard" },
+    { type: "explorar", title: "Agente autónomo", description: "Usa el motor de agentes para que la IA cree un componente completo.", validationHint: "use_agent_mode" },
+    { type: "aprender", title: "Optimización de rendimiento", description: "Pregúntale a la IA sobre memo, useMemo y useCallback.", validationHint: "chat_about_performance" },
+    { type: "construir", title: "Animación con Framer", description: "Crea un componente con animaciones de entrada usando Framer Motion.", validationHint: "create_animation" },
+    { type: "explorar", title: "Multi-archivo", description: "Crea un proyecto con al menos 3 componentes separados que se importen entre sí.", validationHint: "multi_file_project" },
+  ],
+};
+
+// ─── Profile Operations ─────────────────────────────────────────
+
+export interface XPProfile {
+  totalXp: number;
+  level: number;
+  streakDays: number;
+  lastActiveDate: string;
+  earnedQuota: number;
+  /** Computed: effective daily quota after decay */
+  effectiveDailyQuota: number;
+}
+
+export async function getProfile(email: string, plan: string): Promise<XPProfile> {
+  const pk = `user#${email}`;
+  const result = await docClient.send(new GetCommand({
+    TableName: Resource.TokenUsage.name,
+    Key: { pk, sk: "xp#profile" },
+  }));
+
+  const item = result.Item;
+  const now = new Date();
+  const today = now.toISOString().split("T")[0];
+
+  if (!item) {
+    // First-time user — create profile
+    const profile: XPProfile = {
+      totalXp: 0,
+      level: 0,
+      streakDays: 0,
+      lastActiveDate: today,
+      earnedQuota: 0,
+      effectiveDailyQuota: QUOTA_DECAY_FLOOR[plan] ?? 150_000,
+    };
+    await saveProfile(email, profile);
+    return profile;
+  }
+
+  // Calculate quota decay based on inactivity
+  const lastActive = item.lastActiveDate as string;
+  const daysInactive = lastActive
+    ? Math.max(0, Math.floor(
+        (new Date(today).getTime() - new Date(lastActive).getTime()) / (86400 * 1000),
+      ) - 1) // -1 because today doesn't count as inactive
+    : 0;
+
+  let earnedQuota = (item.earnedQuota as number) || 0;
+  const floor = QUOTA_DECAY_FLOOR[plan] ?? 150_000;
+
+  if (daysInactive > 0 && earnedQuota > floor) {
+    earnedQuota = Math.max(
+      floor,
+      Math.round(earnedQuota * Math.pow(1 - QUOTA_DECAY_RATE, daysInactive)),
+    );
+    // Persist decayed quota
+    await docClient.send(new UpdateCommand({
+      TableName: Resource.TokenUsage.name,
+      Key: { pk, sk: "xp#profile" },
+      UpdateExpression: "SET earnedQuota = :eq, lastActiveDate = :today",
+      ExpressionAttributeValues: { ":eq": earnedQuota, ":today": today },
+    }));
+  }
+
+  const totalXp = (item.totalXp as number) || 0;
+
+  const cap = QUOTA_CAPS[plan] ?? QUOTA_CAPS.free;
+  const baseFloor = QUOTA_DECAY_FLOOR[plan] ?? 150_000;
+
+  return {
+    totalXp,
+    level: calculateLevel(totalXp),
+    streakDays: (item.streakDays as number) || 0,
+    lastActiveDate: lastActive || today,
+    earnedQuota,
+    // Effective = base plan quota + earned (capped at plan ceiling)
+    effectiveDailyQuota: Math.min(baseFloor + earnedQuota, cap),
+  };
+}
+
+async function saveProfile(email: string, profile: Omit<XPProfile, "effectiveDailyQuota">): Promise<void> {
+  const pk = `user#${email}`;
+  await docClient.send(new PutCommand({
+    TableName: Resource.TokenUsage.name,
+    Item: {
+      pk,
+      sk: "xp#profile",
+      totalXp: profile.totalXp,
+      level: profile.level,
+      streakDays: profile.streakDays,
+      lastActiveDate: profile.lastActiveDate,
+      earnedQuota: profile.earnedQuota,
+    },
+  }));
+}
+
+// ─── XP Award ───────────────────────────────────────────────────
+
+interface AwardResult {
+  xpAwarded: number;
+  newTotalXp: number;
+  newLevel: number;
+  previousLevel: number;
+  leveledUp: boolean;
+  quotaAwarded: number;
+  newEarnedQuota: number;
+  newMilestone?: { level: number; badge: string; label: string };
+}
+
+export async function awardXP(
+  email: string,
+  action: string,
+  plan: string,
+): Promise<AwardResult> {
+  const profile = await getProfile(email, plan);
+  const baseXP = XP_ACTIONS[action] ?? 0;
+  if (baseXP === 0) {
+    return {
+      xpAwarded: 0,
+      newTotalXp: profile.totalXp,
+      newLevel: profile.level,
+      previousLevel: profile.level,
+      leveledUp: false,
+      quotaAwarded: 0,
+      newEarnedQuota: profile.earnedQuota,
+    };
+  }
+
+  const multiplier = PLAN_MULTIPLIERS[plan] ?? 1;
+  const xpAwarded = Math.round(baseXP * multiplier);
+  const newTotalXp = profile.totalXp + xpAwarded;
+  const previousLevel = profile.level;
+  const newLevel = calculateLevel(newTotalXp);
+  const leveledUp = newLevel > previousLevel;
+
+  // Update streak
+  const today = new Date().toISOString().split("T")[0];
+  let streakDays = profile.streakDays;
+  if (profile.lastActiveDate !== today) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split("T")[0];
+    streakDays = profile.lastActiveDate === yesterdayStr
+      ? profile.streakDays + 1
+      : 1; // Reset streak if missed a day
+  }
+
+  // Check for milestone
+  let newMilestone: AwardResult["newMilestone"];
+  let milestoneQuotaBoost = 0;
+  if (leveledUp) {
+    for (const m of MILESTONES) {
+      if (m.level === newLevel) {
+        newMilestone = { level: m.level, badge: m.badge, label: m.label };
+        milestoneQuotaBoost = m.quotaBoost;
+        // Record milestone
+        await docClient.send(new PutCommand({
+          TableName: Resource.TokenUsage.name,
+          Item: {
+            pk: `user#${email}`,
+            sk: `milestone#${m.level}`,
+            badge: m.badge,
+            label: m.label,
+            unlockedAt: new Date().toISOString(),
+            quotaBoost: m.quotaBoost,
+          },
+        }));
+        break;
+      }
+    }
+  }
+
+  // Calculate quota changes
+  const cap = QUOTA_CAPS[plan] ?? QUOTA_CAPS.free;
+  const quotaAwarded = milestoneQuotaBoost;
+  const newEarnedQuota = Math.min(cap, profile.earnedQuota + quotaAwarded);
+
+  // Save updated profile
+  await saveProfile(email, {
+    totalXp: newTotalXp,
+    level: newLevel,
+    streakDays,
+    lastActiveDate: today,
+    earnedQuota: newEarnedQuota,
+  });
+
+  return {
+    xpAwarded,
+    newTotalXp,
+    newLevel,
+    previousLevel,
+    leveledUp,
+    quotaAwarded,
+    newEarnedQuota,
+    newMilestone,
+  };
+}
+
+// ─── Missions ───────────────────────────────────────────────────
+
+interface DailyMission {
+  id: string;
+  type: "aprender" | "construir" | "explorar";
+  title: string;
+  description: string;
+  xpReward: number;
+  quotaReward: number;
+  difficulty: string;
+  completed: boolean;
+  completedAt?: string;
+}
+
+export async function getMissions(
+  email: string,
+  plan: string,
+): Promise<DailyMission[]> {
+  const today = new Date().toISOString().split("T")[0];
+  const pk = `user#${email}`;
+  const sk = `mission#${today}`;
+
+  // Check if today's missions exist
+  const result = await docClient.send(new GetCommand({
+    TableName: Resource.TokenUsage.name,
+    Key: { pk, sk },
+  }));
+
+  if (result.Item?.missions) {
+    return result.Item.missions as DailyMission[];
+  }
+
+  // Generate new missions for today
+  const profile = await getProfile(email, plan);
+  const level = profile.level;
+  const difficulty = level < 5 ? "novato" : level < 15 ? "intermedio" : "avanzado";
+  const pool = MISSION_POOL[difficulty] || MISSION_POOL.novato;
+
+  // Pick 3 random missions, one of each type if possible
+  const types: Array<"aprender" | "construir" | "explorar"> = ["aprender", "construir", "explorar"];
+  const missions: DailyMission[] = [];
+
+  for (const type of types) {
+    const candidates = pool.filter((m) => m.type === type);
+    if (candidates.length === 0) continue;
+    const picked = candidates[Math.floor(Math.random() * candidates.length)];
+
+    const quotaRewardKey = `mission_${difficulty}` as keyof typeof QUOTA_REWARDS;
+    const xpRewardKey = `mission_complete_${difficulty}` as keyof typeof XP_ACTIONS;
+
+    missions.push({
+      id: `${today}-${type}`,
+      type: picked.type,
+      title: picked.title,
+      description: picked.description,
+      xpReward: XP_ACTIONS[xpRewardKey] ?? 100,
+      quotaReward: QUOTA_REWARDS[quotaRewardKey] ?? 5_000,
+      difficulty,
+      completed: false,
+    });
+  }
+
+  // Save today's missions
+  const ttl = Math.floor(Date.now() / 1000) + 3 * 86400; // 3-day TTL
+  await docClient.send(new PutCommand({
+    TableName: Resource.TokenUsage.name,
+    Item: {
+      pk,
+      sk,
+      missions,
+      generatedAt: new Date().toISOString(),
+      difficulty,
+      expiresAt: ttl,
+    },
+  }));
+
+  return missions;
+}
+
+export async function completeMission(
+  email: string,
+  missionId: string,
+  plan: string,
+): Promise<{
+  success: boolean;
+  xpAwarded: number;
+  quotaAwarded: number;
+  newLevel?: number;
+  leveledUp: boolean;
+  newMilestone?: { level: number; badge: string; label: string };
+  streakDays: number;
+}> {
+  const today = new Date().toISOString().split("T")[0];
+  const pk = `user#${email}`;
+  const sk = `mission#${today}`;
+
+  const result = await docClient.send(new GetCommand({
+    TableName: Resource.TokenUsage.name,
+    Key: { pk, sk },
+  }));
+
+  if (!result.Item?.missions) {
+    return { success: false, xpAwarded: 0, quotaAwarded: 0, leveledUp: false, streakDays: 0 };
+  }
+
+  const missions = result.Item.missions as DailyMission[];
+  const mission = missions.find((m) => m.id === missionId);
+
+  if (!mission || mission.completed) {
+    return { success: false, xpAwarded: 0, quotaAwarded: 0, leveledUp: false, streakDays: 0 };
+  }
+
+  // Mark as completed
+  mission.completed = true;
+  mission.completedAt = new Date().toISOString();
+
+  // Save updated missions
+  await docClient.send(new PutCommand({
+    TableName: Resource.TokenUsage.name,
+    Item: { ...result.Item, missions },
+  }));
+
+  // Award XP (this also updates streak and checks milestones)
+  const xpAction = `mission_complete_${mission.difficulty}`;
+  const xpResult = await awardXP(email, xpAction, plan);
+
+  // Award quota boost (permanent) — use atomic ADD to prevent race conditions
+  const quotaReward = mission.quotaReward;
+  const cap = QUOTA_CAPS[plan] ?? QUOTA_CAPS.free;
+
+  // Read current profile AFTER xpAward (which already updated streak/xp)
+  const updatedProfile = await getProfile(email, plan);
+  let totalQuotaBoost = quotaReward;
+
+  // Check streak bonuses (use streakDays from the freshly updated profile)
+  const streakDays = updatedProfile.streakDays;
+  const streakMilestones = [3, 7, 14, 30] as const;
+  for (const ms of streakMilestones) {
+    if (streakDays === ms) {
+      const key = `streak_${ms}` as keyof typeof QUOTA_REWARDS;
+      totalQuotaBoost += QUOTA_REWARDS[key] ?? 0;
+    }
+  }
+
+  // Single atomic update for earned quota
+  const newEarnedQuota = Math.min(cap, updatedProfile.earnedQuota + totalQuotaBoost);
+  await docClient.send(new UpdateCommand({
+    TableName: Resource.TokenUsage.name,
+    Key: { pk, sk: "xp#profile" },
+    UpdateExpression: "SET earnedQuota = :eq",
+    ExpressionAttributeValues: { ":eq": newEarnedQuota },
+  }));
+
+  return {
+    success: true,
+    xpAwarded: xpResult.xpAwarded,
+    quotaAwarded: totalQuotaBoost,
+    newLevel: xpResult.leveledUp ? xpResult.newLevel : undefined,
+    leveledUp: xpResult.leveledUp,
+    newMilestone: xpResult.newMilestone,
+    streakDays,
+  };
+}
+
+// ─── Earned Quota for Chat System ───────────────────────────────
+
+/**
+ * Returns the user's effective daily quota (base + earned - decay).
+ * Called by chat.ts to adjust token limits dynamically.
+ */
+export async function getEffectiveQuota(
+  email: string,
+  plan: string,
+): Promise<number> {
+  try {
+    const profile = await getProfile(email, plan);
+    return profile.effectiveDailyQuota;
+  } catch {
+    // Fallback to base quota if gamification fails
+    return QUOTA_DECAY_FLOOR[plan] ?? 150_000;
+  }
+}

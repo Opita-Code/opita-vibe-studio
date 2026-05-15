@@ -8,6 +8,14 @@ export const PLAN_LIMITS: Record<UserPlan, { daily: number; hourly: number }> = 
   pro:        { daily: 1_000_000, hourly: 200_000 },
 };
 
+// ─── Storage Limits (Bytes) ──────────────────────────────────────
+
+export const STORAGE_LIMITS: Record<UserPlan, number> = {
+  free:        5 * 1024 * 1024,   // 5MB
+  estudiante: 50 * 1024 * 1024,   // 50MB
+  pro:       500 * 1024 * 1024,   // 500MB
+};
+
 export const PLAN_NAMES: Record<UserPlan, string> = {
   free: "Gratis",
   estudiante: "Estudiante",

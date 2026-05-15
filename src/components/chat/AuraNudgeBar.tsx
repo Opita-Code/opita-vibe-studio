@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { detectNudge, buildNudgeContext, type AuraNudge } from "@/lib/aura-nudges";
 import { useChatStore, MAX_CONTEXT_MESSAGES } from "@/stores/chat";
 import { useProjectStore } from "@/stores/project";
+import { usePurchaseIntent, getNudgeForIntent } from "@/hooks/usePurchaseIntent";
 
 interface AuraNudgeBarProps {
   inputText: string;
@@ -24,6 +25,8 @@ export function AuraNudgeBar({ inputText }: AuraNudgeBarProps) {
   const [nudge, setNudge] = useState<AuraNudge | null>(null);
   const [dismissed, setDismissed] = useState<string | null>(null);
 
+  const { intent, plan, clearIntent, openModal } = usePurchaseIntent();
+
   const messages = useChatStore((s) => {
     const session = s.sessions[s.activeSessionId];
     return session?.messages ?? [];
@@ -31,6 +34,15 @@ export function AuraNudgeBar({ inputText }: AuraNudgeBarProps) {
   const hasProject = useProjectStore((s) => s.workspaces.length > 0);
 
   useEffect(() => {
+    // Si hay una intención de compra, tiene máxima prioridad
+    if (intent) {
+      const intentNudge = getNudgeForIntent(intent, plan);
+      if (intentNudge) {
+        setNudge({ id: `purchase_${intent}`, message: intentNudge.message, type: intentNudge.type });
+        return;
+      }
+    }
+
     // Debounce: only check after 300ms of no typing
     const timer = setTimeout(() => {
       if (!inputText.trim()) {
@@ -55,7 +67,7 @@ export function AuraNudgeBar({ inputText }: AuraNudgeBarProps) {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [inputText, messages, hasProject, dismissed]);
+  }, [inputText, messages, hasProject, dismissed, intent, plan]);
 
   if (!nudge) return null;
 
@@ -64,12 +76,25 @@ export function AuraNudgeBar({ inputText }: AuraNudgeBarProps) {
       className={`flex items-center gap-2 px-4 py-1.5 text-[11px] border-b ${NUDGE_COLORS[nudge.type]} animate-fade-in`}
     >
       <span className="flex-1">{nudge.message}</span>
+      
+      {nudge.id.startsWith("purchase_") && (
+        <button
+          onClick={openModal}
+          className="ml-2 px-3 py-1 bg-aura-purple/20 text-aura-purple border border-aura-purple/30 rounded text-[10px] font-bold tracking-wide uppercase hover:bg-aura-purple/30 transition-colors"
+        >
+          Mejorar Plan
+        </button>
+      )}
+
       <button
         onClick={() => {
           setDismissed(nudge.id);
           setNudge(null);
+          if (nudge.id.startsWith("purchase_")) {
+            clearIntent();
+          }
         }}
-        className="text-white/30 hover:text-white/60 transition-colors text-xs px-1"
+        className="text-white/30 hover:text-white/60 transition-colors text-xs px-1 ml-1"
         aria-label="Descartar sugerencia"
       >
         ✕

@@ -1,4 +1,4 @@
-import Editor from "@monaco-editor/react";
+import Editor, { DiffEditor } from "@monaco-editor/react";
 import { detectLanguage } from "@/lib/language";
 
 // ─── Props ──────────────────────────────────────────────────────
@@ -9,7 +9,11 @@ interface MonacoEditorProps {
   /** Contenido actual */
   value: string;
   /** Callback cuando cambia el contenido */
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
+  /** Modo diff */
+  isDiff?: boolean;
+  originalValue?: string;
+  modifiedValue?: string;
 }
 
 // ─── Component ──────────────────────────────────────────────────
@@ -19,7 +23,7 @@ interface MonacoEditorProps {
  * Se carga de forma diferida (lazy load vía @monaco-editor/react).
  * Detecta el lenguaje automáticamente según la extensión del archivo.
  */
-export function MonacoEditor({ path, value, onChange }: MonacoEditorProps) {
+export function MonacoEditor({ path, value, onChange, isDiff, originalValue, modifiedValue }: MonacoEditorProps) {
   const language = detectLanguage(path);
 
   // Definir el tema custom de Vibe Studio
@@ -41,13 +45,13 @@ export function MonacoEditor({ path, value, onChange }: MonacoEditorProps) {
     });
   };
 
-  return (
+  const EditorComponent = (
     <Editor
       theme="vibe-dark"
       beforeMount={handleEditorWillMount}
       language={language}
       value={value}
-      onChange={(v) => onChange(v ?? "")}
+      onChange={(v) => onChange?.(v ?? "")}
       options={{
         minimap: { enabled: true, scale: 0.75, autohide: true }, // Encendido pero sutil
         fontSize: 14,
@@ -77,4 +81,35 @@ export function MonacoEditor({ path, value, onChange }: MonacoEditorProps) {
       }
     />
   );
+
+  if (isDiff) {
+    return (
+      <DiffEditor
+        theme="vibe-dark"
+        beforeMount={handleEditorWillMount}
+        language={language}
+        original={originalValue}
+        modified={modifiedValue}
+        options={{
+          minimap: { enabled: true, scale: 0.75, autohide: true },
+          fontSize: 14,
+          fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+          fontLigatures: true,
+          lineNumbers: "on",
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          wordWrap: "on",
+          renderSideBySide: true,
+          readOnly: true,
+        }}
+        loading={
+          <div className="flex items-center justify-center h-full text-[#616161]">
+            Cargando visor de diferencias...
+          </div>
+        }
+      />
+    );
+  }
+
+  return EditorComponent;
 }

@@ -40,10 +40,14 @@ export const OMNI_ITEMS: OmniItem[] = [
   { id: "cmd-new-file", title: "Nuevo Archivo", category: "Commands", iconType: "command", keywords: ["create", "nuevo", "archivo", "file"], action: "NEW_FILE" },
   { id: "cmd-report-bug", title: "Reportar Bug", subtitle: "Envía feedback al equipo", category: "Commands", iconType: "bug", keywords: ["bug", "error", "feedback", "report"], action: "REPORT_BUG" },
   { id: "cmd-toggle-theme", title: "Alternar Tema Oscuro/Claro", category: "Commands", iconType: "command", keywords: ["theme", "tema", "dark", "light"], action: "TOGGLE_THEME" },
+  { id: "cmd-toggle-missions", title: "Abrir Misiones", subtitle: "XP, rachas y recompensas", category: "Commands", iconType: "command", keywords: ["misiones", "missions", "xp", "gamificacion", "racha", "streak"], action: "TOGGLE_MISSIONS" },
+  { id: "cmd-toggle-fullscreen", title: "Chat Pantalla Completa", subtitle: "Maximizar o restaurar el chat", category: "Commands", iconType: "chat", keywords: ["fullscreen", "maximizar", "pantalla", "chat"], action: "TOGGLE_CHAT_FULLSCREEN" },
+  { id: "cmd-new-chat", title: "Nuevo Chat", subtitle: "Inicia una conversación limpia", category: "Commands", iconType: "chat", keywords: ["nuevo", "chat", "conversacion", "limpiar"], action: "NEW_CHAT" },
+  { id: "cmd-toggle-explorer", title: "Alternar Explorador", subtitle: "Mostrar u ocultar panel de archivos", category: "Commands", iconType: "file", keywords: ["explorador", "archivos", "sidebar", "panel"], action: "TOGGLE_EXPLORER" },
+  { id: "cmd-export", title: "Exportar Proyecto", subtitle: "Descargar como ZIP", category: "Commands", iconType: "command", keywords: ["export", "exportar", "zip", "descargar", "download"], action: "EXPORT_PROJECT" },
   
   // Settings
   { id: "set-editor", title: "Configuración del Editor", subtitle: "Ajusta tipografía, tabulaciones y atajos", category: "Settings", iconType: "settings", keywords: ["settings", "configuracion", "editor", "font"], action: "OPEN_SETTINGS" },
   { id: "set-ai", title: "Ajustes de Vibe AI", subtitle: "Modelos, contexto y proveedores", category: "Settings", iconType: "ai", keywords: ["ai", "vibe", "llm", "model"], action: "OPEN_AI_SETTINGS" },
-
 
 ];

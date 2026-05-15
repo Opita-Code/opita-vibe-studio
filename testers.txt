@@ -1,0 +1,51 @@
+═══════════════════════════════════════════════════════
+  VIBE STUDIO — Beta Testers Access List
+  Generated: 2026-05-13
+═══════════════════════════════════════════════════════
+
+INSTRUCCIONES PARA EL ADMIN:
+1. Reemplaza los emails con los emails REALES de cada tester
+2. Ejecuta el script de verificación (ver abajo)
+3. Cada tester recibirá un email de AWS para confirmar
+4. Una vez confirmado, pueden usar el magic link en vibe.opitacode.com
+
+───────────────────────────────────────────────────────
+#   NOMBRE              EMAIL                    PLAN
+───────────────────────────────────────────────────────
+01  Tester Alpha        tester1@email.com        free
+02  Tester Bravo        tester2@email.com        free
+03  Tester Charlie      tester3@email.com        free
+04  Tester Delta        tester4@email.com        free
+05  Tester Echo         tester5@email.com        free
+06  Tester Foxtrot      tester6@email.com        free
+07  Tester Golf         tester7@email.com        free
+08  Tester Hotel        tester8@email.com        free
+09  Tester India        tester9@email.com        free
+10  Tester Juliet       tester10@email.com       free
+───────────────────────────────────────────────────────
+
+URL DE ACCESO: https://vibe.opitacode.com
+FLUJO: Ingresar email → Recibir magic link → Click → Sesión activa (7 días)
+
+═══════════════════════════════════════════════════════
+  SCRIPT DE VERIFICACIÓN (PowerShell)
+  Ejecutar DESPUÉS de llenar los emails reales
+═══════════════════════════════════════════════════════
+
+$testers = @(
+  "tester1@email.com",
+  "tester2@email.com",
+  "tester3@email.com",
+  "tester4@email.com",
+  "tester5@email.com",
+  "tester6@email.com",
+  "tester7@email.com",
+  "tester8@email.com",
+  "tester9@email.com",
+  "tester10@email.com"
+)
+
+foreach ($email in $testers) {
+  aws ses verify-email-identity --email-address $email
+  Write-Host "✓ Verificación enviada a: $email"
+}

@@ -9,6 +9,7 @@ import { MobileNavBar } from "@/components/layout/MobileNavBar";
 import { BugReportModal } from "@/components/layout/BugReportModal";
 import { FileWatcher } from "@/components/editor/FileWatcher";
 import { MobileNotSupportedScreen } from "@/components/layout/MobileNotSupportedScreen";
+import { WompiModal } from "@/components/usage/WompiModal";
 import { useAuthStore } from "@/stores/auth";
 import { useKeybindings } from "@/lib/useKeybindings";
 import { AppLifecycle } from "./renderer/AppLifecycle";
@@ -214,6 +215,7 @@ export default function App() {
 
         <SettingsPanel />
         <BugReportModal />
+        <WompiModal />
         <MissionPanel />
         {pendingMilestone && (
           <MilestoneToast
