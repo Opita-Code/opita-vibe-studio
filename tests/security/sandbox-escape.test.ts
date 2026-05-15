@@ -12,8 +12,6 @@
 
 import { describe, it, expect } from "vitest";
 import type { FileOutput } from "../../src/pipeline/types";
-import type { PipelineEvent } from "../../src/pipeline/types";
-import type { Message, ChatChunk, ChatOptions } from "../../src/lib/types";
 
 // ═════════════════════════════════════════════════════════════════
 // Escenario 1: Filesystem sandbox — path traversal

@@ -28,7 +28,19 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Deploy via SST
+      - name: Deploy via SST (Backend)
         run: npx sst deploy --stage production
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
+      - name: Build Frontend
+        run: npm run build
+
+      - name: Deploy Frontend to S3 (Landing)
+        run: aws s3 sync landing/ s3://vibe-landing-728741135483/ --delete --exclude "app/*"
+
+      - name: Deploy Frontend to S3 (App)
+        run: aws s3 sync dist/ s3://vibe-landing-728741135483/app/ --delete
+
+      - name: Invalidate CloudFront Cache
+        run: aws cloudfront create-invalidation --distribution-id EONGVOV3BDAVI --paths "/*"

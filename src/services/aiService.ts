@@ -170,7 +170,7 @@ export async function* streamAwsSse(
             } else {
               console.debug("[SSE-DEBUG] Chunk skipped:", JSON.stringify(parsed).slice(0, 200));
             }
-          } catch (e) {
+          } catch (_e) {
             // Si no es JSON, podría ser texto de error crudo del AI SDK
             if (dataStr.toLowerCase().includes("error")) {
               const translated = translateRawError(dataStr);

@@ -4,11 +4,12 @@ import { useAuthStore } from "@/stores/auth";
 
 // Mock fetch
 const mockFetch = vi.fn();
-global.fetch = mockFetch as any;
+global.fetch = mockFetch as unknown as typeof fetch;
 
 describe("aiService - streamAwsSse", () => {
   beforeEach(() => {
     mockFetch.mockReset();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useAuthStore.setState({ session: { token: "test-token", expiresAt: 999 } } as any);
   });
 
