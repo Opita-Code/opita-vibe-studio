@@ -6,7 +6,7 @@ export function VibeEnginePreview() {
   const [isReady, setIsReady] = useState(false);
 
   return (
-    <div className="relative w-full h-full bg-[#020617] overflow-hidden">
+    <div className="relative w-full h-full bg-obsidian-950 overflow-hidden">
       {/* Nuestro Overlay Personalizado con botón manual y despido inteligente */}
       <VibeSandpackOverlay onDismiss={() => setIsReady(true)} />
 
@@ -26,7 +26,7 @@ export function VibeEnginePreview() {
           showOpenInCodeSandbox={false}
           showRefreshButton={false}
           showNavigator={false}
-          className="bg-[#020617] h-full w-full border-none"
+          className="bg-obsidian-950 h-full w-full border-none"
           style={{ height: "100%", flex: 1, backgroundColor: "#020617" }}
         />
       </div>

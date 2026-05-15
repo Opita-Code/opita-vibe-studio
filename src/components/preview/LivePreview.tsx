@@ -14,13 +14,11 @@
  * El usuario NUNCA ve "Sandpack" — todo es "VibeLens" o "Vista Previa".
  */
 
-import { useState } from "react";
 import {
   SandpackProvider,
-  SandpackPreview,
 } from "@codesandbox/sandpack-react";
 import { usePreviewFiles } from "./usePreviewFiles";
-import { VibeSandpackOverlay } from "./VibeSandpackOverlay";
+import { VibeEnginePreview } from "./VibeEnginePreview";
 import { EmptyPreviewState } from "./EmptyPreviewState";
 import { DeviceFrame } from "./DeviceFrame";
 import { useUIStore } from "@/stores/ui";
@@ -30,48 +28,6 @@ import { useUIStore } from "@/stores/ui";
 interface LivePreviewProps {
   /** Version counter — increments on save/tab-switch to force refresh */
   version: number;
-}
-
-// ─── VibeLens Renderer ──────────────────────────────────────────
-
-/**
- * Internal renderer that wraps the sandbox preview iframe.
- * Handles the loading → ready transition with opacity animation.
- */
-function VibeLensRenderer() {
-  const [isReady, setIsReady] = useState(false);
-
-  return (
-    <div className="relative w-full h-full bg-obsidian-950 overflow-hidden">
-      {/* VibeLens branded overlay — shows while sandbox initializes */}
-      <VibeSandpackOverlay onDismiss={() => setIsReady(true)} />
-
-      {/* Preview iframe — hidden until ready to prevent flash */}
-      <div
-        className="w-full h-full transition-opacity duration-700 ease-in-out"
-        style={{
-          opacity: isReady ? 1 : 0,
-          pointerEvents: isReady ? "auto" : "none",
-        }}
-      >
-        <SandpackPreview
-          showOpenInCodeSandbox={false}
-          showRefreshButton={false}
-          showNavigator={false}
-          className="bg-obsidian-950 h-full w-full border-none"
-          style={{ height: "100%", flex: 1, backgroundColor: "#020617" }}
-        />
-      </div>
-
-      {/* Kill residual Sandpack UI chrome */}
-      <style>{`
-        .sp-overlay, .sp-loading-overlay, .sp-error-overlay { display: none !important; }
-        .sp-preview-iframe { border: none !important; background-color: #020617 !important; }
-        .sp-navigator { display: none !important; }
-        .sp-layout { border: none !important; background-color: transparent !important; }
-      `}</style>
-    </div>
-  );
 }
 
 // ─── Main Component ─────────────────────────────────────────────
@@ -122,7 +78,7 @@ export function LivePreview({ version }: LivePreviewProps) {
           }}
         >
           <DeviceFrame device={previewDevice}>
-            <VibeLensRenderer />
+            <VibeEnginePreview />
           </DeviceFrame>
         </SandpackProvider>
 
