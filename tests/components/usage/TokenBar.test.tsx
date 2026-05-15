@@ -3,63 +3,73 @@ import { render, screen } from "@testing-library/react";
 import { TokenBar } from "../../../src/components/usage/TokenBar";
 import { useAuthStore } from "../../../src/stores/auth";
 
+function setTokenUsage(overrides: Record<string, unknown> = {}) {
+  useAuthStore.setState({
+    tokenUsage: {
+      tokensUsedToday: 50_000,
+      tokensLimitDaily: 150_000,
+      tokensUsedThisHour: 10_000,
+      tokensLimitHourly: 30_000,
+      plan: "free",
+      resetDailyAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+      resetHourlyAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      ...overrides,
+    },
+  });
+}
+
 beforeEach(() => {
   useAuthStore.setState({
     user: null,
     session: null,
     plan: "free",
-    isAuthenticated: true,
+    authMode: "authenticated",
     isLoading: false,
-    tokenUsage: {
-      promptsUsed: 12,
-      promptsLimit: 30,
-      billingPeriodStart: new Date().toISOString(),
-      billingPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    },
   });
+  setTokenUsage();
 });
 
 describe("TokenBar", () => {
-  it("should display prompt usage", () => {
+  it("should display token usage (daily)", () => {
     render(<TokenBar />);
-    expect(screen.getByText(/12\/30 prompts este mes/)).toBeTruthy();
+    // "50K/150K tokens hoy"
+    expect(screen.getByText(/50K\/150K tokens hoy/)).toBeTruthy();
   });
 
   it("should show remaining tokens count", () => {
     render(<TokenBar />);
-    expect(screen.getByText(/18 tokens disponibles/)).toBeTruthy();
+    expect(screen.getByText(/100K tokens disponibles/)).toBeTruthy();
   });
 
   it("should render progress bar with role", () => {
     render(<TokenBar />);
     const bar = screen.getByRole("progressbar");
     expect(bar).toBeTruthy();
-    expect(bar.getAttribute("aria-valuenow")).toBe("40"); // 12/30 = 40%
+    // 50K/150K = 33%
+    expect(bar.getAttribute("aria-valuenow")).toBe("33");
   });
 
-  it("should show renewal date", () => {
+  it("should show daily renewal info", () => {
     render(<TokenBar />);
-    expect(screen.getByText(/Se renuevan el/)).toBeTruthy();
+    // Both daily and hourly renewal info are rendered
+    expect(screen.getAllByText(/renueva en/).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("should show warning at 80% usage", () => {
-    useAuthStore.setState((s) => ({
-      tokenUsage: { ...s.tokenUsage, promptsUsed: 25 },
-    }));
+  it("should show warning when at 80% usage", () => {
+    setTokenUsage({ tokensUsedToday: 125_000 }); // 83%
     render(<TokenBar />);
-    expect(screen.getByText(/Te quedan 5 tokens/)).toBeTruthy();
+    expect(screen.getByText(/tokens restantes/)).toBeTruthy();
   });
 
   it("should show limit reached state", () => {
-    useAuthStore.setState((s) => ({
-      tokenUsage: { ...s.tokenUsage, promptsUsed: 30 },
-    }));
+    setTokenUsage({ tokensUsedToday: 150_000 });
     render(<TokenBar />);
     expect(screen.getByText(/Sin tokens/)).toBeTruthy();
   });
 
   it("should display compact version", () => {
     render(<TokenBar compact />);
-    expect(screen.getByText("12/30")).toBeTruthy();
+    // compact shows "50K/150K (Gratis)"
+    expect(screen.getByText(/50K\/150K/)).toBeTruthy();
   });
 });

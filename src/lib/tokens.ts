@@ -16,20 +16,20 @@ export const PLAN_NAMES: Record<UserPlan, string> = {
 
 export const PLAN_FEATURES: Record<UserPlan, string[]> = {
   free: [
-    "Hasta 150K tokens diarios",
-    "Modelos básicos",
+    "150K tokens base (gana hasta 300K con misiones)",
+    "Misiones diarias para ganar quota",
     "Vista previa en vivo",
-    "Editor de código",
+    "Editor de código + BYOK",
   ],
   estudiante: [
-    "Hasta 250K tokens diarios",
+    "250K tokens base (gana hasta 400K con misiones)",
+    "XP ×1.5 y misiones avanzadas",
     "Orquestación SDD (V4-Flash)",
     "Sincronización Cloud",
-    "30 ejecuciones de código diarias",
   ],
   pro: [
-    "Hasta 1M tokens diarios",
-    "Orquestación SDD Premium (Reasoner + Flash)",
+    "1M tokens diarios",
+    "XP ×2 y todas las misiones",
     "Subagentes Autónomos (Edición de código)",
     "Modo degradado (nunca se bloquea)",
   ],

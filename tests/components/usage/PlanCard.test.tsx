@@ -14,13 +14,16 @@ beforeEach(() => {
     },
     session: null,
     plan: "free",
-    isAuthenticated: true,
+    authMode: "authenticated",
     isLoading: false,
     tokenUsage: {
-      promptsUsed: 12,
-      promptsLimit: 30,
-      billingPeriodStart: new Date().toISOString(),
-      billingPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      tokensUsedToday: 50_000,
+      tokensLimitDaily: 150_000,
+      tokensUsedThisHour: 10_000,
+      tokensLimitHourly: 30_000,
+      plan: "free",
+      resetDailyAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+      resetHourlyAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
     },
   });
 });
@@ -31,25 +34,27 @@ describe("PlanCard", () => {
     expect(screen.getByText("Gratis")).toBeTruthy();
   });
 
-  it("should show prompt usage", () => {
+  it("should show token availability", () => {
     render(<PlanCard />);
+    // "100K de 150K tokens disponibles"
     expect(
-      screen.getByText((content) => content.includes("prompts restantes")),
+      screen.getByText((content) => content.includes("tokens disponibles")),
     ).toBeTruthy();
   });
 
   it("should show upgrade button for free plan", () => {
     render(<PlanCard />);
-    expect(screen.getByText("Actualizar plan")).toBeTruthy();
+    expect(screen.getByText("Subir a Estudiante")).toBeTruthy();
   });
 
   it("should show plan features", () => {
     render(<PlanCard />);
-    expect(screen.getByText("30 prompts por mes")).toBeTruthy();
+    // Features from PLAN_FEATURES.free
+    expect(screen.getByText("Incluye")).toBeTruthy();
   });
 
-  it("should show renewal date", () => {
+  it("should show renewal time", () => {
     render(<PlanCard />);
-    expect(screen.getByText(/Se renueva el/)).toBeTruthy();
+    expect(screen.getByText(/Se renueva en/)).toBeTruthy();
   });
 });

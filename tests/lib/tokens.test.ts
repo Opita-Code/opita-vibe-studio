@@ -1,11 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
-  estimateTokens,
-  getRemainingPrompts,
+  getRemainingTokens,
   isLimitReached,
+  isHourlyLimitReached,
   getUsagePercent,
+  getHourlyUsagePercent,
   formatRenewalDate,
-  getDaysUntilRenewal,
+  formatTokenCount,
+  getMinutesUntilHourlyReset,
+  getHoursUntilDailyReset,
   PLAN_LIMITS,
   PLAN_NAMES,
   PLAN_FEATURES,
@@ -14,40 +17,38 @@ import type { TokenUsage } from "../../src/lib/types";
 
 function makeUsage(overrides?: Partial<TokenUsage>): TokenUsage {
   return {
-    promptsUsed: 12,
-    promptsLimit: 30,
-    billingPeriodStart: "2026-05-01T00:00:00.000Z",
-    billingPeriodEnd: "2026-06-01T00:00:00.000Z",
+    tokensUsedToday: 50_000,
+    tokensLimitDaily: 150_000,
+    tokensUsedThisHour: 10_000,
+    tokensLimitHourly: 30_000,
+    plan: "free",
+    resetDailyAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+    resetHourlyAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
     ...overrides,
   };
 }
 
-describe("estimateTokens", () => {
-  it("should estimate tokens from text length / 4", () => {
-    expect(estimateTokens("hola")).toBe(1); // 4 chars / 4 = 1
-    expect(estimateTokens("hello world")).toBe(3); // 11 chars / 4 = 2.75 → 3
-    expect(estimateTokens("")).toBe(0);
-  });
-
-  it("should round up", () => {
-    expect(estimateTokens("abc")).toBe(1); // 3/4 = 0.75 → 1
-    expect(estimateTokens("a")).toBe(1); // 1/4 = 0.25 → 1
+describe("formatTokenCount", () => {
+  it("should format tokens as K and M", () => {
+    expect(formatTokenCount(150_000)).toBe("150K");
+    expect(formatTokenCount(1_000_000)).toBe("1M");
+    expect(formatTokenCount(45230)).toBe("45.2K");
+    expect(formatTokenCount(500)).toBe("500");
   });
 });
 
 describe("plan limits", () => {
-  it("should have correct plan limits", () => {
-    expect(PLAN_LIMITS.free).toBe(30);
-    expect(PLAN_LIMITS.estudiante).toBe(200);
-    expect(PLAN_LIMITS.creador).toBe(500);
-    expect(PLAN_LIMITS.pro).toBe(2000);
-    expect(PLAN_LIMITS.universidad).toBe(2000);
+  it("should have correct plan limits (daily + hourly)", () => {
+    expect(PLAN_LIMITS.free.daily).toBe(150_000);
+    expect(PLAN_LIMITS.free.hourly).toBe(30_000);
+    expect(PLAN_LIMITS.estudiante.daily).toBe(250_000);
+    expect(PLAN_LIMITS.pro.daily).toBe(1_000_000);
   });
 
   it("should have names for all plans", () => {
     expect(PLAN_NAMES.free).toBe("Gratis");
     expect(PLAN_NAMES.estudiante).toBe("Estudiante");
-    expect(PLAN_NAMES.pro).toBe("Pro");
+    expect(PLAN_NAMES.pro).toBe("Vibe Pro");
   });
 
   it("should have features for all plans", () => {
@@ -57,44 +58,63 @@ describe("plan limits", () => {
   });
 });
 
-describe("getRemainingPrompts", () => {
-  it("should calculate remaining prompts", () => {
-    const usage = makeUsage({ promptsUsed: 12, promptsLimit: 30 });
-    expect(getRemainingPrompts(usage)).toBe(18);
+describe("getRemainingTokens", () => {
+  it("should calculate remaining tokens", () => {
+    const usage = makeUsage({ tokensUsedToday: 50_000, tokensLimitDaily: 150_000 });
+    expect(getRemainingTokens(usage)).toBe(100_000);
   });
 
   it("should return 0 if over limit", () => {
-    const usage = makeUsage({ promptsUsed: 35, promptsLimit: 30 });
-    expect(getRemainingPrompts(usage)).toBe(0);
+    const usage = makeUsage({ tokensUsedToday: 200_000, tokensLimitDaily: 150_000 });
+    expect(getRemainingTokens(usage)).toBe(0);
   });
 });
 
 describe("isLimitReached", () => {
   it("should return false when under limit", () => {
-    const usage = makeUsage({ promptsUsed: 29, promptsLimit: 30 });
+    const usage = makeUsage({ tokensUsedToday: 100_000, tokensLimitDaily: 150_000 });
     expect(isLimitReached(usage)).toBe(false);
   });
 
   it("should return true when at limit", () => {
-    const usage = makeUsage({ promptsUsed: 30, promptsLimit: 30 });
+    const usage = makeUsage({ tokensUsedToday: 150_000, tokensLimitDaily: 150_000 });
     expect(isLimitReached(usage)).toBe(true);
   });
 
   it("should return true when over limit", () => {
-    const usage = makeUsage({ promptsUsed: 31, promptsLimit: 30 });
+    const usage = makeUsage({ tokensUsedToday: 200_000, tokensLimitDaily: 150_000 });
     expect(isLimitReached(usage)).toBe(true);
+  });
+});
+
+describe("isHourlyLimitReached", () => {
+  it("should return true when hourly limit reached", () => {
+    const usage = makeUsage({ tokensUsedThisHour: 30_000, tokensLimitHourly: 30_000 });
+    expect(isHourlyLimitReached(usage)).toBe(true);
+  });
+
+  it("should return false when under hourly limit", () => {
+    const usage = makeUsage({ tokensUsedThisHour: 10_000, tokensLimitHourly: 30_000 });
+    expect(isHourlyLimitReached(usage)).toBe(false);
   });
 });
 
 describe("getUsagePercent", () => {
   it("should calculate percentage", () => {
-    const usage = makeUsage({ promptsUsed: 15, promptsLimit: 30 });
+    const usage = makeUsage({ tokensUsedToday: 75_000, tokensLimitDaily: 150_000 });
     expect(getUsagePercent(usage)).toBe(50);
   });
 
   it("should cap at 100", () => {
-    const usage = makeUsage({ promptsUsed: 60, promptsLimit: 30 });
+    const usage = makeUsage({ tokensUsedToday: 300_000, tokensLimitDaily: 150_000 });
     expect(getUsagePercent(usage)).toBe(100);
+  });
+});
+
+describe("getHourlyUsagePercent", () => {
+  it("should calculate hourly percentage", () => {
+    const usage = makeUsage({ tokensUsedThisHour: 15_000, tokensLimitHourly: 30_000 });
+    expect(getHourlyUsagePercent(usage)).toBe(50);
   });
 });
 
@@ -109,15 +129,26 @@ describe("formatRenewalDate", () => {
   });
 });
 
-describe("getDaysUntilRenewal", () => {
-  it("should calculate days until renewal", () => {
-    // Usar una fecha futura lejana para evitar problemas con fechas pasadas
-    const future = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
-    expect(getDaysUntilRenewal(future.toISOString())).toBe(5);
+describe("getHoursUntilDailyReset", () => {
+  it("should calculate hours until reset", () => {
+    const future = new Date(Date.now() + 5 * 60 * 60 * 1000);
+    expect(getHoursUntilDailyReset(future.toISOString())).toBe(5);
   });
 
   it("should return 0 for past dates", () => {
-    const past = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-    expect(getDaysUntilRenewal(past.toISOString())).toBe(0);
+    const past = new Date(Date.now() - 10 * 60 * 60 * 1000);
+    expect(getHoursUntilDailyReset(past.toISOString())).toBe(0);
+  });
+});
+
+describe("getMinutesUntilHourlyReset", () => {
+  it("should calculate minutes until hourly reset", () => {
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    expect(getMinutesUntilHourlyReset(future.toISOString())).toBe(30);
+  });
+
+  it("should return 0 for past dates", () => {
+    const past = new Date(Date.now() - 10 * 60 * 1000);
+    expect(getMinutesUntilHourlyReset(past.toISOString())).toBe(0);
   });
 });

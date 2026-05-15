@@ -26,7 +26,7 @@ interface TokenBarProps {
  *
  * Muestra:
  * - "45.2K/250K tokens hoy"
- * - Barra de progreso visual
+ * - Barra de progreso visual con gradiente Aura
  * - Warning al 80%
  * - Límite alcanzado con mensaje de cooldown
  *
@@ -46,8 +46,8 @@ export function TokenBar({ className = "", compact = false }: TokenBarProps) {
   const barColor = limitReached || hourlyLimitReached
     ? "bg-red-500"
     : isWarning
-      ? "bg-yellow-500"
-      : "bg-[#4ec9b0]";
+      ? "bg-amber-400"
+      : "bg-gradient-to-r from-aura-cyan to-aura-purple";
 
   // Texto de estado
   let statusText: string;
@@ -67,16 +67,16 @@ export function TokenBar({ className = "", compact = false }: TokenBarProps) {
     return (
       <span className={`text-xs ${className}`}>
         {formatTokenCount(tokenUsage.tokensUsedToday)}/{formatTokenCount(tokenUsage.tokensLimitDaily)}{" "}
-        <span className="text-[#969696]">({PLAN_NAMES[plan]})</span>
+        <span className="text-white/40">({PLAN_NAMES[plan]})</span>
       </span>
     );
   }
 
   return (
-    <div className={`flex flex-col gap-1 ${className}`}>
+    <div className={`flex flex-col gap-1.5 ${className}`}>
       {/* Texto de uso */}
       <div className="flex items-center justify-between text-xs">
-        <span className="text-[#d4d4d4]">
+        <span className="text-white/80">
           {formatTokenCount(tokenUsage.tokensUsedToday)}/{formatTokenCount(tokenUsage.tokensLimitDaily)} tokens hoy
         </span>
         <span
@@ -84,8 +84,8 @@ export function TokenBar({ className = "", compact = false }: TokenBarProps) {
             limitReached || hourlyLimitReached
               ? "text-red-400"
               : isWarning
-                ? "text-yellow-400"
-                : "text-[#969696]"
+                ? "text-amber-400"
+                : "text-white/40"
           }
         >
           {statusText}
@@ -93,9 +93,9 @@ export function TokenBar({ className = "", compact = false }: TokenBarProps) {
       </div>
 
       {/* Barra de progreso */}
-      <div className="h-2 w-full overflow-hidden rounded-full bg-[#333]">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
         <div
-          className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+          className={`h-full rounded-full transition-all duration-500 ease-out ${barColor}`}
           style={{ width: `${Math.min(100, percent)}%` }}
           role="progressbar"
           aria-valuenow={percent}
@@ -106,7 +106,7 @@ export function TokenBar({ className = "", compact = false }: TokenBarProps) {
       </div>
 
       {/* Info de renovación */}
-      <div className="flex items-center justify-between text-[10px] text-[#616161]">
+      <div className="flex items-center justify-between text-[10px] text-white/25">
         <span>Diario se renueva en {getHoursUntilDailyReset(tokenUsage.resetDailyAt)}h</span>
         <span>Hora se renueva en {getMinutesUntilHourlyReset(tokenUsage.resetHourlyAt)}min</span>
       </div>
