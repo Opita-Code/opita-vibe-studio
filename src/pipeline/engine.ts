@@ -15,37 +15,52 @@ import { useUIStore } from "@/stores/ui";
 
 // ─── Constants ─────────────────────────────────────────────────
 
-/** Palabras clave que activan el pipeline (vs. chat directo). */
-const CODE_KEYWORDS = [
-  "crear",
-  "hacer",
-  "construir",
-  "cambiar",
-  "modificar",
-  "página",
-  "componente",
-  "función",
-  "funcion",
-  "archivo",
-  "código",
-  "codigo",
-  "sitio",
-  "app",
-  "proyecto",
-  "interfaz",
-  "diseño",
-  "diseñar",
-  "landing",
-  "portafolio",
-  "formulario",
-  "tabla",
-  "menu",
-  "menú",
-  "navegación",
-  "estilo",
-  "clase",
-  "clase css",
-  "script",
+/** Palabras clave de ACCIÓN que sugieren generación de código. */
+const ACTION_KEYWORDS = [
+  "crear", "hacer", "construir", "cambiar", "modificar",
+  "generar", "implementar", "agregar", "añadir", "armar",
+  "montar", "diseñar", "desarrollar",
+];
+
+/** Palabras clave de OBJETO que confirman que es sobre código. */
+const OBJECT_KEYWORDS = [
+  "página", "pagina", "componente", "función", "funcion",
+  "archivo", "código", "codigo", "sitio", "app", "interfaz",
+  "landing", "portafolio", "formulario", "tabla", "menu",
+  "menú", "navegación", "estilo", "clase css", "script",
+  "botón", "modal", "header", "footer", "sidebar",
+];
+
+/** Patrones que indican una pregunta, NO una solicitud de código. */
+const QUESTION_PATTERNS = [
+  "qué es", "que es", "cómo funciona", "como funciona",
+  "explíca", "explica", "por qué", "por que",
+  "cuál es", "cual es", "qué hace", "que hace",
+  "dónde", "donde", "cuándo", "cuando",
+];
+
+/**
+ * Patrones de INTENCIÓN CONVERSACIONAL — el usuario quiere que el agente
+ * le responda con código EN EL CHAT, sin tocar archivos del proyecto.
+ * Frases como "en el chat", "muéstrame", "aquí", "escríbelo aquí", etc.
+ */
+const CONVERSATIONAL_INTENT_PATTERNS = [
+  // Indicadores explícitos de "en el chat"
+  "en el chat", "en este chat", "aquí en el chat",
+  "escríbelo aquí", "escribelo aqui", "escríbemelo aquí", "escribemelo aqui",
+  "ponlo aquí", "ponlo aqui",
+  // "Muéstrame" / "enséñame" → intención educativa, no de filesystem
+  "muéstrame", "muestrame", "enséñame", "enseñame",
+  "muéstrame cómo", "muestrame como",
+  "cómo se ve", "como se ve", "cómo luce", "como luce",
+  // "Dame un ejemplo" → quiere ver código inline
+  "dame un ejemplo", "dame ejemplo", "ejemplo de",
+  "ponme un ejemplo",
+  // "Escribe" sin contexto de filesystem
+  "escríbeme", "escribeme",
+  // Educativo
+  "cómo sería", "como seria", "cómo quedaría", "como quedaria",
+  "cómo se haría", "como se haria", "cómo se hace", "como se hace",
 ];
 
 /** Máximo de reintentos para la fase Verificar. */
@@ -57,20 +72,28 @@ export const MAX_VERIFY_RETRIES = 3;
  * Detecta si un mensaje del usuario parece una solicitud de código
  * (vs. una pregunta simple que no requiere el pipeline).
  *
- * @param text - Mensaje del usuario
- * @param hasProjectOpen - Si hay un proyecto abierto
- * @returns true si el mensaje parece una solicitud de código
+ * Requiere: al menos 1 keyword de ACCIÓN + 1 keyword de OBJETO.
+ * Excluye: patrones interrogativos puros.
  */
 export function detectCodeRequest(text: string, hasProjectOpen: boolean): boolean {
   if (!hasProjectOpen) return false;
 
   const lower = text.toLowerCase().trim();
 
-  // Si el mensaje es muy corto (< 10 chars), probablemente no es una solicitud de código
-  if (lower.length < 10) return false;
+  // Mensajes muy cortos nunca activan el pipeline
+  if (lower.length < 15) return false;
 
-  // Buscar palabras clave
-  return CODE_KEYWORDS.some((keyword) => lower.includes(keyword));
+  // Si es una pregunta pura, no activar pipeline
+  if (QUESTION_PATTERNS.some((q) => lower.includes(q))) return false;
+
+  // Si tiene intención conversacional ("en el chat", "muéstrame"), no activar pipeline
+  if (CONVERSATIONAL_INTENT_PATTERNS.some((p) => lower.includes(p))) return false;
+
+  // Requiere AL MENOS una keyword de acción Y una de objeto
+  const hasAction = ACTION_KEYWORDS.some((k) => lower.includes(k));
+  const hasObject = OBJECT_KEYWORDS.some((k) => lower.includes(k));
+
+  return hasAction && hasObject;
 }
 
 /**
@@ -176,63 +199,12 @@ export async function* runPipeline(
   const subagentInstructions = useChatStore.getState().subagentInstructions;
   const vibeLensEnabled = useUIStore.getState().vibeLensEnabled;
 
-  if (plan === "pro" && useSubagent) {
-    // ── Fase Única: Subagente Autónomo (Vibe Pro Engine) ──
-    yield { type: "phase_change", phase: "entender" as PipelinePhase }; // UI indicator
-
-    try {
-      // Remover el mensaje vacío del asistente que acabamos de agregar en el UI,
-      // porque el backend genera la respuesta completa de nuevo.
-      const cleanContext = contextMessages.filter(m => m.content !== "" || m.role !== "assistant");
-      const subagentGenerator = routeRequest(
-        cleanContext,
-        {
-          preferredProvider,
-          action: "subagent",
-          subagentId: "sdd-apply",
-          customInstructions: subagentInstructions,
-          model: activeModelId,
-        }
-      );
-
-      let content = "";
-      for await (const chunk of subagentGenerator) {
-        if (chunk.type === "text") {
-          content += chunk.content;
-        } else if (chunk.type === "error") {
-          throw new Error(chunk.content);
-        }
-      }
-
-      const actionMatch = content.match(/<vibe-action\s+type="preview-component"\s+value="([^"]+)"\s*\/>/);
-      if (actionMatch && vibeLensEnabled) {
-        useUIStore.getState().setPreviewTarget(actionMatch[1]);
-      }
-
-      // Las modificaciones de archivos se gestionaron de forma invisible mediante tool calls vía MCP.
-      // Retornamos el resultado final.
-      yield {
-        type: "result",
-        content: content,
-        files: [], // Array vacío porque el backend ya escribió los archivos directamente usando write_local_file
-      };
-      return;
-
-    } catch (err) {
-      yield {
-        type: "error",
-        message: `Error ejecutando Subagente AWS: ${err}`,
-      };
-      return;
-    }
-  }
-
-  // ── Fase Clásica: Free/BYOK ──
-  let entenderPlan = "";
-  let construirOutput: ConstruirOutput | null = null;
-
-  // ── Fase 1: Entender ──────────────────────────────────────
+  // ── Fase 1: Entender (Obligatorio para planificar) ──
   yield { type: "phase_change", phase: "entender" as PipelinePhase };
+
+  let entenderPlan = "";
+  let entenderOutput: import("./types").EntenderOutput | null = null;
+  let construirOutput: ConstruirOutput | null = null;
 
   try {
     const entenderMessages = buildEntenderMessages(userMessage);
@@ -243,7 +215,7 @@ export async function* runPipeline(
       }),
     );
 
-    const entenderOutput = parseEntenderResponse(entenderResponse);
+    entenderOutput = parseEntenderResponse(entenderResponse);
     entenderPlan = entenderOutput.plan;
 
     // Si no hay plan, usar el mensaje original
@@ -255,11 +227,158 @@ export async function* runPipeline(
     entenderPlan = userMessage;
   }
 
+  // ── Modo Interactivo: confirmar plan antes de ejecutar ──
+  const executionMode = useChatStore.getState().executionMode;
+  if (executionMode === "interactive" && entenderPlan && entenderPlan !== userMessage) {
+    // Emitir plan para que el usuario lo revise
+    yield { type: "phase_confirm", phase: "entender" as PipelinePhase, plan: entenderPlan };
+
+    // Guardar en store y esperar confirmación (polling)
+    useChatStore.getState().setPendingConfirmation({ phase: "entender", plan: entenderPlan });
+
+    const waitForConfirmation = (): Promise<boolean> => {
+      return new Promise((resolve) => {
+        const check = () => {
+          const state = useChatStore.getState();
+          if (state.pendingConfirmation === null) {
+            resolve(true); // User confirmed
+          } else if (!state.isStreaming) {
+            resolve(false); // User cancelled (streaming stopped)
+          } else {
+            setTimeout(check, 200);
+          }
+        };
+        setTimeout(check, 200);
+      });
+    };
+
+    const confirmed = await waitForConfirmation();
+    if (!confirmed) return;
+  }
+
+  if ((plan === "pro" || plan === "estudiante") && useSubagent) {
+    // ── Fase Única: Subagente Autónomo (Vibe Pro Engine) ──
+    yield { type: "phase_change", phase: "subagente" as PipelinePhase };
+
+    try {
+      // Remover el mensaje vacío del asistente que acabamos de agregar en el UI,
+      // porque el backend genera la respuesta completa de nuevo.
+      const cleanContext = contextMessages.filter(m => m.content !== "" || m.role !== "assistant");
+      // Agregar el plan confirmado al contexto
+      cleanContext.push({ id: crypto.randomUUID(), role: "system", content: `Ejecuta este plan de acción paso a paso:\n\n${entenderPlan}`, timestamp: Date.now() });
+      
+      let content = "";
+      let currentContext = cleanContext;
+      const MAX_ITERATIONS = 15;
+      let iteration = 0;
+      let filesModified: FileOutput[] = [];
+
+      while (iteration < MAX_ITERATIONS) {
+        iteration++;
+        const subagentGenerator = routeRequest(
+          currentContext,
+          {
+            preferredProvider,
+            action: "subagent",
+            subagentId: "sdd-apply",
+            customInstructions: subagentInstructions,
+            model: activeModelId,
+          }
+        );
+
+        let iterationContent = "";
+        let toolRequest: any = null;
+
+        for await (const chunk of subagentGenerator) {
+          if (chunk.type === "text") {
+            iterationContent += chunk.content;
+            yield { type: "subagent_stream", content: chunk.content };
+          } else if (chunk.type === "mcp_tool_request") {
+            toolRequest = chunk;
+            yield {
+              type: "subagent_action",
+              tool: chunk.tool || "unknown",
+              args: chunk.args as Record<string, unknown> | undefined,
+            };
+          } else if (chunk.type === "error") {
+            throw new Error(chunk.content);
+          }
+        }
+        
+        content += iterationContent;
+
+        if (!toolRequest) {
+          break; // Terminado
+        }
+
+        // Ejecutar herramienta localmente
+        const { executeTool } = await import("@/tools");
+        const result = await executeTool({
+          name: toolRequest.tool,
+          args: toolRequest.args || {}
+        });
+
+        if (toolRequest.tool === "write_local_file") {
+          filesModified.push({ path: toolRequest.args?.path || "", content: String(toolRequest.args?.content || "") });
+        }
+
+        // Agregar resultado al contexto para la siguiente iteración
+        currentContext = [
+          ...currentContext,
+          { id: crypto.randomUUID(), role: "assistant", content: iterationContent, timestamp: Date.now() },
+          { id: crypto.randomUUID(), role: "user", content: `Resultado de ${toolRequest.tool}:\n${result.success ? result.result : result.error}`, timestamp: Date.now() }
+        ];
+      }
+
+      const actionMatch = content.match(/<vibe-action\s+type="preview-component"\s+value="([^"]+)"\s*\/>/);
+      if (actionMatch && vibeLensEnabled) {
+        useUIStore.getState().setPreviewTarget(actionMatch[1]);
+      }
+
+      yield {
+        type: "result",
+        content: content,
+        files: filesModified,
+      };
+      return;
+
+    } catch (err) {
+      yield {
+        type: "error",
+        message: `Error ejecutando Subagente AWS: ${err instanceof Error ? err.message : "Error desconocido"}`,
+      };
+      return;
+    }
+  }
+
   // ── Fase 2: Construir ─────────────────────────────────────
   yield { type: "phase_change", phase: "construir" as PipelinePhase };
 
+  // Leer archivos existentes que el plan identificó
+  const existingFiles: Array<{path: string, content: string}> = [];
+  if (entenderOutput) {
+    const { useProjectStore } = await import("@/stores/project");
+    const workspace = useProjectStore.getState().workspaces.find(
+      (w) => w.id === useProjectStore.getState().activeWorkspaceId,
+    );
+    
+    if (workspace) {
+      const { readFileContent: readFile } = await import("@/lib/fs");
+      for (const filePath of entenderOutput.files.slice(0, 5)) { // Máx 5 archivos para no saturar contexto
+        try {
+          const sep = workspace.path.includes("\\") ? "\\" : "/";
+          const fullPath = `${workspace.path}${sep}${filePath.replace(/\//g, sep)}`;
+          const content = await readFile(fullPath);
+          existingFiles.push({ path: filePath, content });
+        } catch {
+          // Archivo no existe todavía — se creará
+        }
+      }
+    }
+  }
+
   const runConstruir = async (plan: string): Promise<ConstruirOutput> => {
-    const construirMessages = buildConstruirMessages(plan, userMessage, vibeLensEnabled);
+    const construirMessages = buildConstruirMessages(plan, userMessage, vibeLensEnabled, existingFiles);
     const construirResponse = await collectResponse(
       routeRequest([...contextMessages, ...toMessages(construirMessages)], {
         preferredProvider,
@@ -279,15 +398,22 @@ export async function* runPipeline(
   try {
     construirOutput = await runConstruir(entenderPlan);
 
+    // ── Delivery Estimation ──
+    const { DELIVERY_LINE_THRESHOLD } = await import("@/stores/chat");
+    const totalLines = construirOutput.files.reduce((sum, f) => sum + f.content.split("\n").length, 0);
+    if (totalLines > DELIVERY_LINE_THRESHOLD) {
+      yield { type: "delivery_estimate", totalLines, suggestSplit: true };
+    }
+
     // Aplicar archivos generados al sistema de archivos
     const createdFiles = await tryWriteFiles(construirOutput.files);
     for (const path of createdFiles) {
       yield { type: "file_created", path };
     }
-  } catch (_err) {
+  } catch (err) {
     yield {
       type: "error",
-      message: `Error generando código: ${_err}`,
+      message: `Error generando código: ${err instanceof Error ? err.message : "Error desconocido"}`,
     };
     return;
   }
@@ -362,10 +488,10 @@ export async function* runPipeline(
           return;
         }
       }
-    } catch (_err) {
+    } catch (err) {
       yield {
         type: "error",
-        message: `Error verificando código: ${_err}`,
+        message: `Error verificando código: ${err instanceof Error ? err.message : "Error desconocido"}`,
       };
 
       // Mostrar el código generado aunque falle la verificación

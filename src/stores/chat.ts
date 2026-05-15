@@ -21,6 +21,11 @@ export const MAX_CONTEXT_MESSAGES = 50; // Increased since we persist
 
 // ─── Types ─────────────────────────────────────────────────────
 
+export type DeliveryStrategy = "ask" | "auto-split" | "single";
+
+/** Umbral de líneas para activar delivery split (industria: 400 LOC) */
+export const DELIVERY_LINE_THRESHOLD = 400;
+
 export interface ChatSession {
   id: string;
   title: string;
@@ -37,9 +42,21 @@ interface ChatState {
   isExecutingMCP: boolean;
   activeProvider: string;
   activeModelId: string;
-  pipelinePhase: "entender" | "construir" | "verificar" | null;
+  pipelinePhase: "entender" | "construir" | "verificar" | "subagente" | null;
   useSubagent: boolean;
   subagentInstructions: string;
+  /** Modo de IA activo (explorar, construir, etc.) */
+  activeMode: string;
+  /** Modo de ejecución: interactivo (paso a paso) o automático */
+  executionMode: "interactive" | "automatic";
+  /** Estrategia de entrega para cambios grandes */
+  deliveryStrategy: DeliveryStrategy;
+  /** Confirmar fase (para modo interactivo — null = no esperando confirmación) */
+  pendingConfirmation: { phase: string; plan: string } | null;
+  /** Pasos completados en la cadena autónoma actual */
+  chainingSteps: number;
+  /** Errores consecutivos en la cadena autónoma */
+  chainingErrors: number;
 }
 
 // Transient state (not persisted)
@@ -60,6 +77,7 @@ interface ChatActions {
   appendToLastMessage: (content: string) => void;
   replaceLastMessageContent: (content: string) => void;
   editMessage: (messageId: string, newContent: string) => void;
+  addMessageStep: (messageId: string, step: import("@/lib/types").SubagentStep) => void;
   
   // Transient & Flags
   setStreaming: (streaming: boolean) => void;
@@ -68,20 +86,57 @@ interface ChatActions {
   abortStreaming: () => void;
   setActiveProvider: (provider: string) => void;
   setActiveModelId: (modelId: string) => void;
-  setPipelinePhase: (phase: "entender" | "construir" | "verificar" | null) => void;
+  setPipelinePhase: (phase: "entender" | "construir" | "verificar" | "subagente" | null) => void;
   setUseSubagent: (use: boolean) => void;
   setSubagentInstructions: (instructions: string) => void;
+  setActiveMode: (mode: string) => void;
+  setExecutionMode: (mode: "interactive" | "automatic") => void;
+  setDeliveryStrategy: (strategy: DeliveryStrategy) => void;
+  setPendingConfirmation: (confirmation: { phase: string; plan: string } | null) => void;
+  confirmPhase: () => void;
+  resetChaining: () => void;
+  incrementChainingStep: () => void;
+  incrementChainingErrors: () => void;
   clearMessages: () => void;
 }
 
 // ─── Selectors ─────────────────────────────────────────────────
 
+/** Rough token estimate: ~4 chars per token for English/Spanish. */
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+/** Maximum tokens to include in the context window. */
+const MAX_CONTEXT_TOKENS = 32_000;
+
+/**
+ * Returns messages trimmed to fit within the token budget.
+ * Always preserves the most recent messages. Drops oldest first.
+ */
 export function getContextMessages(messages: Message[]): Message[] {
-  return messages.slice(-MAX_CONTEXT_MESSAGES);
+  // Start from the most recent and accumulate backwards
+  let totalTokens = 0;
+  const result: Message[] = [];
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    const msgTokens = estimateTokens(msg.content);
+
+    if (totalTokens + msgTokens > MAX_CONTEXT_TOKENS && result.length > 0) {
+      // Over budget — stop adding older messages
+      break;
+    }
+
+    totalTokens += msgTokens;
+    result.unshift(msg);
+  }
+
+  return result;
 }
 
 export function getContextCount(messages: Message[]): number {
-  return Math.min(messages.length, MAX_CONTEXT_MESSAGES);
+  return getContextMessages(messages).length;
 }
 
 // ─── Store ─────────────────────────────────────────────────────
@@ -110,6 +165,12 @@ export const useChatStore = create<ChatStore>()(
       pipelinePhase: null,
       useSubagent: true,
       subagentInstructions: "",
+      activeMode: "auto",
+      executionMode: "interactive",
+      deliveryStrategy: "ask",
+      pendingConfirmation: null,
+      chainingSteps: 0,
+      chainingErrors: 0,
 
       // Transient State
       abortController: null,
@@ -237,6 +298,27 @@ export const useChatStore = create<ChatStore>()(
           };
         }),
 
+      addMessageStep: (messageId, step) =>
+        set((state) => {
+          const session = state.sessions[state.activeSessionId];
+          if (!session) return state;
+
+          const updatedMessages = session.messages.map((msg) => {
+            if (msg.id === messageId) {
+              const currentSteps = msg.subagentSteps || [];
+              return { ...msg, subagentSteps: [...currentSteps, step] };
+            }
+            return msg;
+          });
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [session.id]: { ...session, messages: updatedMessages, updatedAt: Date.now() }
+            }
+          };
+        }),
+
       setStreaming: (streaming) => set({ isStreaming: streaming }),
       setExecutingMCP: (executing) => set({ isExecutingMCP: executing }),
       setAbortController: (ac) => set({ abortController: ac }),
@@ -254,6 +336,14 @@ export const useChatStore = create<ChatStore>()(
       setPipelinePhase: (phase) => set({ pipelinePhase: phase }),
       setUseSubagent: (use) => set({ useSubagent: use }),
       setSubagentInstructions: (instructions) => set({ subagentInstructions: instructions }),
+      setActiveMode: (mode) => set({ activeMode: mode }),
+      setExecutionMode: (mode) => set({ executionMode: mode }),
+      setDeliveryStrategy: (strategy) => set({ deliveryStrategy: strategy }),
+      setPendingConfirmation: (confirmation) => set({ pendingConfirmation: confirmation }),
+      confirmPhase: () => set({ pendingConfirmation: null }),
+      resetChaining: () => set({ chainingSteps: 0, chainingErrors: 0 }),
+      incrementChainingStep: () => set((s) => ({ chainingSteps: s.chainingSteps + 1 })),
+      incrementChainingErrors: () => set((s) => ({ chainingErrors: s.chainingErrors + 1 })),
       
       clearMessages: () =>
         set((state) => {

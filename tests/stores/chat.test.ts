@@ -142,20 +142,24 @@ describe("ChatStore", () => {
 
   // ── Selectors ─────────────────────────────────────────────
 
-  it("getContextMessages should return last MAX_CONTEXT_MESSAGES", () => {
+  it("getContextMessages should evict old messages when exceeding token budget", () => {
+    // Each message ~1000 chars = ~250 tokens. 130 messages = ~32500 tokens (over 32K budget)
     const messages: Message[] = [];
-    for (let i = 0; i < MAX_CONTEXT_MESSAGES + 10; i++) {
+    for (let i = 0; i < 150; i++) {
       messages.push({
         id: `msg-${i}`,
         role: "user",
-        content: `Mensaje ${i}`,
+        content: "A".repeat(1000), // ~250 tokens each
         timestamp: Date.now() + i,
       });
     }
 
     const context = getContextMessages(messages);
-    expect(context.length).toBe(MAX_CONTEXT_MESSAGES);
-    expect(context[0].id).toBe("msg-10");
+    // Should be fewer than 150 since we exceed the 32K token budget
+    expect(context.length).toBeLessThan(150);
+    expect(context.length).toBeGreaterThan(0);
+    // Most recent messages should be preserved
+    expect(context[context.length - 1].id).toBe("msg-149");
   });
 
   it("getContextMessages should return all when under limit", () => {
@@ -172,18 +176,18 @@ describe("ChatStore", () => {
     expect(getContextMessages(messages).length).toBe(5);
   });
 
-  it("getContextCount should return count capped at MAX_CONTEXT_MESSAGES", () => {
+  it("getContextCount should equal getContextMessages length", () => {
     const messages: Message[] = [];
-    for (let i = 0; i < MAX_CONTEXT_MESSAGES + 10; i++) {
+    for (let i = 0; i < 150; i++) {
       messages.push({
         id: `msg-${i}`,
         role: "user",
-        content: `Mensaje ${i}`,
+        content: "A".repeat(1000),
         timestamp: Date.now() + i,
       });
     }
 
-    expect(getContextCount(messages)).toBe(MAX_CONTEXT_MESSAGES);
+    expect(getContextCount(messages)).toBe(getContextMessages(messages).length);
   });
 
   it("getContextCount should return actual count when under limit", () => {

@@ -1,6 +1,6 @@
 // ─── Pipeline Phase Enum ─────────────────────────────────────────
 
-export const PIPELINE_PHASES = ["entender", "construir", "verificar"] as const;
+export const PIPELINE_PHASES = ["entender", "construir", "verificar", "subagente"] as const;
 
 export type PipelinePhase = (typeof PIPELINE_PHASES)[number];
 
@@ -56,7 +56,11 @@ export interface VerificarOutput {
 
 export type PipelineEvent =
   | { type: "phase_change"; phase: PipelinePhase }
+  | { type: "phase_confirm"; phase: PipelinePhase; plan: string }
   | { type: "file_created"; path: string }
   | { type: "result"; content: string; files: FileOutput[] }
   | { type: "error"; message: string }
-  | { type: "retry"; attempt: number; reason: string };
+  | { type: "retry"; attempt: number; reason: string }
+  | { type: "subagent_action"; tool: string; args?: Record<string, unknown> }
+  | { type: "subagent_stream"; content: string }
+  | { type: "delivery_estimate"; totalLines: number; suggestSplit: boolean };

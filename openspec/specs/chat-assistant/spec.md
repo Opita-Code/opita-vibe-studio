@@ -2,84 +2,139 @@
 
 ## Purpose
 
-AI-powered chat panel for code generation and assistance. Supports SSE streaming, multi-provider BYOK, a 3-phase code pipeline, retry logic, and context-aware file injection.
+AI-powered chat panel with agent orchestrator, tool execution, SSE streaming, multi-provider BYOK, execution modes (interactive/automatic), and context-aware file injection.
 
 ## Architecture
 
-- **ChatPanel**: `src/components/layout/ChatPanel.tsx` — Main container, lazy-loaded via `vibe-ai` extension
-- **ChatInput**: `src/components/chat/ChatInput.tsx` — Textarea with image paste, drag-and-drop, and prompt suggestions
-- **MessageList**: `src/components/chat/MessageList.tsx` — Renders messages with welcome screen
-- **MessageBubble**: `src/components/chat/MessageBubble.tsx` — User (right-aligned) and assistant (left-aligned with `.prose`)
-- **Store**: `src/stores/chat.ts` — Sessions, messages, streaming state, provider selection
-- **Pipeline**: `src/pipeline/engine.ts` — 3-phase AI pipeline (entender → construir → verificar)
-- **Streaming**: `src/providers/router.ts` → provider-specific SSE adapters
+- **Agent Handler**: `src/agent/useAgentHandler.ts` — Bridge between Orchestrator and UI (replaces legacy sendMessage)
+- **Orchestrator**: `src/agent/orchestrator.ts` — Handles messages, routes to provider, processes tool calls
+- **Tool System**: `src/tools/` — 10 tool definitions (read_file, write_file, edit_file, search, etc.)
+- **ChatPanel**: `src/components/layout/ChatPanel.tsx` — Main container
+- **Chat Components**: `src/components/chat/` — ChatInput, MessageList, MessageBubble, ModeButtons, ExecutionRoadmap
+- **Store**: `src/stores/chat.ts` — Sessions, messages, streaming state, modes, chaining state
+- **Streaming**: `src/services/aiService.ts` → Lambda backend → provider SSE
+
+## Execution Modes
+
+| Mode | Description | UI Component |
+|------|-------------|-------------|
+| `interactive` | User confirms each AI step | ModeButtons selector |
+| `automatic` | AI runs autonomously, user reviews at end | ModeButtons selector |
+
+### Agent Pipeline
+
+```
+User Message → useAgentHandler.send()
+  → orchestrator.handleMessage() → yields AgentEvents
+    → processEvent() maps events to store mutations
+      → ChatPanel renders updated state
+```
+
+### Agent Events
+| Event Type | Description |
+|-----------|-------------|
+| `text-delta` | Streaming text chunk |
+| `tool-start` | Tool execution started |
+| `tool-result` | Tool execution result |
+| `step` | Pipeline step (entender/construir/verificar) |
+| `done` | Stream complete with file summary |
 
 ## Requirements
 
+### Requirement: Agent-Based Message Handling
+
+Messages are processed by the Orchestrator which yields AgentEvents. The useAgentHandler hook maps these events to UI store mutations.
+
+#### Scenario: User sends message
+- GIVEN an authenticated user
+- WHEN user types a message and presses Enter
+- THEN `useAgentHandler.send(text)` is called
+- AND the orchestrator processes the message
+- AND AgentEvents stream to the UI
+- AND passive XP is awarded on successful completion (debounced 30s)
+
+### Requirement: Tool Execution
+
+The AI can call tools (read_file, write_file, edit_file, search_project, etc.) which execute against the virtual filesystem.
+
+#### Scenario: AI uses a tool
+- GIVEN the AI decides to read a file
+- WHEN a `tool-start` event fires
+- THEN the AgentStepAccordion shows the tool name and parameters
+- AND `tool-result` shows the outcome
+- AND the AI continues with the tool output in context
+
+### Requirement: Execution Roadmap
+
+In automatic mode, the AI generates a roadmap of goals. The ExecutionRoadmap component visualizes progress.
+
+#### Scenario: Automatic mode execution
+- GIVEN execution mode is `"automatic"`
+- WHEN the AI starts a multi-step task
+- THEN ExecutionRoadmap renders with goal cards
+- AND each goal shows status (pending/in-progress/complete)
+
+### Requirement: Mode Selection
+
+Users can switch between interactive and automatic execution modes via ModeButtons.
+
+#### Scenario: Switch to automatic
+- GIVEN interactive mode is active
+- WHEN user clicks "Automático" in ModeButtons
+- THEN `executionMode` changes to `"automatic"`
+- AND the AI runs autonomously
+
 ### Requirement: Chat Only for Authenticated Users
 
-The ChatInput textarea MUST only render for authenticated users (`authMode === "authenticated"`). Unauthenticated users see a CTA block with "Despierta a Vibe AI para potenciar tu código" and an "Iniciar Sesión" button.
-
-#### Scenario: Guest sees CTA
-
-- GIVEN `authMode === "unauthenticated"`
-- WHEN the chat panel is active
-- THEN the ChatInput component is NOT rendered
-- AND the CTA block is shown at the bottom of the panel
-
-#### Scenario: Pro user sees ChatInput
-
-- GIVEN `authMode === "authenticated"`
-- WHEN the chat panel is active
-- THEN the ChatInput textarea is rendered with placeholder "Escribe, pega imágenes o arrastra archivos aquí..."
-- AND the model selector is available
+ChatInput MUST only render for authenticated users. Guests see a CTA with "Iniciar Sesión" button.
 
 ### Requirement: SSE Streaming
 
-Messages stream from AI providers via Server-Sent Events. The Lambda function at `packages/vibe-ai-backend/src/api/chat.handler` proxies requests to the active provider and returns `text/event-stream` responses.
-
-#### Scenario: User sends message
-
-- GIVEN an authenticated user with a configured provider
-- WHEN user types a message and presses Enter
-- THEN a user message bubble appears (right-aligned, `.justify-end`)
-- AND an assistant message bubble appears (left-aligned, `.prose`)
-- AND content streams in progressively via SSE chunks
-- AND a "Detener generación" button appears during streaming
-
-### Requirement: 3-Phase Code Pipeline
-
-When the user's message is detected as a code request AND a project is open, the system runs a 3-phase pipeline: `entender` (understand context), `construir` (generate code), `verificar` (validate output). Each phase shows a status message in the assistant bubble.
+Messages stream from the Lambda backend via Server-Sent Events. The backend proxies to the active provider.
 
 ### Requirement: Active File Context Injection
 
-If the user has a file open in the editor, the ChatPanel automatically injects the file's content as a system message before the user's message. This enables "explain this code" and "fix this file" without manual copy-paste.
+If the user has a file open, its content is injected as context before the message.
 
 ### Requirement: Multi-Session Chat History
 
-The chat supports multiple sessions. Users can create new sessions (`Ctrl+N`), view history via the ChatHistoryPanel toggle, and switch between sessions. Each session maintains its own message history.
+Multiple sessions with create/switch/delete. ChatHistoryPanel toggle for session management.
 
 ### Requirement: Retry on Network Error
 
-If an SSE connection fails, the assistant message shows `<!--RETRY_NETWORK-->` tag and a "🔄 Reintentar Envío" button appears. Clicking it resends the last user message as a retry (`isRetry = true`), which does NOT increment the prompt counter.
+Failed SSE shows `<!--RETRY_NETWORK-->` with "🔄 Reintentar Envío" button. Retries don't increment token usage.
 
 ### Requirement: Vibe Pro Engine Toggle
 
-Pro users (`plan === "pro"`) see a "🚀 Vibe Pro Engine" toggle above the ChatInput. When enabled, the system uses the subagent pipeline for enhanced code generation.
+Pro/Estudiante users see mode selection and SDD orchestration capabilities.
 
 ### Requirement: Starter Prompts
 
-When no messages exist in the active session, the MessageList shows a welcome screen with "¿Qué vamos a construir hoy?" and clickable starter prompts (e.g., "Crear un componente Navbar responsive"). Clicking a prompt fills the ChatInput.
+Empty sessions show welcome screen with "¿Qué vamos a construir hoy?" and clickable starters.
+
+### Requirement: Code Apply Blocks
+
+AI code responses render with an "Aplicar" button that writes the code to the project filesystem.
 
 ## Files
 
-- `src/components/layout/ChatPanel.tsx` — Main panel (lazy via `extensions/vibe-ai`)
-- `src/components/chat/ChatInput.tsx` — Input with attachments
+- `src/agent/useAgentHandler.ts` — Agent-UI bridge hook
+- `src/agent/orchestrator.ts` — Message orchestration, tool routing
+- `src/agent/types.ts` — AgentEvent, AgentStep, RoadmapGoal types
+- `src/agent/idea-backlog.ts` — Idea detection and matching
+- `src/tools/definitions.ts` — 10 tool definitions
+- `src/tools/executor.ts` — Tool execution engine
+- `src/tools/parser.ts` — Tool call extraction from AI output
+- `src/tools/prompts.ts` — System prompt builder
+- `src/components/layout/ChatPanel.tsx` — Main panel
+- `src/components/chat/ChatInput.tsx` — Input with attachments, mode selector
 - `src/components/chat/MessageList.tsx` — Message rendering + welcome
-- `src/components/chat/MessageBubble.tsx` — Message display
+- `src/components/chat/MessageBubble.tsx` — Message display with markdown
+- `src/components/chat/ModeButtons.tsx` — Interactive/Automatic mode selector
+- `src/components/chat/ExecutionRoadmap.tsx` — Visual goal tracker
+- `src/components/chat/AgentStepAccordion.tsx` — Tool call visualization
+- `src/components/chat/ApplyCodeBlock.tsx` — Code apply button
 - `src/components/chat/ChatHistoryPanel.tsx` — Session switcher
 - `src/components/chat/StreamingIndicator.tsx` — Typing animation
-- `src/components/chat/ApplyCodeBlock.tsx` — Code block with apply button
 - `src/stores/chat.ts` — Chat state management
-- `src/pipeline/engine.ts` — 3-phase pipeline
-- `src/providers/router.ts` — Provider routing + SSE
+- `src/services/aiService.ts` — AI service layer

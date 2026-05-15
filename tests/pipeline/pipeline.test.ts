@@ -17,6 +17,7 @@ import {
   buildVerificarMessages,
 } from "../../src/pipeline/prompts";
 import type { Message, ChatChunk } from "../../src/lib/types";
+import { useChatStore } from "../../src/stores/chat";
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -54,24 +55,28 @@ describe("detectCodeRequest", () => {
     );
   });
 
-  it("should detect 'construir' keyword", () => {
-    expect(detectCodeRequest("Ayudame a construir un portfolio", true)).toBe(true);
+  it("should detect 'construir' keyword with code object", () => {
+    expect(detectCodeRequest("Ayudame a construir un componente de login", true)).toBe(true);
   });
 
   it("should detect 'cambiar' keyword", () => {
     expect(detectCodeRequest("Quiero cambiar el estilo del menú", true)).toBe(true);
   });
 
-  it("should detect 'modificar' keyword", () => {
-    expect(detectCodeRequest("Necesito modificar el layout", true)).toBe(true);
+  it("should detect 'modificar' keyword with code object", () => {
+    expect(detectCodeRequest("Necesito modificar el componente principal", true)).toBe(true);
   });
 
-  it("should detect 'página' keyword", () => {
-    expect(detectCodeRequest("Crea una página de contacto", true)).toBe(true);
+  it("should require action + object (not just object alone)", () => {
+    // Solo objeto sin acción → false
+    expect(detectCodeRequest("El componente está roto", true)).toBe(false);
+    // Solo acción sin objeto reconocido → false
+    expect(detectCodeRequest("Quiero crear algo bonito", true)).toBe(false);
   });
 
-  it("should detect 'código' keyword", () => {
-    expect(detectCodeRequest("Revisá este código que hice", true)).toBe(true);
+  it("should not activate for questions", () => {
+    expect(detectCodeRequest("¿Qué es una función en JavaScript?", true)).toBe(false);
+    expect(detectCodeRequest("Cómo funciona el event loop?", true)).toBe(false);
   });
 
   it("should return false for non-code questions", () => {
@@ -80,8 +85,8 @@ describe("detectCodeRequest", () => {
   });
 
   it("should be case insensitive", () => {
-    expect(detectCodeRequest("CREAR UNA PAGINA", true)).toBe(true);
-    expect(detectCodeRequest("Necesito un COMPONENTE nuevo", true)).toBe(true);
+    expect(detectCodeRequest("CREAR UNA PAGINA DE INICIO", true)).toBe(true);
+    expect(detectCodeRequest("Necesito HACER un COMPONENTE nuevo", true)).toBe(true);
   });
 });
 
@@ -466,6 +471,8 @@ function createMockPipelineProvider(
 describe("Pipeline Integration (with mock provider)", () => {
   beforeEach(() => {
     resetRegistry();
+    // Pipeline integration tests run in automatic mode (no user confirmation pauses)
+    useChatStore.getState().setExecutionMode("automatic");
   });
 
   it("should successfully complete entender → construir → verificar", async () => {

@@ -1,8 +1,8 @@
 import * as jose from "jose";
-import { streamText } from "ai";
+import { streamText, jsonSchema } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { z } from "zod";
+import { getEffectiveQuota } from "./gamification.js";
 import crypto from "crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
@@ -28,7 +28,7 @@ interface AWSTypes {
 }
 declare const awslambda: AWSTypes;
 
-// ─── Constants & Setup ─────────────────────────────────────────
+// ─── Constants & Setup ───────────────────────────────────────── (deployed 2026-05-14T17:42)
 
 const SYSTEM_PROMPT = `Eres Vibe Studio, un agente ingeniero de IA senior enfocado en TDD (Test-Driven Development).
 REGLA ESTRICTA 1: NUNCA asumas el contenido de un archivo. Si necesitas modificar algo, usa la herramienta 'read_local_file' primero.
@@ -102,7 +102,12 @@ interface QuotaResult {
 }
 
 async function checkQuota(userId: string, plan: string): Promise<QuotaResult> {
-  const quota = TOKEN_QUOTAS[plan] || TOKEN_QUOTAS.pro;
+  const baseQuota = TOKEN_QUOTAS[plan] || TOKEN_QUOTAS.pro;
+  
+  // Read earned quota from gamification system (missions, streaks, milestones)
+  const effectiveDailyQuota = await getEffectiveQuota(userId, plan);
+  const dailyLimit = Math.max(baseQuota.daily, effectiveDailyQuota);
+  
   const now = new Date();
   const dailyKey = `daily#${now.toISOString().split("T")[0]}`;
   const hourlyKey = `hourly#${now.toISOString().slice(0, 13)}`; // "2026-05-14T22"
@@ -126,12 +131,12 @@ async function checkQuota(userId: string, plan: string): Promise<QuotaResult> {
   const base: Omit<QuotaResult, "allowed"> = {
     dailyUsed,
     hourlyUsed,
-    dailyLimit: quota.daily,
-    hourlyLimit: quota.hourly,
+    dailyLimit,
+    hourlyLimit: baseQuota.hourly,
   };
 
   // Check hourly limit first (tighter window)
-  if (hourlyUsed >= quota.hourly) {
+  if (hourlyUsed >= baseQuota.hourly) {
     if (plan === "pro") {
       return { ...base, allowed: true, degraded: true };
     }
@@ -146,8 +151,8 @@ async function checkQuota(userId: string, plan: string): Promise<QuotaResult> {
     };
   }
 
-  // Check daily limit
-  if (dailyUsed >= quota.daily) {
+  // Check daily limit (uses effective quota with gamification bonuses)
+  if (dailyUsed >= dailyLimit) {
     if (plan === "pro") {
       return { ...base, allowed: true, degraded: true };
     }
@@ -199,29 +204,37 @@ async function recordUsage(userId: string, tokensUsed: number): Promise<void> {
 
 // ─── Provider Setup ────────────────────────────────────────────
 
+// AI_STUDIO_GOOGLE is the canonical env var; GEMINI_API_KEY is kept as alias
+const GOOGLE_AI_KEY = process.env.AI_STUDIO_GOOGLE || process.env.GEMINI_API_KEY || "";
+const HAS_GOOGLE_AI = GOOGLE_AI_KEY.length > 0;
+const HAS_DEEPSEEK = (process.env.DEEP_SEEK_KEY || "").length > 0;
+
 function getModel(providerId: string, customApiKey?: string, explicitModelId?: string) {
   switch (providerId) {
     case "openai":
     case "chatgpt-web": {
+      // Use .chat() to force Chat Completions API (not Responses API)
       const openai = createOpenAI({ apiKey: customApiKey || process.env.OPENAI_API_KEY });
-      return openai(explicitModelId || "gpt-4o");
+      return openai.chat(explicitModelId || "gpt-4o");
     }
     case "deepseek": {
-      const openai = createOpenAI({
+      // DeepSeek: MUST use .chat() — does NOT support /responses endpoint
+      const deepseek = createOpenAI({
         apiKey: customApiKey || process.env.DEEP_SEEK_KEY,
         baseURL: "https://api.deepseek.com",
       });
-      return openai(explicitModelId || "deepseek-chat");
+      return deepseek.chat(explicitModelId || "deepseek-chat");
     }
     case "openrouter": {
-      const openai = createOpenAI({
+      // OpenRouter: MUST use .chat() — only supports /chat/completions
+      const openrouter = createOpenAI({
         apiKey: customApiKey || process.env.OPENROUTER_API_KEY,
         baseURL: "https://openrouter.ai/api/v1",
       });
-      return openai(explicitModelId || "google/gemini-2.5-flash"); // Modelo por defecto
+      return openrouter.chat(explicitModelId || "google/gemini-2.5-flash");
     }
     case "gemini": {
-      const google = createGoogleGenerativeAI({ apiKey: customApiKey || process.env.GEMINI_API_KEY });
+      const google = createGoogleGenerativeAI({ apiKey: customApiKey || GOOGLE_AI_KEY });
       return google(explicitModelId || "gemini-2.5-flash");
     }
     default:
@@ -292,18 +305,33 @@ export const handler = awslambda.streamifyResponse(
       return;
     }
 
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || "");
+    // ─── JWT Verification (Cognito JWKS + Legacy HMAC fallback) ───
+    const COGNITO_ISSUER = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_LItAcj2Aa";
+    const JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
+
     let userId = "guest";
     let plan = "free";
     try {
-      const decoded = await jose.jwtVerify(token, secret);
-      userId = (decoded.payload.sub || decoded.payload.email || "guest") as string;
-      plan = (decoded.payload.plan || "free") as string;
-    } catch {
-      responseStream.setContentType("application/json");
-      responseStream.write(JSON.stringify({ error: "Unauthorized: Token inválido" }));
-      responseStream.end();
-      return;
+      // Try Cognito JWKS first (RSA signed tokens)
+      const decoded = await jose.jwtVerify(token, JWKS, {
+        issuer: COGNITO_ISSUER,
+      });
+      userId = (decoded.payload.email || decoded.payload.sub || "guest") as string;
+      plan = (decoded.payload["custom:plan"] as string) || "free";
+    } catch (cognitoErr) {
+      // Fallback: try legacy HMAC verification (Magic Link tokens)
+      try {
+        const secret = new TextEncoder().encode(process.env.JWT_SECRET || "");
+        const decoded = await jose.jwtVerify(token, secret);
+        userId = (decoded.payload.sub || decoded.payload.email || "guest") as string;
+        plan = (decoded.payload.plan || "free") as string;
+      } catch {
+        console.error("JWT verification failed for both Cognito and legacy:", cognitoErr);
+        responseStream.setContentType("application/json");
+        responseStream.write(JSON.stringify({ error: "Unauthorized: Token inválido" }));
+        responseStream.end();
+        return;
+      }
     }
 
     // 2. Parse Payload
@@ -459,40 +487,58 @@ export const handler = awslambda.streamifyResponse(
       // Si Pro fue degradado, forzar V4-Flash
       let quotaDegraded = quotaCheck.degraded || false;
 
-      // ─── INTELLIGENT BACKEND ROUTING (PROPUESTA 1) ───
-      // Forzamos DeepSeek siempre si el usuario está en el entorno gestionado de AWS
+      // ─── INTELLIGENT BACKEND ROUTING ───
+      // Routes requests to the best available backend-managed provider.
+      // Priority: Google AI Studio (free tier, generous limits) > DeepSeek
       if (activeKey === "aws-managed") {
          providerId = "deepseek";
       }
 
       if (plan === "free") {
-         providerId = "deepseek";
-         modelId = "deepseek-chat-v4";
+         // Free users: Gemini Flash (free tier) as primary, DeepSeek as fallback
+         if (HAS_GOOGLE_AI) {
+            providerId = "gemini";
+            modelId = "gemini-2.5-flash";
+         } else if (HAS_DEEPSEEK) {
+            providerId = "deepseek";
+            modelId = "deepseek-v4-flash";
+         }
       } else if (quotaDegraded) {
-         // Pro degradado por quota: forzar V4-Flash
-         providerId = "deepseek";
-         modelId = "deepseek-chat-v4";
+         // Pro degradado por quota: Gemini Flash (más económico) > DeepSeek Flash
+         if (HAS_GOOGLE_AI) {
+            providerId = "gemini";
+            modelId = "gemini-2.5-flash";
+         } else {
+            providerId = "deepseek";
+            modelId = "deepseek-v4-flash";
+         }
       } else if (action === "subagent") {
-         providerId = "deepseek";
-         // Lógica SDD Inteligente Híbrida Cognitiva
+         // SDD Inteligente: cognitive-heavy phases get premium models
          const highCognitivePhases = ["sdd-explore", "sdd-propose", "sdd-design", "sdd-verify"];
          
          if (plan === "pro" && highCognitivePhases.includes(subagentId)) {
-            // Solo Pro usa R1 (v4) para pensar arquitectura profunda
-            modelId = "deepseek-reasoner-v4";
+            providerId = "deepseek";
+            modelId = "deepseek-v4-pro";
+         } else if (plan === "estudiante" && HAS_GOOGLE_AI) {
+            // Estudiantes: Gemini Flash para fases mecánicas (ahorra tokens DeepSeek)
+            providerId = "gemini";
+            modelId = "gemini-2.5-flash";
          } else {
-            // Estudiantes y fases mecánicas: V4-Flash
-            modelId = "deepseek-chat-v4";
+            providerId = "deepseek";
+            modelId = "deepseek-v4-flash";
          }
       } else if (!modelId && activeKey !== "aws-managed") {
-         // Chat general: inferencia basada en el contenido si no hay modelo explícito
+         // Chat general: Pro gets smart routing, others get Gemini/DeepSeek
          const contextStr = JSON.stringify(messages).toLowerCase();
          if (plan === "pro" && (contextStr.includes(".go") || contextStr.includes(".py") || contextStr.includes(".ts") || contextStr.includes(".sql") || contextStr.includes("backend") || contextStr.includes("database"))) {
             providerId = "deepseek";
-            modelId = "deepseek-reasoner-v4";
+            modelId = "deepseek-v4-pro";
+         } else if (HAS_GOOGLE_AI) {
+            providerId = "gemini";
+            modelId = "gemini-2.5-flash";
          } else {
             providerId = "deepseek";
-            modelId = "deepseek-chat-v4";
+            modelId = "deepseek-v4-flash";
          }
       }
 
@@ -508,23 +554,37 @@ export const handler = awslambda.streamifyResponse(
           selectedSystemPrompt += "\n\n[SISTEMA: Estás operando en modo optimizado por límite de quota del usuario. Usa respuestas concisas.]";
         }
 
+        // Use jsonSchema() instead of Zod — Zod v4 generates schemas with type:null
+        // which DeepSeek rejects with "schema must be a JSON Schema of type: object"
         const tools: Record<string, unknown> = {
           read_local_file: {
             description: 'Lee un archivo local de la máquina del usuario para obtener contexto.',
-            parameters: z.object({ path: z.string() })
+            inputSchema: jsonSchema({
+              type: "object",
+              properties: { path: { type: "string", description: "Ruta del archivo a leer" } },
+              required: ["path"]
+            })
           },
           "mcp_context7_resolve-library-id": {
             description: "Resolves a package/product name to a Context7-compatible library ID and returns matching libraries.",
-            parameters: z.object({
-              libraryName: z.string().describe("Library name to search for (e.g., 'Next.js', 'React')"),
-              query: z.string().describe("The specific question or task you need help with")
+            inputSchema: jsonSchema({
+              type: "object",
+              properties: {
+                libraryName: { type: "string", description: "Library name to search for (e.g., 'Next.js', 'React')" },
+                query: { type: "string", description: "The specific question or task you need help with" }
+              },
+              required: ["libraryName", "query"]
             })
           },
           "mcp_context7_query-docs": {
             description: "Retrieves and queries up-to-date documentation and code examples from Context7 for any programming library.",
-            parameters: z.object({
-              libraryId: z.string().describe("Exact Context7-compatible library ID (e.g., '/vercel/next.js')"),
-              query: z.string().describe("The specific question or task you need help with")
+            inputSchema: jsonSchema({
+              type: "object",
+              properties: {
+                libraryId: { type: "string", description: "Exact Context7-compatible library ID (e.g., '/vercel/next.js')" },
+                query: { type: "string", description: "The specific question or task you need help with" }
+              },
+              required: ["libraryId", "query"]
             })
           }
         };
@@ -567,14 +627,22 @@ export const handler = awslambda.streamifyResponse(
 
           tools.write_local_file = {
             description: 'Escribe contenido de código en un archivo local. Úsalo para crear o modificar archivos.',
-            parameters: z.object({ 
-              path: z.string().describe("La ruta del archivo relativa a la raíz del proyecto"), 
-              content: z.string().describe("El código completo a escribir")
+            inputSchema: jsonSchema({
+              type: "object",
+              properties: {
+                path: { type: "string", description: "La ruta del archivo relativa a la raíz del proyecto" },
+                content: { type: "string", description: "El código completo a escribir" }
+              },
+              required: ["path", "content"]
             })
           };
           tools.execute_test_command = {
             description: 'Ejecuta vitest o npm test localmente.',
-            parameters: z.object({ command: z.string() }),
+            inputSchema: jsonSchema({
+              type: "object",
+              properties: { command: { type: "string", description: "Comando a ejecutar" } },
+              required: ["command"]
+            })
           };
         }
 

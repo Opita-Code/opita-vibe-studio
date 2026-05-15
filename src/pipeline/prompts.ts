@@ -78,12 +78,14 @@ export function buildEntenderMessages(userMessage: string): Array<{
  * Crea los mensajes de sistema para la fase Construir.
  * @param plan - El plan generado por Entender
  * @param userMessage - Mensaje original del usuario
- * @param vibeLensEnabled - Indica si VibeLens está activado para permitir la emisión de preview-component
+ * @param vibeLensEnabled - Indica si VibeLens está activado
+ * @param existingFiles - Archivos existentes del proyecto que el plan referencia
  */
 export function buildConstruirMessages(
   plan: string,
   userMessage: string,
-  vibeLensEnabled: boolean = true
+  vibeLensEnabled: boolean = true,
+  existingFiles: Array<{path: string, content: string}> = [],
 ): Array<{ role: "system" | "user"; content: string }> {
   let systemContent = CONSTRUIR_BASE;
   
@@ -94,12 +96,24 @@ export function buildConstruirMessages(
     );
   }
 
+  let userContent = `Plan a implementar:\n${plan}\n\nPedido original: ${userMessage}`;
+
+  // Inyectar archivos existentes como contexto
+  if (existingFiles.length > 0) {
+    userContent += `\n\n## Archivos existentes del proyecto (DEBES mantener consistencia con estos):\n`;
+    for (const file of existingFiles) {
+      // Limitar cada archivo a 150 líneas para no saturar el contexto
+      const lines = file.content.split("\n");
+      const truncated = lines.slice(0, 150).join("\n");
+      const wasTruncated = lines.length > 150;
+      userContent += `\n### ${file.path}\n\`\`\`\n${truncated}\n\`\`\`${wasTruncated ? "\n(truncado)" : ""}\n`;
+    }
+    userContent += `\nIMPORTANTE: Si modificas alguno de estos archivos, usa el contenido existente como base. NO generes código desde cero si el archivo ya existe.`;
+  }
+
   return [
     { role: "system", content: systemContent },
-    {
-      role: "user",
-      content: `Plan a implementar:\n${plan}\n\nPedido original: ${userMessage}`,
-    },
+    { role: "user", content: userContent },
   ];
 }
 
