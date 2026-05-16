@@ -15,6 +15,12 @@ Las pruebas están estructuradas en niveles para encontrar el punto de quiebre (
 - **Level 3 (Advanced)**: Tareas transversales (Themes, Refactoring de patrones de estado).
 - **Level 4 (Expert)**: Migración de paradigmas o grandes refactors (fuera de límite esperado para un modelo actual sin supervisión humana).
 
+## Experimentación de Modelos (DeepSeek)
+
+Con el fin de descubrir la configuración más capaz y el rendimiento bajo estrés, el suite de pruebas de complejidad (`ai-complexity.spec.ts`) está parametrizado para ejecutarse en bucle sobre las siguientes arquitecturas:
+1. **DeepSeek Chat (V3)**: Para medir latencia rápida y cumplimiento de tareas básicas de 1 o 2 archivos.
+2. **DeepSeek Reasoner (R1)**: Para medir si la cadena de pensamiento ampliada (CoT) logra superar las pruebas transversales sin omitir código, aunque tome más tiempo de respuesta.
+
 ## Cómo ejecutar localmente
 
 Se requiere usar el proyecto `staging` de Playwright, lo que forzará `baseURL` a `https://dev.opitacode.com` y aumentará los timeouts a 120s (necesario para las llamadas LLM largas).
