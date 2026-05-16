@@ -64,14 +64,28 @@ jobs:
           tagName: vibe-studio-v__VERSION__
           releaseName: 'Vibe Studio v__VERSION__'
           releaseBody: |
-            ## Vibe Studio v__VERSION__
+            # 🚀 Vibe Studio v__VERSION__
 
-            Descarga el instalador para tu plataforma:
-            - **Windows:** `.msi` o `.exe`
-            - **macOS:** `.dmg`
-            - **Linux:** `.deb` o `.rpm`
+            Esta es la versión oficial de **Vibe Studio v__VERSION__**. 
+            
+            Como el Agentic IDE oficial del ecosistema Opita Code, esta actualización incluye mejoras en la capa de orquestación, estabilidad nativa (Rust + React) y soporte extendido para flujos de trabajo autónomos.
 
-            > ⚠️ **Windows:** Si SmartScreen muestra un aviso, sigue la [guía de instalación](https://github.com/Opita-Code/opita-vibe-studio/blob/main/docs/install/INSTALACION.md) — es completamente normal y seguro.
+            ## 📦 Instaladores Nativos
+
+            Descarga el binario correspondiente a tu arquitectura en la sección de **Assets**:
+
+            ### 🪟 Windows
+            - **Recomendado:** `.exe` o `.msi`
+            - > ⚠️ *Aviso (SmartScreen):* Si Windows Defender bloquea la ejecución por primera vez, selecciona "Más información" y "Ejecutar de todas formas". Consulta la [documentación de instalación](https://github.com/Opita-Code/opita-vibe-studio/blob/main/docs/install/INSTALACION.md).
+
+            ### 🍎 macOS
+            - **Apple Silicon (M1/M2/M3):** `.dmg` (aarch64)
+            - **Intel:** `.dmg` (x64)
+
+            ### 🐧 Linux
+            - **Debian / Ubuntu:** `.deb`
+            - **RHEL / Fedora:** `.rpm`
+
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
