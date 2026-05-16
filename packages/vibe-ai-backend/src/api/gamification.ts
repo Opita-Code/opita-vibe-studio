@@ -198,7 +198,7 @@ export async function getProfile(email: string, plan: string): Promise<XPProfile
   const baseFloor = QUOTA_DECAY_FLOOR[plan] ?? 150_000;
 
   // Fetch achievements (milestones)
-  let achievements = [];
+  let achievements: Array<{ level: number; badge: string; label: string; unlockedAt: string }> = [];
   try {
     const { QueryCommand } = await import("@aws-sdk/lib-dynamodb");
     const milestonesResult = await docClient.send(new QueryCommand({
@@ -558,7 +558,7 @@ export async function completeMission(
     return { success: false, xpAwarded: 0, quotaAwarded: 0, leveledUp: false, streakDays: 0 };
   }
 
-  const missions = result.Item.missions as DailyMission[];
+  const missions = result.Item.missions as Mission[];
   const mission = missions.find((m) => m.id === missionId);
 
   if (!mission || mission.completed) {
