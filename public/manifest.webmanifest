@@ -1,0 +1,23 @@
+{
+  "name": "Vibe Studio",
+  "short_name": "Vibe Studio",
+  "description": "IDE con inteligencia artificial para crear aplicaciones web y móviles en español.",
+  "start_url": "/app/",
+  "display": "standalone",
+  "background_color": "#0D0D12",
+  "theme_color": "#0D0D12",
+  "icons": [
+    {
+      "src": "/vibe-logo.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/vibe-logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "developer"]
+}

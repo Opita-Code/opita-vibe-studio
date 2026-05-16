@@ -2,8 +2,9 @@
  * DonutProgress — Minimal SVG donut chart for agent progress.
  *
  * Renders a circular progress indicator with percentage text.
- * Uses Aura theme colors with smooth CSS transitions.
+ * Uses Aura theme colors with smooth spring animations.
  */
+import { motion } from "framer-motion";
 
 interface DonutProgressProps {
   /** Progress percentage (0-100) */
@@ -28,7 +29,7 @@ export function DonutProgress({
   const center = size / 2;
 
   return (
-    <svg
+    <motion.svg
       width={size}
       height={size}
       viewBox={`0 0 ${size} ${size}`}
@@ -37,6 +38,12 @@ export function DonutProgress({
       aria-valuenow={percent}
       aria-valuemin={0}
       aria-valuemax={100}
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      style={{
+        filter: percent < 100 ? "drop-shadow(0 0 6px rgba(34,211,238,0.3))" : "none"
+      }}
     >
       {/* Background track */}
       <circle
@@ -50,7 +57,7 @@ export function DonutProgress({
       />
 
       {/* Progress arc */}
-      <circle
+      <motion.circle
         cx={center}
         cy={center}
         r={radius}
@@ -58,10 +65,12 @@ export function DonutProgress({
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        className="text-cyan-400 transition-all duration-500 ease-out"
+        className="text-cyan-400"
         stroke="currentColor"
         transform={`rotate(-90 ${center} ${center})`}
+        initial={{ strokeDashoffset: circumference }}
+        animate={{ strokeDashoffset: offset }}
+        transition={{ type: "spring", stiffness: 100, damping: 20, mass: 1 }}
       />
 
       {/* Center text */}
@@ -76,6 +85,6 @@ export function DonutProgress({
           {Math.round(percent)}
         </text>
       )}
-    </svg>
+    </motion.svg>
   );
 }

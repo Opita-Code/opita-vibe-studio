@@ -101,7 +101,7 @@ export function SettingsPanel() {
             initial={{ opacity: 0, scale: 0.97, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 10 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
+            transition={{ type: "spring", damping: 25, stiffness: 350 }}
             className="w-full max-w-5xl h-[85vh] bg-[#0D0D12]/90 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_80px_-15px_rgba(0,0,0,1)] overflow-hidden flex flex-col md:flex-row outline-none"
             onClick={(e) => e.stopPropagation()}
           >

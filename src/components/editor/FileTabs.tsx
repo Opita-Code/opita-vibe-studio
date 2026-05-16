@@ -39,7 +39,7 @@ export function FileTabs() {
     <div
       className="flex items-center h-10 bg-glass border-b border-white/5 shrink-0 select-none shadow-[0_4px_10px_-4px_rgba(0,0,0,0.5)] z-10 relative w-full"
     >
-      <div className="flex-1 flex overflow-x-auto h-full" role="tablist">
+      <div className="flex-1 flex overflow-x-auto h-full scrollbar-none [&::-webkit-scrollbar]:hidden" role="tablist">
       {openTabs.map((path) => {
         const isActive = path === activeTab;
         const dirty = isDirty[path];

@@ -11,6 +11,7 @@
  */
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { AgentStep } from "@/agent/types";
 
 // ─── Props ─────────────────────────────────────────────────────
@@ -27,7 +28,10 @@ function StepRow({ step, isLast }: { step: AgentStep; isLast: boolean }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: -5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
       className={`group ${isLast ? "" : "border-b border-white/5"}`}
     >
       <button
@@ -66,31 +70,39 @@ function StepRow({ step, isLast }: { step: AgentStep; isLast: boolean }) {
 
         {/* Expand indicator */}
         {step.detail && (
-          <svg
+          <motion.svg
             width="10"
             height="10"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
-            className={`text-white/20 shrink-0 transition-transform ${
-              expanded ? "rotate-180" : ""
-            }`}
+            animate={{ rotate: expanded ? 180 : 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="text-white/20 shrink-0"
           >
             <polyline points="6 9 12 15 18 9" />
-          </svg>
+          </motion.svg>
         )}
       </button>
 
       {/* Expanded Detail */}
+      <AnimatePresence>
       {expanded && step.detail && (
-        <div className="px-3 pb-2 pl-[42px]">
-          <pre className="text-[10px] text-white/40 font-mono whitespace-pre-wrap break-words leading-relaxed bg-black/20 rounded p-2">
+        <motion.div 
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="px-3 pb-2 pl-[42px] overflow-hidden"
+        >
+          <pre className="text-[10px] text-white/40 font-mono whitespace-pre-wrap break-words leading-relaxed bg-black/20 rounded p-2 border border-white/5">
             {step.detail}
           </pre>
-        </div>
+        </motion.div>
       )}
-    </div>
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
@@ -183,24 +195,31 @@ export function AgentStepAccordion({
           </span>
         </div>
 
-        <svg
+        <motion.svg
           width="12"
           height="12"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
-          className={`text-white/30 transition-transform ${
-            collapsed ? "" : "rotate-180"
-          }`}
+          animate={{ rotate: collapsed ? 0 : 180 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          className="text-white/30"
         >
           <polyline points="6 9 12 15 18 9" />
-        </svg>
+        </motion.svg>
       </button>
 
       {/* Steps List */}
+      <AnimatePresence>
       {!collapsed && (
-        <div className="border-t border-white/5">
+        <motion.div 
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="border-t border-white/5 overflow-hidden"
+        >
           {steps.map((step, i) => (
             <StepRow
               key={step.id}
@@ -208,8 +227,9 @@ export function AgentStepAccordion({
               isLast={i === steps.length - 1}
             />
           ))}
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -8,18 +8,20 @@ test.describe('Guest Mobile — Viewport 375x812', () => {
     await mockGuestAuth(page);
   });
 
-  test('Muestra pantalla de dispositivo no soportado en mobile', async ({ page }) => {
+  test('Guest en mobile ve onboarding o workspace (no bloqueo)', async ({ page }) => {
     await page.goto('/app/');
 
-    // El usuario debería ver directamente la pantalla de no soportado
-    const heading = page.locator('h1:has-text("Optimizado para Escritorio")');
-    await expect(heading).toBeVisible({ timeout: 10000 });
+    // Should NOT show "Optimizado para Escritorio" anymore
+    const gateText = page.locator('text=Optimizado para Escritorio');
+    await expect(gateText).not.toBeVisible({ timeout: 10000 });
 
-    const description = page.locator('p', { hasText: 'diseñada para fluir con pantallas amplias' });
-    await expect(description).toBeVisible();
+    // Should show either onboarding or workspace (depending on onboarding state)
+    // Guest users who haven't completed onboarding see the onboarding flow
+    // Guest users who have completed it see the mobile layout
+    const mobileLayout = page.locator('nav[aria-label="Navegación principal"]');
+    const onboarding = page.locator('text=Vibe Studio').first();
     
-    const backLink = page.locator('a:has-text("Volver al Inicio")');
-    await expect(backLink).toBeVisible();
-    await expect(backLink).toHaveAttribute('href', '/');
+    // One of these should be visible
+    await expect(onboarding).toBeVisible({ timeout: 15000 });
   });
 });

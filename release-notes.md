@@ -12,6 +12,14 @@ Como hito fundamental en nuestra arquitectura de producto, este release marca la
 - **Identidad Centralizada (Cognito):** Sincronización transparente de la capa de autenticación y cuotas (planes Student/Pro) directamente con la nube de Opita Code.
 - **Rendimiento Nativo:** Frontend en React compilado sobre un core en Rust (Tauri), logrando un footprint de memoria ultra-bajo en comparación con los IDEs basados en Electron.
 
+## 📱 Experiencia Móvil (Responsive Architecture)
+
+- **Mobile-First Hub:** Nuevo *dashboard* interactivo para dispositivos móviles, unificando la experiencia de gamificación (Nivel, XP, Misiones y Streaks).
+- **Interacciones Premium:** Navegación inferior (Bottom Nav) impulsada por *Framer Motion* con micro-animaciones fluidas e indicadores deslizantes.
+- **Accesibilidad y Ergonomía:** Inputs optimizados para pantallas táctiles (Touch Targets de 44x44px), tipografía ajustada para prevenir zoom automático en iOS Safari, y soporte completo para *Safe Areas* nativas.
+- **Vibe AI Móvil:** Interfaz de chat rediseñada con soporte completo para carga de archivos, captura visual y conmutación ágil de modelos directamente desde tu celular.
+- **Progressive Web App (PWA):** Soporte de instalación nativa (Añadir a pantalla de inicio) en dispositivos Android, configuración de viewport optimizada contra interferencia del teclado virtual (`interactive-widget=resizes-content`) y eliminación total del bloqueo obsoleto "MobileNotSupportedScreen".
+
 ---
 
 ## 📦 Binarios y Despliegue

@@ -6,6 +6,7 @@
  */
 
 import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useChatStore } from "@/stores/chat";
 import { getSelectableModes } from "@/modes";
 import { Zap, MessageCircle, ChevronDown } from "lucide-react";
@@ -63,18 +64,32 @@ export function ModeButtons({ onActivate }: ModeButtonsProps) {
     <div className="flex items-center gap-2 mb-3">
       {/* ─── Dropdown 1: Modo de Operación ─── */}
       <div className="relative" ref={modeDropdown.ref}>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => modeDropdown.setOpen(!modeDropdown.open)}
           aria-label={`Modo: ${currentMode.name}`}
           className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md border transition-all ${colors.text} ${colors.bg} ${colors.border} ${colors.glow}`}
         >
           <span className="text-xs">{currentMode.icon}</span>
           {currentMode.name}
-          <ChevronDown size={10} className={`opacity-50 transition-transform ${modeDropdown.open ? "rotate-180" : ""}`} />
-        </button>
+          <motion.div
+            animate={{ rotate: modeDropdown.open ? 180 : 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          >
+            <ChevronDown size={10} className="opacity-50" />
+          </motion.div>
+        </motion.button>
 
+        <AnimatePresence>
         {modeDropdown.open && (
-          <div className="absolute bottom-full left-0 mb-2 w-52 bg-obsidian-900 border border-white/10 rounded-xl shadow-2xl p-1.5 z-50 animate-fade-in-up origin-bottom-left">
+          <motion.div 
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{ type: "spring", damping: 25, stiffness: 400 }}
+            className="absolute bottom-full left-0 mb-2 w-52 bg-obsidian-900 border border-white/10 rounded-xl shadow-2xl p-1.5 z-50 origin-bottom-left"
+          >
             <div className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white/30">
               Modo de Aura
             </div>
@@ -103,13 +118,16 @@ export function ModeButtons({ onActivate }: ModeButtonsProps) {
                 </button>
               );
             })}
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
 
       {/* ─── Dropdown 2: Modo de Ejecución ─── */}
       <div className="relative" ref={execDropdown.ref}>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => execDropdown.setOpen(!execDropdown.open)}
           aria-label={`Ejecución: ${isAutoExec ? "Auto" : "Interactivo"}`}
           className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md border transition-all ${
@@ -120,11 +138,23 @@ export function ModeButtons({ onActivate }: ModeButtonsProps) {
         >
           {isAutoExec ? <Zap size={11} /> : <MessageCircle size={11} />}
           {isAutoExec ? "Auto" : "Interactivo"}
-          <ChevronDown size={10} className={`opacity-50 transition-transform ${execDropdown.open ? "rotate-180" : ""}`} />
-        </button>
+          <motion.div
+            animate={{ rotate: execDropdown.open ? 180 : 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          >
+            <ChevronDown size={10} className="opacity-50" />
+          </motion.div>
+        </motion.button>
 
+        <AnimatePresence>
         {execDropdown.open && (
-          <div className="absolute bottom-full left-0 mb-2 w-52 bg-obsidian-900 border border-white/10 rounded-xl shadow-2xl p-1.5 z-50 animate-fade-in-up origin-bottom-left">
+          <motion.div 
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{ type: "spring", damping: 25, stiffness: 400 }}
+            className="absolute bottom-full left-0 mb-2 w-52 bg-obsidian-900 border border-white/10 rounded-xl shadow-2xl p-1.5 z-50 origin-bottom-left"
+          >
             <div className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white/30">
               Ejecución
             </div>
@@ -152,8 +182,9 @@ export function ModeButtons({ onActivate }: ModeButtonsProps) {
                 <div className="text-[10px] text-white/40 mt-0.5">Aura encadena hasta completar</div>
               </div>
             </button>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
     </div>
   );

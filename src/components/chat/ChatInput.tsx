@@ -229,7 +229,7 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
 
   return (
     <div 
-      className={`border-t border-white/5 p-4 bg-obsidian-900/60 backdrop-blur-3xl transition-colors ${isDragging ? "bg-aura-purple/10" : ""}`}
+      className={`border-t border-white/5 p-3 md:p-4 bg-obsidian-900/60 backdrop-blur-3xl transition-colors ${isDragging ? "bg-aura-purple/10" : ""}`}
       onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
@@ -285,7 +285,8 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
           title="Adjuntar archivo o imagen"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white/50 hover:text-aura-purple hover:bg-white/5 transition-all disabled:opacity-50"
+          aria-label="Adjuntar archivo o imagen"
+          className="flex h-11 w-11 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-lg text-white/50 hover:text-aura-purple hover:bg-white/5 transition-all disabled:opacity-50"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
@@ -304,15 +305,16 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="Escribe, pega imágenes o arrastra archivos aquí..."
+          aria-label="Mensaje para Vibe AI"
           disabled={disabled}
           rows={Math.min(text.split('\n').length || 1, 10)}
-          className="flex-1 resize-none bg-transparent px-2 py-2 text-sm text-white/90 placeholder-white/40 outline-none disabled:opacity-50 min-h-[40px] max-h-[250px] overflow-y-auto"
+          className="flex-1 resize-none bg-transparent px-2 py-2 text-base md:text-sm text-white/90 placeholder-white/40 outline-none disabled:opacity-50 min-h-[44px] md:min-h-[40px] max-h-[250px] overflow-y-auto"
         />
         <button
           onClick={handleSend}
           disabled={disabled || (!text.trim() && attachments.length === 0)}
           aria-label="Enviar mensaje"
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white shadow-lg transition-all duration-300 ${
+          className={`flex h-11 w-11 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-lg text-white shadow-lg transition-all duration-300 ${
             (text.trim() || attachments.length > 0) && !disabled
               ? "bg-gradient-to-br from-aura-cyan to-aura-purple hover:scale-105 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] active:scale-95"
               : "bg-obsidian-800/50 text-white/30 opacity-60"

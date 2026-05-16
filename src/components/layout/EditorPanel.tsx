@@ -28,7 +28,7 @@ export function EditorPanel() {
   const setActiveView = useUIStore((s) => s.setActiveView);
 
   const activeTab = useProjectStore((s) => s.activeTab);
-  const fileContents = useProjectStore((s) => s.fileContents);
+  const activeContent = useProjectStore((s) => activeTab ? (s.fileContents[activeTab] ?? "") : "");
   const setFileContent = useProjectStore((s) => s.setFileContent);
   const saveFile = useProjectStore((s) => s.saveFile);
   const statusMessage = useProjectStore((s) => s.statusMessage);
@@ -37,8 +37,6 @@ export function EditorPanel() {
   const diffOriginalContent = useProjectStore((s) => s.diffOriginalContent);
   const diffModifiedContent = useProjectStore((s) => s.diffModifiedContent);
   const closeDiffMode = useProjectStore((s) => s.closeDiffMode);
-
-  const activeContent = activeTab ? (fileContents[activeTab] ?? "") : "";
   // Preview version counter — increments on save/tab-switch to trigger refresh
   const [version, setVersion] = useState(0);
   const prevActiveTabRef = useRef(activeTab);
@@ -123,8 +121,8 @@ export function EditorPanel() {
 
   const previewSection = (
     <div className="flex flex-col flex-1 overflow-hidden min-w-0 bg-transparent">
-      {/* Preview toolbar */}
-      <div className="flex items-center justify-between px-3 py-1 shrink-0 bg-obsidian-900 border-b border-white/5">
+      {/* Preview toolbar - Hidden on mobile screens */}
+      <div className="hidden md:flex items-center justify-between px-3 py-1 shrink-0 bg-obsidian-900 border-b border-white/5">
         <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
           Vista Previa
         </span>

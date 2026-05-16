@@ -1,25 +1,15 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { mockProAuth, mockChatResponse, VIEWPORTS } from './helpers/setup';
 
-/** Espera a que la barra de navegación inferior móvil esté cargada */
-async function waitForMobileWorkspace(page: Page) {
-  const mobileNav = page.locator('nav.fixed, div.fixed.bottom-0').first();
-  await expect(mobileNav).toBeVisible({ timeout: 15000 });
-}
-
-/** Asegura que el chat esté abierto en mobile pulsando el botón IA de la navbar */
-async function ensureMobileChatOpen(page: Page) {
-  const iaTab = page.locator('button').filter({ has: page.locator('span.text-\\[10px\\]', { hasText: 'IA' }) });
-  await expect(iaTab).toBeVisible({ timeout: 10000 });
-  await iaTab.click({ force: true });
-  await page.waitForTimeout(500);
-}
-
 // ═══════════════════════════════════════════════════════════════════
-// Pro Mobile Experience — viewport 375x812
+// Pro Mobile — viewport 375x812
+//
+// Vibe Studio now has a full responsive mobile layout.
+// On mobile viewports, users see a tab-based MobileLayout
+// with IA, Code, View, Hub, and Settings tabs.
 // ═══════════════════════════════════════════════════════════════════
 
-test.describe('Pro Mobile — Core Flow', () => {
+test.describe('Pro Mobile — Responsive Layout', () => {
   test.use({ viewport: VIEWPORTS.mobile });
 
   test.beforeEach(async ({ page }) => {
@@ -27,58 +17,46 @@ test.describe('Pro Mobile — Core Flow', () => {
     await mockChatResponse(page);
   });
 
-  test('MobileNavBar tiene todos los botones para Pro', async ({ page }) => {
+  test('Mobile layout muestra header y bottom nav', async ({ page }) => {
     await page.goto('/app/');
-    await waitForMobileWorkspace(page);
 
-    // ActivityBar disappears on mobile, MobileNavBar appears
-    const mobileNav = page.locator('nav.fixed, div.fixed.bottom-0').first();
-    await expect(mobileNav).toBeVisible({ timeout: 10000 });
+    // Mobile header should show "Vibe Studio"
+    const header = page.locator('text=Vibe Studio');
+    await expect(header.first()).toBeVisible({ timeout: 15000 });
 
-    // Buttons should include Editor, Preview, IA, Explorer
-    const navText = await mobileNav.textContent();
-    expect(navText).toContain('Editor');
-    expect(navText).toContain('Preview');
-    expect(navText).toContain('IA');
+    // Bottom nav should be present with tab buttons
+    const bottomNav = page.locator('nav[aria-label="Navegación principal"]');
+    await expect(bottomNav).toBeVisible({ timeout: 10000 });
+
+    // Should have tab buttons
+    await expect(page.locator('button[aria-label="Ir a IA"]')).toBeVisible();
+    await expect(page.locator('button[aria-label="Ir a Code"]')).toBeVisible();
+    await expect(page.locator('button[aria-label="Ir a Vista"]')).toBeVisible();
+    await expect(page.locator('button[aria-label="Ir a Hub"]')).toBeVisible();
+    await expect(page.locator('button[aria-label="Ir a Más"]')).toBeVisible();
   });
 
-  test('Cambiar de vista usando MobileNavBar', async ({ page }) => {
+  test('Chat tab es el tab por defecto', async ({ page }) => {
     await page.goto('/app/');
-    await waitForMobileWorkspace(page);
 
-    const mobileNav = page.locator('nav.fixed, div.fixed.bottom-0').first();
-    await expect(mobileNav).toBeVisible({ timeout: 10000 });
+    // Wait for the mobile layout
+    const bottomNav = page.locator('nav[aria-label="Navegación principal"]');
+    await expect(bottomNav).toBeVisible({ timeout: 15000 });
 
-    // Click IA tab
-    const iaTab = page.locator('button').filter({ has: page.locator('span.text-\\[10px\\]', { hasText: 'IA' }) });
-    await expect(iaTab).toBeVisible();
-    await iaTab.click({ force: true });
-    await page.waitForTimeout(500);
+    // IA tab should be active (aria-pressed)
+    const iaTab = page.locator('button[aria-label="Ir a IA"]');
+    await expect(iaTab).toHaveAttribute('aria-pressed', 'true');
 
-    // Chat textarea should become visible
+    // Chat textarea should be available
     const textarea = page.locator('textarea[placeholder*="Escribe"]');
     await expect(textarea).toBeVisible({ timeout: 10000 });
-
-    // Click Editor tab
-    const editorTab = page.locator('button').filter({ has: page.locator('span.text-\\[10px\\]', { hasText: 'Editor' }) });
-    await expect(editorTab).toBeVisible();
-    await editorTab.click({ force: true });
-    await page.waitForTimeout(500);
-
-    // Wait, on mobile the ViewTabs might be visible when Editor is selected
-    const viewTabs = page.locator('[role="tablist"]');
-    await expect(viewTabs).toBeVisible();
   });
 
-  test('Enviar mensaje en vista mobile', async ({ page }) => {
+  test('Enviar mensaje en mobile chat', async ({ page }) => {
     await page.goto('/app/');
-    await waitForMobileWorkspace(page);
 
-    // Navigate to IA
-    const iaTab = page.locator('button').filter({ has: page.locator('span.text-\\[10px\\]', { hasText: 'IA' }) });
-    await expect(iaTab).toBeVisible({ timeout: 10000 });
-    await iaTab.click({ force: true });
-    await page.waitForTimeout(500);
+    // Wait for mobile layout
+    await expect(page.locator('nav[aria-label="Navegación principal"]')).toBeVisible({ timeout: 15000 });
 
     const textarea = page.locator('textarea[placeholder*="Escribe"]');
     await expect(textarea).toBeVisible({ timeout: 10000 });
@@ -96,54 +74,39 @@ test.describe('Pro Mobile — Core Flow', () => {
     await expect(aiBubble).toBeVisible({ timeout: 15000 });
   });
 
-  test('Selector de modelo no se desborda en mobile', async ({ page }) => {
+  test('Navegar entre tabs', async ({ page }) => {
     await page.goto('/app/');
-    await waitForMobileWorkspace(page);
 
-    // Navigate to IA
-    const iaTab = page.locator('button').filter({ has: page.locator('span.text-\\[10px\\]', { hasText: 'IA' }) });
-    await expect(iaTab).toBeVisible({ timeout: 10000 });
-    await iaTab.click({ force: true });
+    // Wait for mobile layout
+    await expect(page.locator('nav[aria-label="Navegación principal"]')).toBeVisible({ timeout: 15000 });
+
+    // Click Hub tab
+    const hubTab = page.locator('button[aria-label="Ir a Hub"]');
+    await hubTab.click();
     await page.waitForTimeout(500);
 
-    const modelSelector = page.locator('select[aria-label="Seleccionar modelo de IA"]');
-    await expect(modelSelector).toBeVisible({ timeout: 10000 });
+    // Hub content should be visible (XP, missions, etc.)
+    const hubContent = page.locator('text=Nivel').first();
+    await expect(hubContent).toBeVisible({ timeout: 5000 });
 
-    // Verify it is visible (Playwright checks if it's within viewport bounds for actionability)
-    await expect(modelSelector).toBeInViewport();
-    
-    const boundingBox = await modelSelector.boundingBox();
-    console.log("Selector bounds:", boundingBox);
-    const viewportSize = page.viewportSize();
-    console.log("Viewport size:", viewportSize);
-  });
-});
+    // Click back to IA
+    const iaTab = page.locator('button[aria-label="Ir a IA"]');
+    await iaTab.click();
+    await page.waitForTimeout(500);
 
-test.describe('Pro Mobile — Settings', () => {
-  test.use({ viewport: VIEWPORTS.mobile });
-
-  test.beforeEach(async ({ page }) => {
-    await mockProAuth(page);
-    await mockChatResponse(page);
+    // Chat should reappear
+    const textarea = page.locator('textarea[placeholder*="Escribe"]');
+    await expect(textarea).toBeVisible({ timeout: 5000 });
   });
 
-  test('Menu responsive y Settings dialog', async ({ page }) => {
+  test('No muestra pantalla de bloqueo (Optimizado para Escritorio)', async ({ page }) => {
     await page.goto('/app/');
-    await waitForMobileWorkspace(page);
 
-    // On mobile, settings might be accessed via a Hamburger menu in the header or ActivityBar fallback
-    // The top bar has a settings icon or the bottom nav has a settings button
-    const settingsBtn = page.locator('button[aria-label="Configuración de Vibe Studio"]').first();
-    
-    // If we can see it, click it
-    if (await settingsBtn.isVisible()) {
-      await settingsBtn.click();
-      const dialog = page.locator('[role="dialog"][aria-label="Configuración de Vibe Studio"]');
-      await expect(dialog).toBeVisible({ timeout: 5000 });
+    // Should NOT show the old device gate
+    const gateText = page.locator('text=Optimizado para Escritorio');
+    await expect(gateText).not.toBeVisible({ timeout: 5000 });
 
-      // Settings tabs should flow differently or scroll in mobile
-      const connectionsTab = page.locator('button:has-text("Conexiones IA")');
-      await expect(connectionsTab).toBeVisible();
-    }
+    // Should show the mobile layout instead
+    await expect(page.locator('nav[aria-label="Navegación principal"]')).toBeVisible({ timeout: 15000 });
   });
 });

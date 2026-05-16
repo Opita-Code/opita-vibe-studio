@@ -5,10 +5,9 @@ import { ActionBar } from "@/components/layout/ActionBar";
 import { LoginScreen } from "@/components/auth/LoginScreen";
 import { OnboardingFlow } from "@/components/auth/OnboardingFlow";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
-import { MobileNavBar } from "@/components/layout/MobileNavBar";
 import { BugReportModal } from "@/components/layout/BugReportModal";
 import { FileWatcher } from "@/components/editor/FileWatcher";
-import { MobileNotSupportedScreen } from "@/components/layout/MobileNotSupportedScreen";
+import { MobileLayout } from "@/components/layout/MobileLayout";
 import { WompiModal } from "@/components/usage/WompiModal";
 import { useAuthStore } from "@/stores/auth";
 import { useKeybindings } from "@/lib/useKeybindings";
@@ -157,7 +156,11 @@ export default function App() {
   }, [sessionDetected, authMode, setLoginModalOpen]);
 
   if (isMobile) {
-    return <MobileNotSupportedScreen />;
+    // Authenticated mobile: full mobile layout
+    if (authMode === "authenticated" || hasCompletedOnboarding) {
+      return <MobileLayout />;
+    }
+    // Unauthenticated mobile: show onboarding (falls through to onboarding below)
   }
 
   if (!sessionDetected) {
@@ -238,7 +241,7 @@ export default function App() {
             onDismiss={dismissMilestone}
           />
         )}
-        <MobileNavBar />
+        {/* MobileNavBar is now inside MobileLayout for mobile viewports */}
         
         {/* We keep the legacy StatusBar and inject the new slot next to it for now */}
         <div className="flex flex-col">

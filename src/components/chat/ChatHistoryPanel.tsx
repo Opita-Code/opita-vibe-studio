@@ -13,7 +13,7 @@ export function ChatHistoryPanel() {
   const sortedSessions = Object.values(sessions).sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
-    <div className="flex flex-col h-full bg-obsidian-950/80 backdrop-blur-xl border-r border-white/10 w-[240px] overflow-hidden flex-shrink-0 shadow-[4px_0_15px_rgba(0,0,0,0.5)] z-40 relative" role="navigation" aria-label="Historial de chats">
+    <div className="flex flex-col h-full bg-obsidian-950/80 backdrop-blur-xl border-r border-white/10 w-[80vw] md:w-[240px] overflow-hidden flex-shrink-0 shadow-[4px_0_15px_rgba(0,0,0,0.5)] z-40 relative" role="navigation" aria-label="Historial de chats">
       <div className="p-3 border-b border-white/10 shrink-0 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
