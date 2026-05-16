@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { injectStagingSession, waitForAuthReady } from '../helpers/staging-auth';
+import { injectStagingSession, waitForAuthReady, getStagingToken } from '../helpers/staging-auth';
 import { waitForWorkspace } from '../helpers/setup';
 
 /**
@@ -23,8 +23,8 @@ test.describe('Seguridad: Sandbox y Jailbreak', () => {
   test.setTimeout(90_000);
 
   test.beforeEach(async ({ page }) => {
-    const token = process.env.E2E_STAGING_TOKEN;
-    if (!token) test.skip(true, 'E2E_STAGING_TOKEN no definido');
+    const token = getStagingToken();
+    if (!token) test.skip(true, 'Token de staging no disponible');
 
     await injectStagingSession(page, token!);
     await page.goto('/app/');

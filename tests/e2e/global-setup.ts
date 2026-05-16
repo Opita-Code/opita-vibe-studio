@@ -18,6 +18,9 @@ const CLIENT_ID = '4b5sluoilcrtuq67qbu4528htl';
 const E2E_USERNAME = 'vibe-tester-01@opitacode.com';
 const E2E_PASSWORD = 'VibeE2E#2026!';
 
+/** Ruta donde escribimos el token para que los workers lo lean */
+export const TOKEN_FILE = path.resolve(process.cwd(), 'playwright/.auth/token.json');
+
 export default async function globalSetup() {
   console.log('\n🔑 [E2E Setup] Obteniendo token fresco de Cognito...');
 
@@ -36,10 +39,14 @@ export default async function globalSetup() {
       throw new Error('AWS CLI devolvió un token vacío');
     }
 
-    // Inyectar en process.env para que los tests lo lean inmediatamente
+    // Escribir en archivo para que los workers lo lean (process.env no se propaga)
+    fs.mkdirSync(path.dirname(TOKEN_FILE), { recursive: true });
+    fs.writeFileSync(TOKEN_FILE, JSON.stringify({ token: result, fetchedAt: Date.now() }), 'utf-8');
+
+    // También en process.env para el proceso actual
     process.env.E2E_STAGING_TOKEN = result;
 
-    // También actualizar el .env para persistir entre runs
+    // Actualizar .env
     const envPath = path.resolve(process.cwd(), '.env');
     let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf-8') : '';
 
@@ -56,6 +63,5 @@ export default async function globalSetup() {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`\n❌ [E2E Setup] No se pudo obtener token de Cognito: ${msg}`);
     console.error('   Asegúrate de tener AWS CLI configurado (aws configure).');
-    // No lanzamos error — si hay un token viejo en .env todavía puede funcionar
   }
 }

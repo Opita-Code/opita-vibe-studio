@@ -1,6 +1,24 @@
 import { Page } from '@playwright/test';
+import * as fs from 'fs';
+import { TOKEN_FILE } from './../../tests/e2e/global-setup';
 
 /**
+ * Lee el token de staging desde el archivo escrito por globalSetup.
+ * Fallback: process.env.E2E_STAGING_TOKEN
+ */
+export function getStagingToken(): string | undefined {
+  // 1. Archivo escrito por globalSetup (fuente de verdad para workers)
+  try {
+    if (fs.existsSync(TOKEN_FILE)) {
+      const { token } = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf-8'));
+      if (token) return token;
+    }
+  } catch {
+    // Fallback
+  }
+  // 2. process.env (funciona solo en el proceso del setup, no en workers)
+  return process.env.E2E_STAGING_TOKEN;
+}
  * Inyecta una sesión PRO directamente en el store de auth de Vibe Studio.
  *
  * Estrategia:

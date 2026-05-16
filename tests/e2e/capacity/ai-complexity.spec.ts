@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { injectStagingSession, waitForAuthReady } from '../helpers/staging-auth';
+import { injectStagingSession, waitForAuthReady, getStagingToken } from '../helpers/staging-auth';
 import { waitForWorkspace } from '../helpers/setup';
 
 /**
@@ -26,8 +26,8 @@ for (const model of MODELS_TO_TEST) {
     test.setTimeout(180_000); // 3 min — Reasoner necesita tiempo de CoT
 
     test.beforeEach(async ({ page }) => {
-      const token = process.env.E2E_STAGING_TOKEN;
-      if (!token) test.skip(true, 'E2E_STAGING_TOKEN no definido');
+      const token = getStagingToken();
+      if (!token) test.skip(true, 'Token de staging no disponible (corre npx playwright test de nuevo)');
 
       await injectStagingSession(page, token!);
       await page.goto('/app/');
