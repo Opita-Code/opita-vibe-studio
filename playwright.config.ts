@@ -22,6 +22,14 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'staging',
+      use: { 
+        ...devices['Desktop Chrome'],
+        baseURL: 'https://dev.opitacode.com',
+      },
+      timeout: 120 * 1000, // Agent needs time to think and generate
+    },
   ],
   webServer: {
     command: 'npm run dev',
