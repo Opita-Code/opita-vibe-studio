@@ -201,6 +201,17 @@ export function MessageBubble({ message, isThinking = false }: MessageBubbleProp
   // Determine if reasoning should show as "live" (streaming indicator)
   const reasoningIsLive = isThinking || (isThinking === false && !cleanContent && !!thinkContent);
 
+  // Skip rendering empty assistant bubbles (tool-only responses with no text)
+  if (!isUser && !isThinking && !cleanContent.trim()) {
+    // Still show reasoning/steps accordion if present
+    if (message.subagentSteps?.length || thinkContent) {
+      return (
+        <ReasoningAccordion steps={message.subagentSteps} thinkContent={thinkContent} isStreaming={false} />
+      );
+    }
+    return null;
+  }
+
   return (
     <>
       {/* Reasoning Accordion (Outside the bubble, only for assistant) */}

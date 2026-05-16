@@ -14,7 +14,7 @@ import { useChatStore, getContextMessages } from "@/stores/chat";
 import { useProjectStore } from "@/stores/project";
 import { useAuthStore } from "@/stores/auth";
 import { isLimitReached } from "@/lib/tokens";
-import { handleMessage, type OrchestratorConfig } from "@/agent/orchestrator";
+import { handleMessage, classifyIntent, type OrchestratorConfig } from "@/agent/orchestrator";
 import { detectIdea, createIdea, saveIdea, matchCompletedWork, updateIdeaStatus } from "@/agent/idea-backlog";
 import type { Attachment } from "@/lib/types";
 import type { AgentEvent, AgentStep, RoadmapGoal, FileSummary } from "@/agent/types";
@@ -114,7 +114,6 @@ export function useAgentHandler() {
 
       // ─── Prepare ──────────────────────────────────────────
       chatStore.setStreaming(true);
-      useAgentStore.getState().startExecution();
       const ac = new AbortController();
       abortRef.current = ac;
       chatStore.setAbortController(ac);
@@ -129,6 +128,14 @@ export function useAgentHandler() {
         const context = getContextMessages(messages);
 
         const hasProjectOpen = projectStore.workspaces.length > 0;
+
+        // ─── Pre-classify intent for UI decisions ─────────────
+        // Only activate the heavy execution UI (activity bar, roadmap,
+        // progress) for explore/code intents. Chat is lightweight.
+        const preIntent = classifyIntent(text, hasProjectOpen);
+        if (preIntent !== "chat") {
+          useAgentStore.getState().startExecution();
+        }
 
         // ─── Build Orchestrator Config ────────────────────────
         const plan = (authStore.plan || "free") as "free" | "estudiante" | "pro";

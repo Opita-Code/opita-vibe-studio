@@ -96,14 +96,9 @@ export async function* runBuildAgent(
   // Tool results are fed back into the conversation
   const toolMessages: Message[] = [];
 
-  // ─── Roadmap (initial goals) ────────────────────────────────
+  // ─── Roadmap (dynamic based on task complexity) ──────────────
 
-  const roadmap: RoadmapGoal[] = [
-    { id: "analyze", label: "Analizando tu pedido", status: "active", progress: 0 },
-    { id: "plan", label: "Preparando el plan", status: "pending" },
-    { id: "build", label: "Construyendo", status: "pending" },
-    { id: "verify", label: "Verificando resultado", status: "pending" },
-  ];
+  const roadmap: RoadmapGoal[] = buildRoadmap(config);
 
   yield { type: "phase", phase: "building" };
   yield { type: "roadmap", goals: roadmap };
@@ -327,4 +322,32 @@ function updateRoadmapGoal(
     goal.status = status;
     if (progress !== undefined) goal.progress = progress;
   }
+}
+
+/**
+ * Builds a dynamic roadmap based on task configuration.
+ *
+ * Simple tasks → 2 steps (understand + build)
+ * Tasks with TDD → 3 steps (+ verify)
+ * Tasks with delivery strategy → adds delivery step
+ *
+ * Labels are non-technical — the user is a creator, not an engineer.
+ */
+function buildRoadmap(config: BuildAgentConfig): RoadmapGoal[] {
+  const goals: RoadmapGoal[] = [
+    { id: "analyze", label: "Entendiendo qué necesitas", status: "active", progress: 0 },
+    { id: "build", label: "Haciendo los cambios", status: "pending" },
+  ];
+
+  // Add verification step only when TDD is active
+  if (config.useTDD) {
+    goals.push({ id: "verify", label: "Revisando que todo funcione", status: "pending" });
+  }
+
+  // Add delivery step for branch/PR strategies
+  if (config.deliveryStrategy === "feature-branch" || config.deliveryStrategy === "pr") {
+    goals.push({ id: "deliver", label: "Preparando la entrega", status: "pending" });
+  }
+
+  return goals;
 }
