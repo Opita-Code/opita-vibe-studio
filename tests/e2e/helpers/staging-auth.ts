@@ -1,22 +1,22 @@
 import { Page } from '@playwright/test';
 import * as fs from 'fs';
-import { TOKEN_FILE } from '../global-setup';
+import * as path from 'path';
 
 /**
  * Lee el token de staging desde el archivo escrito por globalSetup.
  * Fallback: process.env.E2E_STAGING_TOKEN
  */
 export function getStagingToken(): string | undefined {
-  // 1. Archivo escrito por globalSetup (fuente de verdad para workers)
+  // Ruta fija — la misma que escribe global-setup.ts
+  const tokenFile = path.resolve(process.cwd(), 'playwright/.auth/token.json');
   try {
-    if (fs.existsSync(TOKEN_FILE)) {
-      const { token } = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf-8'));
+    if (fs.existsSync(tokenFile)) {
+      const { token } = JSON.parse(fs.readFileSync(tokenFile, 'utf-8'));
       if (token) return token;
     }
   } catch {
     // Fallback
   }
-  // 2. process.env (funciona solo en el proceso del setup, no en workers)
   return process.env.E2E_STAGING_TOKEN;
 }
 
