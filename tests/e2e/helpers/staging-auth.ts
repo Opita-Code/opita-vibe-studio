@@ -1,13 +1,17 @@
 import { Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
 /**
  * Lee el token de staging desde el archivo escrito por globalSetup.
  * Fallback: process.env.E2E_STAGING_TOKEN
  */
 export function getStagingToken(): string | undefined {
-  // __dirname = tests/e2e/helpers → subir 3 niveles llega a la raíz del proyecto
+  // ESM: __dirname no existe, usamos import.meta.url
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  // helpers/ → e2e/ → tests/ → project root
   const tokenFile = path.resolve(__dirname, '../../..', 'playwright/.auth/token.json');
   try {
     if (fs.existsSync(tokenFile)) {
