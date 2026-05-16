@@ -19,7 +19,7 @@ jobs:
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
           - platform: 'ubuntu-22.04'
-            args: ''
+            args: '--bundles deb,rpm'
           - platform: 'windows-latest'
             args: ''
 
@@ -69,7 +69,7 @@ jobs:
             Descarga el instalador para tu plataforma:
             - **Windows:** `.msi` o `.exe`
             - **macOS:** `.dmg`
-            - **Linux:** `.AppImage` o `.deb`
+            - **Linux:** `.deb` o `.rpm`
 
             > ⚠️ **Windows:** Si SmartScreen muestra un aviso, sigue la [guía de instalación](https://github.com/Opita-Code/opita-vibe-studio/blob/main/docs/install/INSTALACION.md) — es completamente normal y seguro.
           releaseDraft: false
