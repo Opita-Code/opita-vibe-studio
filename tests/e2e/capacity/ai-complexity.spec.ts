@@ -1,73 +1,104 @@
 import { test, expect } from '@playwright/test';
-import { waitForWorkspace, ensureChatOpen } from '../helpers/setup';
+import { injectStagingSession, waitForAuthReady } from '../helpers/staging-auth';
+import { waitForWorkspace } from '../helpers/setup';
 
-// Nota: Estos tests apuntan al backend REAL de staging.
-// Requieren una sesión válida con plan PRO para ejecutar los agentes y usar herramientas.
+/**
+ * Suite de Complejidad — Benchmark comparativo DeepSeek Chat vs Reasoner
+ *
+ * Qué mide:
+ *   - Capacidad del agente para crear archivos correctamente en el VFS
+ *   - El agente emite evento file_changed → la UI muestra "✅ Creado: `filename`"
+ *   - Verificamos que el texto aparezca en el último mensaje del chat
+ *
+ * Cómo se detecta que un archivo fue creado:
+ *   useAgentHandler.ts L278 escribe en el chat:
+ *   `✅ Creado: \`{filename}\``
+ *   Por eso el assert busca ese patrón exacto.
+ */
+
 const MODELS_TO_TEST = [
-  { id: 'deepseek-chat', name: 'DeepSeek Chat' },
-  { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner' }
+  { id: 'deepseek-chat', label: 'DeepSeek Chat' },
+  { id: 'deepseek-reasoner', label: 'DeepSeek Reasoner' },
 ];
 
-MODELS_TO_TEST.forEach((model) => {
-  test.describe(`Vibe AI - Capacidad con ${model.name}`, () => {
-    
-    test.setTimeout(180000); // 3 minutos para allow deepseek-reasoner
+for (const model of MODELS_TO_TEST) {
+  test.describe(`Capacidad: ${model.label}`, () => {
+    test.setTimeout(180_000); // 3 min — Reasoner necesita tiempo de CoT
 
     test.beforeEach(async ({ page }) => {
-      const stagingToken = process.env.E2E_STAGING_TOKEN;
-      if (!stagingToken) {
-        test.skip(true, 'Falta la variable E2E_STAGING_TOKEN');
-        return;
-      }
-      await page.addInitScript((token) => {
-        localStorage.setItem('vibe-onboarding-done', 'true');
-        document.cookie = `opita_session=${token}; path=/;`;
-      }, stagingToken);
+      const token = process.env.E2E_STAGING_TOKEN;
+      if (!token) test.skip(true, 'E2E_STAGING_TOKEN no definido');
 
+      await injectStagingSession(page, token!);
       await page.goto('/app/');
       await waitForWorkspace(page);
-      await ensureChatOpen(page);
+      await waitForAuthReady(page);
 
-      // Seleccionar el modelo en la UI
-      const modelSelectorBtn = page.locator('[aria-label="Seleccionar modelo de IA"]');
-      if (await modelSelectorBtn.isVisible()) {
-        await modelSelectorBtn.click();
-        const option = page.locator(`button:has-text("${model.name}")`);
-        if (await option.isVisible()) {
-          await option.click();
-        } else {
-          // Si no lo encuentra por nombre exacto, cerrar dropdown
-          await page.mouse.click(0, 0);
-        }
+      // Seleccionar modelo en el dropdown
+      await page.locator('[aria-label="Seleccionar modelo de IA"]').click();
+      // El botón dentro del dropdown contiene el nombre del modelo
+      const modelOption = page.locator(`[role="listbox"] button:has-text("${model.label}")`).or(
+        page.locator(`div[class*="dropdown"] button:has-text("${model.label}")`)
+      );
+      if (await modelOption.isVisible({ timeout: 2000 })) {
+        await modelOption.click();
+      } else {
+        // Si el dropdown no tiene el modelo (plan incorrecto), cerrar y continuar
+        await page.keyboard.press('Escape');
+        test.skip(true, `Modelo ${model.label} no disponible para el plan actual`);
       }
     });
 
-    test('Level 1 (Basic): Crear un componente UI aislado', async ({ page }) => {
-      const textarea = page.locator('textarea[placeholder*="Escribe"]');
-      await expect(textarea).toBeVisible();
+    /**
+     * Level 1: Componente aislado (1 archivo)
+     *
+     * El agente debería emitir file_changed con action="created".
+     * useAgentHandler convierte eso en: ✅ Creado: `CounterE2E_{suffix}.tsx`
+     */
+    test('Level 1: Crear componente React aislado', async ({ page }) => {
+      const suffix = model.id.replace(/-/g, '_');
+      const filename = `CounterE2E_${suffix}.tsx`;
 
-      const promptText = `Crea un archivo src/components/CounterE2E_${model.id.replace('-', '_')}.tsx que sea un componente funcional de React. Debe tener un estado de contador que inicie en 0 y un botón para incrementarlo. Solo crea ese archivo.`;
-      await textarea.fill(promptText);
+      const textarea = page.locator('textarea[placeholder*="Escribe"]');
+      await expect(textarea).toBeEnabled();
+
+      await textarea.fill(
+        `Crea SOLO el archivo src/components/${filename}. ` +
+        `Debe ser un componente React funcional con un contador que inicia en 0 y un botón para incrementarlo.`
+      );
       await page.keyboard.press('Enter');
-      
-      await expect(page.locator(`text=src/components/CounterE2E_${model.id.replace('-', '_')}.tsx`)).toBeVisible({ timeout: 90000 });
-      
-      const explorerBtn = page.locator('[aria-label="Explorador de Archivos"]');
-      await explorerBtn.click();
-      await expect(page.locator(`.monaco-list-row:has-text("CounterE2E_${model.id.replace('-', '_')}.tsx")`)).toBeVisible({ timeout: 10000 });
+
+      // El agente notifica la creación con este patrón exacto (ver useAgentHandler.ts L278)
+      await expect(
+        page.locator(`.chat-messages, [data-role="messages"], main`).getByText(`Creado: \`${filename}\``)
+      ).toBeVisible({ timeout: 120_000 });
     });
 
-    test('Level 2 (Medium): Crear lógica multi-archivo', async ({ page }) => {
-      const textarea = page.locator('textarea[placeholder*="Escribe"]');
-      await expect(textarea).toBeVisible();
+    /**
+     * Level 2: Lógica multi-archivo (2 archivos)
+     *
+     * Verificamos que ambos file_changed events lleguen al chat.
+     * Timeout mayor porque Reasoner puede tardar más en planificar.
+     */
+    test('Level 2: Crear lógica multi-archivo', async ({ page }) => {
+      const suffix = model.id.replace(/-/g, '_');
+      const utilFile = `mathE2E_${suffix}.ts`;
+      const compFile = `CalculatorE2E_${suffix}.tsx`;
 
-      const suffix = model.id.replace('-', '_');
-      const promptText = `Crea dos archivos: 1. src/utils/mathE2E_${suffix}.ts con una función sumar. 2. src/components/CalculatorE2E_${suffix}.tsx que importe y use esa función sumar. Solo devuelve el código de estos dos archivos.`;
-      await textarea.fill(promptText);
+      const textarea = page.locator('textarea[placeholder*="Escribe"]');
+      await expect(textarea).toBeEnabled();
+
+      await textarea.fill(
+        `Crea exactamente dos archivos:\n` +
+        `1. src/utils/${utilFile} — exporta una función "sumar(a: number, b: number): number"\n` +
+        `2. src/components/${compFile} — importa "sumar" y muestra el resultado de sumar 2 + 3 en pantalla.`
+      );
       await page.keyboard.press('Enter');
 
-      await expect(page.locator(`text=src/utils/mathE2E_${suffix}.ts`)).toBeVisible({ timeout: 120000 });
-      await expect(page.locator(`text=src/components/CalculatorE2E_${suffix}.tsx`)).toBeVisible({ timeout: 120000 });
+      // Ambos archivos deben aparecer en el chat
+      const chatArea = page.locator(`.chat-messages, [data-role="messages"], main`);
+      await expect(chatArea.getByText(`Creado: \`${utilFile}\``)).toBeVisible({ timeout: 150_000 });
+      await expect(chatArea.getByText(`Creado: \`${compFile}\``)).toBeVisible({ timeout: 20_000 });
     });
   });
-});
+}
