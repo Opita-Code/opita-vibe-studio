@@ -68,8 +68,8 @@ describe("classifyIntent", () => {
       expect(classifyIntent("crear pruebas e2e para el flujo de checkout", true)).toBe("code");
     });
 
-    it("should default to code when project is open and no other signals match", () => {
-      expect(classifyIntent("necesito que el sidebar se colapse correctamente", true)).toBe("code");
+    it("should default to chat when project is open and no signals match", () => {
+      expect(classifyIntent("necesito que el sidebar se colapse correctamente", true)).toBe("chat");
     });
   });
 

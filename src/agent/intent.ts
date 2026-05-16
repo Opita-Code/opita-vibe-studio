@@ -124,8 +124,8 @@ export function classifyIntent(
   // 5. Code signals (create, modify, fix)
   if (CODE_SIGNALS.some((s) => lower.includes(s))) return "code";
 
-  // 6. Default with project open: code (user opened IDE to build)
-  return "code";
+  // 6. Default with project open: chat (require explicit code signals)
+  return "chat";
 }
 
 // ─── Exports for testing ────────────────────────────────────────

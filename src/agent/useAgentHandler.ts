@@ -204,6 +204,9 @@ export function useAgentHandler() {
       } finally {
         useChatStore.getState().setStreaming(false);
         useChatStore.getState().setAbortController(null);
+        useChatStore.getState().setPipelinePhase(null);
+        useChatStore.getState().setExecutingMCP(false);
+        useAgentStore.getState().endExecution();
         abortRef.current = null;
       }
     },
@@ -213,6 +216,9 @@ export function useAgentHandler() {
   const abort = useCallback(() => {
     abortRef.current?.abort();
     useChatStore.getState().setStreaming(false);
+    useChatStore.getState().setPipelinePhase(null);
+    useChatStore.getState().setExecutingMCP(false);
+    useAgentStore.getState().endExecution();
   }, []);
 
   return { send, abort };
