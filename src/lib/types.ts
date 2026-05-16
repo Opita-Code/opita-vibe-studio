@@ -164,6 +164,7 @@ export interface MissionCompletionCriteria {
 export interface Mission {
   id: string;
   type: "aprender" | "construir" | "explorar";
+  period?: "daily" | "weekly";
   title: string;
   description: string;
   xpReward: number;

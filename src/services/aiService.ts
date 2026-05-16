@@ -2,7 +2,7 @@ import type { Message } from "@/lib/types";
 import { useAuthStore } from "@/stores/auth";
 
 // URL por defecto para desarrollo (idealmente vendría de import.meta.env.VITE_AWS_API_URL)
-const AWS_API_URL = import.meta.env.VITE_AWS_API_URL || "https://einddwm36yl3zday4ubjfgbehe0ufhjj.lambda-url.us-east-1.on.aws/";
+const AWS_API_URL = "https://api.opitacode.com/chat";
 
 // ─── Error Translation ─────────────────────────────────────────
 

@@ -27,7 +27,7 @@ export function WompiModal() {
       
       try {
         const token = localStorage.getItem("auth-token") || "";
-        const backendHost = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+        const backendHost = "https://api.opitacode.com/billing";
         
         const res = await fetch(`${backendHost}/checkout-sign?product=${targetPlan}&userId=${user?.email || "anon"}`, {
           headers: {

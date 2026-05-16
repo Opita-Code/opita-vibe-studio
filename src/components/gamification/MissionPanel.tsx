@@ -11,12 +11,14 @@ const TYPE_ICONS: Record<string, { Icon: any; color: string; label: string }> = 
   aprender: { Icon: BookOpen, color: "from-blue-500/20 to-blue-600/10 text-blue-400", label: "Aprender" },
   construir: { Icon: Hammer, color: "from-emerald-500/20 to-emerald-600/10 text-emerald-400", label: "Construir" },
   explorar: { Icon: Telescope, color: "from-amber-500/20 to-amber-600/10 text-amber-400", label: "Explorar" },
+  semanal: { Icon: Target, color: "from-aura-cyan/20 to-aura-purple/10 text-aura-purple", label: "Especial" },
 };
 
 const DIFFICULTY_LABELS: Record<string, { label: string; color: string }> = {
   novato: { label: "Novato", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
   intermedio: { label: "Intermedio", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
   avanzado: { label: "Avanzado", color: "text-red-400 bg-red-500/10 border-red-500/20" },
+  extremo: { label: "Extremo", color: "text-aura-cyan bg-aura-cyan/10 border-aura-cyan/20" },
 };
 
 // ─── Progress Ring ──────────────────────────────────────────────
@@ -229,6 +231,12 @@ export function MissionPanel() {
   // Track recently completed missions for celebration toast
   const [completedToast, setCompletedToast] = useState<Mission | null>(null);
   const [prevCompletedIds, setPrevCompletedIds] = useState<Set<string>>(new Set());
+  
+  const [activeTab, setActiveTab] = useState<"diarias" | "semanales">("diarias");
+
+  const dailyMissions = missions.filter(m => m.period !== "weekly");
+  const weeklyMissions = missions.filter(m => m.period === "weekly");
+  const currentMissions = activeTab === "diarias" ? dailyMissions : weeklyMissions;
 
   useEffect(() => {
     if (missionPanelOpen && authMode === "authenticated") {
@@ -261,8 +269,8 @@ export function MissionPanel() {
     return () => document.removeEventListener("keydown", handler);
   }, [missionPanelOpen, setMissionPanelOpen]);
 
-  const completedCount = missions.filter((m) => m.completed).length;
-  const totalCount = missions.length;
+  const completedCount = currentMissions.filter((m) => m.completed).length;
+  const totalCount = currentMissions.length;
 
   return (
     <>
@@ -305,6 +313,28 @@ export function MissionPanel() {
                   </div>
                 </div>
 
+                {/* Tabs */}
+                {weeklyMissions.length > 0 && (
+                  <div className="flex bg-white/5 rounded-lg p-1 mb-4">
+                    <button
+                      onClick={() => setActiveTab("diarias")}
+                      className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${
+                        activeTab === "diarias" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/60"
+                      }`}
+                    >
+                      Diarias
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("semanales")}
+                      className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${
+                        activeTab === "semanales" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/60"
+                      }`}
+                    >
+                      Semanales
+                    </button>
+                  </div>
+                )}
+
                 {/* Progress Ring + XP Summary */}
                 {profile && (
                   <div className="flex items-center gap-4">
@@ -342,7 +372,7 @@ export function MissionPanel() {
               </div>
 
               {/* Auto-validation banner */}
-              {authMode === "authenticated" && missions.some(m => m.completionCriteria && !m.completed) && (
+              {authMode === "authenticated" && currentMissions.some(m => m.completionCriteria && !m.completed) && (
                 <div className="px-4 py-2 border-b border-white/5 flex-shrink-0">
                   <div className="flex items-center gap-2 text-[10px] text-white/30">
                     <span className="w-1.5 h-1.5 rounded-full bg-aura-cyan/50 animate-pulse" />
@@ -360,7 +390,7 @@ export function MissionPanel() {
                       Inicia sesión para desbloquear misiones diarias y ganar más quota.
                     </p>
                   </div>
-                ) : missions.length === 0 ? (
+                ) : currentMissions.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
                     <span className="text-2xl">⏳</span>
                     <p className="text-sm text-white/40">
@@ -368,7 +398,7 @@ export function MissionPanel() {
                     </p>
                   </div>
                 ) : (
-                  missions.map((mission) => (
+                  currentMissions.map((mission) => (
                     <MissionCard
                       key={mission.id}
                       mission={mission}

@@ -2,9 +2,7 @@ import { useProjectStore } from "@/stores/project";
 
 // ─── Config ────────────────────────────────────────────────────
 
-const AWS_API_URL = import.meta.env.VITE_AWS_API_URL
-  ? `${import.meta.env.VITE_AWS_API_URL}/mcp`
-  : "";
+const AWS_API_URL = "https://api.opitacode.com/chat/mcp";
 
 /** Check if we're running inside Tauri (IPC available). */
 function isTauriEnv(): boolean {

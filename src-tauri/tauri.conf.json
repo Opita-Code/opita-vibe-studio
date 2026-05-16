@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-eval'; connect-src 'self' https://einddwm36yl3zday4ubjfgbehe0ufhjj.lambda-url.us-east-1.on.aws https://api.deepseek.com https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://openrouter.ai https://*.supabase.co; img-src 'self' asset:"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-eval'; connect-src 'self' https://*.lambda-url.us-east-1.on.aws https://api.opitacode.com https://api.deepseek.com https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://openrouter.ai https://*.supabase.co https://cognito-idp.us-east-1.amazonaws.com; img-src 'self' asset: https:"
     },
     "trayIcon": {
       "id": "main",

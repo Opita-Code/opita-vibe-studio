@@ -84,7 +84,7 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
         const token = localStorage.getItem("auth-token") || "";
         // El Storage API endpoint (dummy URL local por ahora o usar backend URL de AuthStore si existiera, pero podemos apuntar a /api/storage/presign si tenemos un proxy, u obtener el host del backend de la store)
         // Por ahora lo haremos de forma simple:
-        const backendHost = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"; // Fallback para local
+        const backendHost = "https://api.opitacode.com/billing"; // Fallback para local
         
         const res = await fetch(`${backendHost}/storage/presign`, {
           method: "POST",
@@ -341,8 +341,8 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
 
       <div className="mt-3 flex items-center justify-between px-2">
         <div className="flex items-center gap-4">
-          <span className="text-[10px] font-medium tracking-widest uppercase text-aura-purple/50 bg-aura-purple/5 px-2 py-0.5 rounded-full border border-aura-purple/10">
-            {isUploading ? "Subiendo..." : `Engine ${CHAR_LIMIT / 1000}k`}
+          <span className={`text-[10px] font-medium tracking-widest uppercase px-2 py-0.5 rounded-full border ${plan === 'pro' ? 'text-vibe-cyan/80 bg-vibe-cyan/5 border-vibe-cyan/20' : plan === 'estudiante' ? 'text-aura-purple/80 bg-aura-purple/5 border-aura-purple/20' : 'text-slate-400 bg-slate-800 border-white/10'}`}>
+            {isUploading ? "Subiendo..." : plan === "pro" ? "Opita Pro" : plan === "estudiante" ? "Estudiante" : "Plan Gratis"}
           </span>
           <div className="relative" ref={dropdownRef}>
             <button

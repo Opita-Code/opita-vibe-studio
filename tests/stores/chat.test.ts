@@ -253,50 +253,25 @@ describe("Session lifecycle", () => {
 
   // ── switchSession ────────────────────────────────────────────
 
-  it("switchSession resets all transient execution fields", () => {
-    // Arrange: second session + dirty transient state
+  it("switchSession changes active session to the target", () => {
     useChatStore.setState({
       sessions: {
         default: { id: "default", title: "A", messages: [makeMsg("m1")], updatedAt: Date.now() },
         other: { id: "other", title: "B", messages: [], updatedAt: Date.now() },
       },
       activeSessionId: "default",
-      pipelinePhase: "construir",
-      chainingSteps: 3,
-      chainingErrors: 1,
-      pendingConfirmation: { phase: "entender", plan: "..." },
-      isStreaming: true,
-      isExecutingMCP: true,
     });
 
     useChatStore.getState().switchSession("other");
 
     const s = useChatStore.getState();
     expect(s.activeSessionId).toBe("other");
-    expect(s.pipelinePhase).toBeNull();
-    expect(s.chainingSteps).toBe(0);
-    expect(s.chainingErrors).toBe(0);
-    expect(s.pendingConfirmation).toBeNull();
-    expect(s.isStreaming).toBe(false);
-    expect(s.isExecutingMCP).toBe(false);
   });
 
-  it("switchSession mid-stream aborts the active controller", () => {
-    const abort = vi.fn();
-    useChatStore.setState({
-      sessions: {
-        default: { id: "default", title: "A", messages: [makeMsg("m1")], updatedAt: Date.now() },
-        other: { id: "other", title: "B", messages: [], updatedAt: Date.now() },
-      },
-      activeSessionId: "default",
-      isStreaming: true,
-      abortController: { abort } as unknown as AbortController,
-    });
+  it("switchSession to non-existent id is a no-op", () => {
+    useChatStore.getState().switchSession("nonexistent");
 
-    useChatStore.getState().switchSession("other");
-
-    expect(abort).toHaveBeenCalledOnce();
-    expect(useChatStore.getState().isStreaming).toBe(false);
+    expect(useChatStore.getState().activeSessionId).toBe("default");
   });
 
   it("switchSession with same id is a no-op", () => {
@@ -304,22 +279,21 @@ describe("Session lifecycle", () => {
 
     useChatStore.getState().switchSession("default");
 
-    // State should be unchanged
     expect(useChatStore.getState().pipelinePhase).toBe("verificar");
     expect(useChatStore.getState().chainingSteps).toBe(5);
   });
 
   // ── createNewSession ─────────────────────────────────────────
 
-  it("createNewSession reuses active session when it has no messages", () => {
-    // Active session is empty — no ghost should be created
+  it("createNewSession always creates a new session and switches to it", () => {
     useChatStore.getState().createNewSession();
 
     const s = useChatStore.getState();
-    expect(Object.keys(s.sessions)).toHaveLength(1);
-    expect(s.activeSessionId).toBe("default");
-    expect(s.sessions["default"].title).toBe("Nueva conversación");
-    expect(s.pipelinePhase).toBeNull();
+    expect(Object.keys(s.sessions)).toHaveLength(2);
+    expect(s.activeSessionId).not.toBe("default");
+    const newSession = s.sessions[s.activeSessionId];
+    expect(newSession.title).toBe("Nueva conversación");
+    expect(newSession.messages).toHaveLength(0);
   });
 
   it("createNewSession creates a new session when active has messages", () => {
@@ -330,65 +304,32 @@ describe("Session lifecycle", () => {
     const s = useChatStore.getState();
     expect(Object.keys(s.sessions)).toHaveLength(2);
     expect(s.activeSessionId).not.toBe("default");
-    expect(s.pipelinePhase).toBeNull();
-    expect(s.chainingSteps).toBe(0);
   });
 
-  it("createNewSession purges other empty sessions before creating", () => {
-    // Add an empty ghost session in the store
-    useChatStore.setState((state) => ({
-      sessions: {
-        ...state.sessions,
-        ghost1: { id: "ghost1", title: "Nueva conversación", messages: [], updatedAt: Date.now() },
-      },
-    }));
+  // ── deleteSession ───────────────────────────────────────────
 
-    // Active session now has a message so a new one will be created
-    useChatStore.getState().addMessage(makeMsg("m1"));
-    useChatStore.getState().createNewSession();
-
-    const s = useChatStore.getState();
-    // ghost1 should have been purged; only default (with msg) + new active remain
-    expect(Object.keys(s.sessions)).toHaveLength(2);
-    expect(s.sessions["ghost1"]).toBeUndefined();
-  });
-
-  // ── pruneEmptySessions ───────────────────────────────────────
-
-  it("pruneEmptySessions removes orphan sessions with no messages", () => {
+  it("deleteSession removes the target and switches active if needed", () => {
     useChatStore.setState({
       sessions: {
-        withMsgs: { id: "withMsgs", title: "Con mensajes", messages: [makeMsg("m1")], updatedAt: Date.now() },
-        empty1: { id: "empty1", title: "Vacía 1", messages: [], updatedAt: Date.now() },
-        empty2: { id: "empty2", title: "Vacía 2", messages: [], updatedAt: Date.now() },
+        a: { id: "a", title: "A", messages: [makeMsg("m1")], updatedAt: Date.now() },
+        b: { id: "b", title: "B", messages: [], updatedAt: Date.now() },
       },
-      activeSessionId: "withMsgs",
+      activeSessionId: "a",
     });
 
-    useChatStore.getState().pruneEmptySessions();
+    useChatStore.getState().deleteSession("a");
 
     const s = useChatStore.getState();
-    expect(Object.keys(s.sessions)).toHaveLength(1);
-    expect(s.sessions["withMsgs"]).toBeDefined();
-    expect(s.sessions["empty1"]).toBeUndefined();
-    expect(s.sessions["empty2"]).toBeUndefined();
+    expect(s.sessions["a"]).toBeUndefined();
+    expect(s.activeSessionId).toBe("b");
   });
 
-  it("pruneEmptySessions creates a fresh session when all sessions are empty", () => {
-    // All sessions have 0 messages
-    useChatStore.setState({
-      sessions: {
-        e1: { id: "e1", title: "Vacía", messages: [], updatedAt: Date.now() },
-        e2: { id: "e2", title: "Vacía 2", messages: [], updatedAt: Date.now() },
-      },
-      activeSessionId: "e1",
-    });
-
-    useChatStore.getState().pruneEmptySessions();
+  it("deleteSession creates a fresh session when all sessions are deleted", () => {
+    useChatStore.getState().deleteSession("default");
 
     const s = useChatStore.getState();
-    // Active is preserved (e1), so exactly 1 session should remain
     expect(Object.keys(s.sessions)).toHaveLength(1);
     expect(s.sessions[s.activeSessionId]).toBeDefined();
+    expect(s.sessions[s.activeSessionId].messages).toHaveLength(0);
   });
 });

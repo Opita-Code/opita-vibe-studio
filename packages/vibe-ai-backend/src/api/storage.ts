@@ -6,13 +6,28 @@ import * as jwt from "jose";
 
 const s3Client = new S3Client({});
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
+function getCorsHeaders(event: any) {
+  const origin = event.headers?.origin || event.headers?.Origin || "";
+  let allowedOrigin = "https://vibe.opitacode.com";
+
+  if (
+    origin === "https://opitacode.com" ||
+    origin.endsWith(".opitacode.com") ||
+    origin.startsWith("http://localhost:") ||
+    origin.startsWith("http://127.0.0.1:")
+  ) {
+    allowedOrigin = origin;
+  }
+
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+}
 
 export const handler = async (event: any) => {
+  const corsHeaders = getCorsHeaders(event);
   if (event.requestContext?.http?.method === "OPTIONS") {
     return { statusCode: 200, headers: corsHeaders, body: "" };
   }
@@ -102,7 +117,7 @@ export const handler = async (event: any) => {
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ error: "Error interno del servidor", details: err.message }),
+      body: JSON.stringify({ error: "Error interno del servidor" }),
     };
   }
 };
