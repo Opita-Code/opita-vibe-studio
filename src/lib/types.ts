@@ -150,6 +150,17 @@ export interface GamificationProfile {
   effectiveDailyQuota: number;
 }
 
+export interface MissionCompletionCriteria {
+  /** Which event type triggers progress */
+  eventType: import("./vibe-events").VibeEventType;
+  /** How many events needed to complete */
+  count: number;
+  /** Optional: must complete within this time window (ms) */
+  within?: number;
+  /** Optional: filter by event properties */
+  filter?: Record<string, string>;
+}
+
 export interface Mission {
   id: string;
   type: "aprender" | "construir" | "explorar";
@@ -160,6 +171,10 @@ export interface Mission {
   difficulty: "novato" | "intermedio" | "avanzado";
   completed: boolean;
   completedAt?: string;
+  /** Auto-validation criteria — if present, mission completes automatically */
+  completionCriteria?: MissionCompletionCriteria;
+  /** Real-time progress (0-100) — updated by MissionTracker */
+  progress?: number;
 }
 
 export interface MilestoneProgress {

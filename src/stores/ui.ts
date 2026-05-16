@@ -162,7 +162,14 @@ export const useUIStore = create<UIStore>()(
   toggleActionBar: () => set((state) => ({ actionBarVisible: !state.actionBarVisible })),
 
   // PR 2: Layout actions
-  setActiveView: (view) => set({ activeView: view }),
+  setActiveView: (view) => set((state) => {
+    if (view === "preview" || view === "split") {
+      import("@/lib/vibe-events").then(({ vibeEvents }) => {
+        vibeEvents.emit({ type: "preview_opened" });
+      });
+    }
+    return { activeView: view };
+  }),
 
   setExplorerVisible: (visible) => set({ explorerVisible: visible }),
 

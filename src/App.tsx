@@ -23,8 +23,9 @@ import { ExplorerDock } from "@/components/layout/ExplorerDock";
 import { ChatHistoryPanel } from "@/components/chat/ChatHistoryPanel";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { MissionPanel } from "@/components/gamification/MissionPanel";
-import { MilestoneToast } from "@/components/gamification/MilestoneToast";
+import { LevelUpCeremony } from "@/components/gamification/LevelUpCeremony";
 import { useGamificationStore } from "@/stores/gamification";
+import { XPParticleSystem } from "@/components/gamification/XPParticleSystem";
 
 function GlobalKeybindings() {
   useKeybindings();
@@ -115,6 +116,8 @@ export default function App() {
 
   const pendingMilestone = useGamificationStore((s) => s.pendingMilestone);
   const dismissMilestone = useGamificationStore((s) => s.dismissMilestone);
+  const initTracker = useGamificationStore((s) => s.initTracker);
+  const destroyTracker = useGamificationStore((s) => s.destroyTracker);
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
@@ -127,6 +130,14 @@ export default function App() {
   useEffect(() => {
     detectSession();
   }, [detectSession]);
+
+  // Initialize mission tracker for auto-validated missions
+  useEffect(() => {
+    if (authMode === "authenticated") {
+      initTracker();
+      return () => destroyTracker();
+    }
+  }, [authMode, initTracker, destroyTracker]);
 
   useEffect(() => {
     // Only check URL intents AFTER session detection has completed
@@ -217,8 +228,9 @@ export default function App() {
         <BugReportModal />
         <WompiModal />
         <MissionPanel />
+        <XPParticleSystem />
         {pendingMilestone && (
-          <MilestoneToast
+          <LevelUpCeremony
             level={pendingMilestone.level}
             badge={pendingMilestone.badge}
             label={pendingMilestone.label}

@@ -3,6 +3,7 @@ import { useUIStore } from "@/stores/ui";
 import { useProjectStore } from "@/stores/project";
 import { getFileSystemBackend } from "@/lib/fs-backend";
 import { PROJECT_TEMPLATES, type ProjectTemplate } from "@/lib/templates";
+import { vibeEventBus } from "@/lib/vibe-events";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
 import {
   Rocket,
@@ -114,6 +115,9 @@ export function WelcomeScreen() {
   const handleSelectTemplate = useCallback(
     (template: ProjectTemplate) => {
       scaffoldTemplate(template);
+      import("@/lib/vibe-events").then(({ vibeEvents }) => {
+        vibeEvents.emit({ type: "template_used", templateId: template.id });
+      });
       useUIStore.getState().setActiveSidebar("explorer");
       useUIStore.getState().setActiveView("split");
       useUIStore.getState().setVibeLensEnabled(true);

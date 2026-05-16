@@ -4,6 +4,7 @@ import type {
   Mission,
   MilestoneProgress,
 } from "@/lib/types";
+import { startMissionTracker, stopMissionTracker, resetMissionProgress } from "@/lib/mission-tracker";
 import {
   calculateLevel,
   levelProgress,
@@ -30,6 +31,8 @@ interface GamificationState {
   pendingMilestone: { level: number; badge: string; label: string; quotaBoost: number } | null;
   /** Prevent double-click on mission complete */
   completingMissionId: string | null;
+  /** Event payload to trigger the particle physics overlay */
+  xpBurstEvent: { id: string; amount: number } | null;
 }
 
 interface GamificationActions {
@@ -41,6 +44,16 @@ interface GamificationActions {
   awardPassiveXP: (action: string) => void;
   /** Dismiss milestone toast */
   dismissMilestone: () => void;
+  /** Update real-time progress for a mission (called by MissionTracker) */
+  updateMissionProgress: (missionId: string, progress: number) => void;
+  /** Initialize event tracking for auto-validated missions */
+  initTracker: () => void;
+  /** Cleanup event tracking */
+  destroyTracker: () => void;
+  /** Trigger a particle burst animation for the XP bar */
+  triggerXPBurst: (amount: number) => void;
+  /** Clear the particle burst event */
+  clearXPBurst: (id: string) => void;
 }
 
 export type GamificationStore = GamificationState & GamificationActions;
@@ -87,9 +100,23 @@ export const useGamificationStore = create<GamificationStore>((set, get) => ({
   xpRemaining: 0,
   pendingMilestone: null,
   completingMissionId: null,
+  xpBurstEvent: null,
 
   setMissionPanelOpen: (open) => set({ missionPanelOpen: open }),
   dismissMilestone: () => set({ pendingMilestone: null }),
+  triggerXPBurst: (amount) => set({ xpBurstEvent: { id: Date.now().toString(), amount } }),
+  clearXPBurst: (id) => set((state) => (state.xpBurstEvent?.id === id ? { xpBurstEvent: null } : state)),
+
+  updateMissionProgress: (missionId, progress) => {
+    set((state) => ({
+      missions: state.missions.map((m) =>
+        m.id === missionId ? { ...m, progress } : m,
+      ),
+    }));
+  },
+
+  initTracker: () => startMissionTracker(),
+  destroyTracker: () => stopMissionTracker(),
 
   fetchProfile: async () => {
     set({ isLoading: true });
@@ -147,6 +174,7 @@ export const useGamificationStore = create<GamificationStore>((set, get) => ({
       });
       if (!res.ok) return;
       const data = await res.json();
+      resetMissionProgress();
       set({ missions: data.missions ?? [] });
     } catch {
       // Non-critical
@@ -174,6 +202,11 @@ export const useGamificationStore = create<GamificationStore>((set, get) => ({
             : m,
         ),
       }));
+
+      // Trigger XP Particles
+      if (data.xpAwarded) {
+        get().triggerXPBurst(data.xpAwarded);
+      }
 
       // Show milestone toast if leveled up to a milestone
       if (data.newMilestone) {

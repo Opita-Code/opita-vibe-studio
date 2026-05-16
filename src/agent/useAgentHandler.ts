@@ -20,6 +20,7 @@ import type { Attachment } from "@/lib/types";
 import type { AgentEvent, AgentStep, RoadmapGoal, FileSummary } from "@/agent/types";
 import { useGamificationStore } from "@/stores/gamification";
 import { useAgentStore } from "@/stores/agent";
+import { vibeEvents } from "@/lib/vibe-events";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -190,6 +191,19 @@ export function useAgentHandler() {
           authStore.fetchTokenUsage();
           // Award passive XP for chat interaction (debounced 30s)
           useGamificationStore.getState().awardPassiveXP("chat_message");
+          // Emit event for mission tracking
+          vibeEvents.emit({
+            type: "chat_sent",
+            model: chatStore.activeModelId || "unknown",
+            tokensUsed: 0, // actual count not available here
+          });
+          // Track agent usage mode
+          if (preIntent !== "chat") {
+            vibeEvents.emit({
+              type: "agent_used",
+              mode: config.executionMode === "auto" ? "autonomous" : "interactive",
+            });
+          }
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
@@ -269,6 +283,7 @@ function processEvent(
     case "file_changed": {
       agentStore.addFileChange({ path: event.path, action: event.action });
       const fileName = event.path.split(/[/\\]/).pop() ?? event.path;
+      const ext = fileName.includes(".") ? fileName.split(".").pop() || "" : "";
       const actionEmoji =
         event.action === "created"
           ? "\u2705"
@@ -278,6 +293,12 @@ function processEvent(
       accumulatedContent += `\n\n${actionEmoji} ${event.action === "created" ? "Creado" : event.action === "modified" ? "Modificado" : "Eliminado"}: \`${fileName}\``;
       setAccumulated(accumulatedContent);
       chatStore.replaceLastMessageContent(accumulatedContent);
+      // Emit event for mission tracking
+      if (event.action === "created") {
+        vibeEvents.emit({ type: "file_created", filename: fileName, language: ext });
+      } else if (event.action === "modified") {
+        vibeEvents.emit({ type: "file_edited", filename: fileName, linesChanged: 0 });
+      }
       break;
     }
 

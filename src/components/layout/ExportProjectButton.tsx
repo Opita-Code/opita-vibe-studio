@@ -56,6 +56,11 @@ export function ExportProjectButton() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      
+      // Emit event for gamification
+      import("@/lib/vibe-events").then(({ vibeEvents }) => {
+        vibeEvents.emit({ type: "project_exported", format: "zip" });
+      });
     } catch (err) {
       console.error("Export failed:", err);
     } finally {

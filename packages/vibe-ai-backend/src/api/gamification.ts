@@ -20,6 +20,10 @@ import { Resource as SSTResource } from "sst";
 
 const Resource = SSTResource as any;
 
+import { generateObject } from "ai";
+import { z } from "zod";
+import { getModel } from "./chat.js";
+
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient);
 
@@ -90,32 +94,38 @@ interface MissionTemplate {
   title: string;
   description: string;
   validationHint: string;
+  completionCriteria: {
+    eventType: string;
+    count: number;
+    within?: number;
+    filter?: Record<string, string>;
+  };
 }
 
 const MISSION_POOL: Record<string, MissionTemplate[]> = {
   novato: [
-    { type: "aprender", title: "¿Qué es un componente?", description: "Pregúntale a la IA qué es un componente en React y cuándo usarlo.", validationHint: "chat_about_components" },
-    { type: "construir", title: "Tu primer componente", description: "Crea un componente de tarjeta con título, imagen y descripción.", validationHint: "create_card_component" },
-    { type: "explorar", title: "Vista previa en vivo", description: "Abre la vista previa y observa cómo tu código se renderiza en tiempo real.", validationHint: "use_preview" },
-    { type: "aprender", title: "Entendiendo useState", description: "Pídele a la IA que te explique useState con un ejemplo interactivo.", validationHint: "chat_about_state" },
-    { type: "construir", title: "Contador interactivo", description: "Crea un contador con botones de incrementar y decrementar.", validationHint: "create_counter" },
-    { type: "explorar", title: "Exporta tu proyecto", description: "Descarga tu proyecto como ZIP y revisa la estructura de archivos.", validationHint: "export_zip" },
+    { type: "aprender", title: "Chatea con la IA", description: "Envía un mensaje al chat para explorar cómo funciona la IA.", validationHint: "chat_about_components", completionCriteria: { eventType: "chat_sent", count: 1 } },
+    { type: "construir", title: "Crea tu primer archivo", description: "Crea un nuevo archivo en tu proyecto para empezar a construir.", validationHint: "create_card_component", completionCriteria: { eventType: "file_created", count: 1 } },
+    { type: "explorar", title: "Vista previa en vivo", description: "Abre la vista previa y observa cómo tu código se renderiza en tiempo real.", validationHint: "use_preview", completionCriteria: { eventType: "preview_opened", count: 1 } },
+    { type: "aprender", title: "Haz 3 preguntas", description: "Pregúntale a la IA sobre cualquier concepto de programación — 3 mensajes.", validationHint: "chat_about_state", completionCriteria: { eventType: "chat_sent", count: 3 } },
+    { type: "construir", title: "Edita un componente", description: "Modifica un archivo existente para mejorar tu proyecto.", validationHint: "create_counter", completionCriteria: { eventType: "file_edited", count: 1 } },
+    { type: "explorar", title: "Exporta tu proyecto", description: "Descarga tu proyecto como ZIP y revisa la estructura de archivos.", validationHint: "export_zip", completionCriteria: { eventType: "project_exported", count: 1 } },
   ],
   intermedio: [
-    { type: "aprender", title: "Efectos secundarios", description: "Pregúntale a la IA cuándo usar useEffect y cuándo NO usarlo.", validationHint: "chat_about_effects" },
-    { type: "construir", title: "Formulario con validación", description: "Crea un formulario de contacto con validación de email y nombre.", validationHint: "create_form" },
-    { type: "explorar", title: "Modo VibeLens", description: "Activa VibeLens y envía contexto del editor a la IA para obtener sugerencias.", validationHint: "use_vibelens" },
-    { type: "aprender", title: "Patrones de estado", description: "Pregúntale a la IA la diferencia entre estado local y global.", validationHint: "chat_about_patterns" },
-    { type: "construir", title: "Lista con filtros", description: "Crea una lista de elementos con un campo de búsqueda que filtre en tiempo real.", validationHint: "create_filtered_list" },
-    { type: "explorar", title: "Conecta tu llave", description: "Configura una llave BYOK de cualquier proveedor de IA.", validationHint: "configure_byok" },
+    { type: "aprender", title: "Sesión de aprendizaje", description: "Envía 5 mensajes al chat para profundizar en un tema.", validationHint: "chat_about_effects", completionCriteria: { eventType: "chat_sent", count: 5 } },
+    { type: "construir", title: "Crea 3 archivos", description: "Construye un proyecto multi-archivo con al menos 3 componentes.", validationHint: "create_form", completionCriteria: { eventType: "file_created", count: 3 } },
+    { type: "explorar", title: "Vista previa × 3", description: "Abre la vista previa 3 veces — itera sobre tu diseño.", validationHint: "use_vibelens", completionCriteria: { eventType: "preview_opened", count: 3 } },
+    { type: "aprender", title: "Diálogo profundo", description: "Mantén una conversación de 8 mensajes sobre un concepto.", validationHint: "chat_about_patterns", completionCriteria: { eventType: "chat_sent", count: 8 } },
+    { type: "construir", title: "Edición intensiva", description: "Edita 5 archivos para refinar tu proyecto.", validationHint: "create_filtered_list", completionCriteria: { eventType: "file_edited", count: 5 } },
+    { type: "explorar", title: "Usa una plantilla", description: "Inicia un proyecto desde una plantilla prediseñada.", validationHint: "configure_byok", completionCriteria: { eventType: "template_used", count: 1 } },
   ],
   avanzado: [
-    { type: "aprender", title: "Arquitectura limpia", description: "Discute con la IA cómo separar lógica de negocio de la UI en React.", validationHint: "chat_about_architecture" },
-    { type: "construir", title: "Dashboard responsivo", description: "Crea un dashboard con gráficas, tarjetas de métricas y sidebar.", validationHint: "create_dashboard" },
-    { type: "explorar", title: "Agente autónomo", description: "Usa el motor de agentes para que la IA cree un componente completo.", validationHint: "use_agent_mode" },
-    { type: "aprender", title: "Optimización de rendimiento", description: "Pregúntale a la IA sobre memo, useMemo y useCallback.", validationHint: "chat_about_performance" },
-    { type: "construir", title: "Animación con Framer", description: "Crea un componente con animaciones de entrada usando Framer Motion.", validationHint: "create_animation" },
-    { type: "explorar", title: "Multi-archivo", description: "Crea un proyecto con al menos 3 componentes separados que se importen entre sí.", validationHint: "multi_file_project" },
+    { type: "aprender", title: "Masterclass con IA", description: "Sesión avanzada — 10 mensajes profundizando en arquitectura.", validationHint: "chat_about_architecture", completionCriteria: { eventType: "chat_sent", count: 10 } },
+    { type: "construir", title: "Proyecto completo", description: "Crea 5+ archivos para un proyecto multi-componente.", validationHint: "create_dashboard", completionCriteria: { eventType: "file_created", count: 5 } },
+    { type: "explorar", title: "Modo agente", description: "Usa el motor de agentes para que la IA cree código autónomamente.", validationHint: "use_agent_mode", completionCriteria: { eventType: "agent_used", count: 1 } },
+    { type: "aprender", title: "Sprint de preguntas", description: "15 mensajes en una sesión — aprendizaje acelerado.", validationHint: "chat_about_performance", completionCriteria: { eventType: "chat_sent", count: 15 } },
+    { type: "construir", title: "Refactoring masivo", description: "Edita 10+ archivos para refactorizar tu proyecto.", validationHint: "create_animation", completionCriteria: { eventType: "file_edited", count: 10 } },
+    { type: "explorar", title: "Exporta y despliega", description: "Exporta tu proyecto terminado — listo para producción.", validationHint: "multi_file_project", completionCriteria: { eventType: "project_exported", count: 1 } },
   ],
 };
 
@@ -327,6 +337,12 @@ interface DailyMission {
   difficulty: string;
   completed: boolean;
   completedAt?: string;
+  completionCriteria?: {
+    eventType: string;
+    count: number;
+    within?: number;
+    filter?: Record<string, string>;
+  };
 }
 
 export async function getMissions(
@@ -351,30 +367,84 @@ export async function getMissions(
   const profile = await getProfile(email, plan);
   const level = profile.level;
   const difficulty = level < 5 ? "novato" : level < 15 ? "intermedio" : "avanzado";
-  const pool = MISSION_POOL[difficulty] || MISSION_POOL.novato;
+  
+  let missions: DailyMission[] = [];
 
-  // Pick 3 random missions, one of each type if possible
-  const types: Array<"aprender" | "construir" | "explorar"> = ["aprender", "construir", "explorar"];
-  const missions: DailyMission[] = [];
+  try {
+    const aiModel = getModel("gemini", undefined, "gemini-2.5-flash"); // Use fast flash model
 
-  for (const type of types) {
-    const candidates = pool.filter((m) => m.type === type);
-    if (candidates.length === 0) continue;
-    const picked = candidates[Math.floor(Math.random() * candidates.length)];
+    const { object } = await generateObject({
+      model: aiModel as any,
+      schema: z.object({
+        missions: z.array(
+          z.object({
+            type: z.enum(["aprender", "construir", "explorar"]),
+            title: z.string().max(50),
+            description: z.string().max(120),
+            completionCriteria: z.object({
+              eventType: z.enum(["chat_sent", "template_used", "project_exported", "preview_opened", "agent_used"]),
+              count: z.number().int().positive(),
+            }),
+          })
+        ).length(3),
+      }),
+      prompt: `Genera 3 misiones diarias (exactamente una de cada tipo: 'aprender', 'construir', 'explorar') para un desarrollador de nivel ${difficulty} (Nivel ${level}) en un IDE web con IA.
+      
+Eventos permitidos para completionCriteria.eventType y sugerencias de uso:
+- chat_sent: Hablar con la IA (ej. "Haz 3 preguntas a la IA")
+- template_used: Iniciar un proyecto usando un template
+- project_exported: Exportar un proyecto ZIP o desplegar
+- preview_opened: Abrir la previsualización del código
+- agent_used: Usar el agente autónomo (ej. pedirle que cree un componente completo)
+
+Reglas:
+1. Ajusta la dificultad y el evento al nivel del usuario. Novato = eventos fáciles (abrir preview, count: 1). Avanzado = eventos difíciles (usar agente autónomo, count: 3).
+2. Responde SIEMPRE en español.
+3. Sé creativo y da títulos épicos y motivadores (máx 50 caracteres).
+4. La descripción debe ser clara sobre qué acción tomar (máx 120 caracteres).`,
+    });
 
     const quotaRewardKey = `mission_${difficulty}` as keyof typeof QUOTA_REWARDS;
     const xpRewardKey = `mission_complete_${difficulty}` as keyof typeof XP_ACTIONS;
 
-    missions.push({
-      id: `${today}-${type}`,
-      type: picked.type,
-      title: picked.title,
-      description: picked.description,
+    missions = object.missions.map((m) => ({
+      id: `${today}-${m.type}`,
+      type: m.type,
+      title: m.title,
+      description: m.description,
       xpReward: XP_ACTIONS[xpRewardKey] ?? 100,
       quotaReward: QUOTA_REWARDS[quotaRewardKey] ?? 5_000,
       difficulty,
       completed: false,
-    });
+      completionCriteria: m.completionCriteria,
+    }));
+  } catch (error) {
+    console.error("Error al generar misiones con IA. Usando fallback estático:", error);
+    
+    // Fallback: Pick from static pool
+    const pool = MISSION_POOL[difficulty] || MISSION_POOL.novato;
+    const types: Array<"aprender" | "construir" | "explorar"> = ["aprender", "construir", "explorar"];
+    
+    for (const type of types) {
+      const candidates = pool.filter((m) => m.type === type);
+      if (candidates.length === 0) continue;
+      const picked = candidates[Math.floor(Math.random() * candidates.length)];
+  
+      const quotaRewardKey = `mission_${difficulty}` as keyof typeof QUOTA_REWARDS;
+      const xpRewardKey = `mission_complete_${difficulty}` as keyof typeof XP_ACTIONS;
+  
+      missions.push({
+        id: `${today}-${type}`,
+        type: picked.type,
+        title: picked.title,
+        description: picked.description,
+        xpReward: XP_ACTIONS[xpRewardKey] ?? 100,
+        quotaReward: QUOTA_REWARDS[quotaRewardKey] ?? 5_000,
+        difficulty,
+        completed: false,
+        completionCriteria: picked.completionCriteria,
+      });
+    }
   }
 
   // Save today's missions

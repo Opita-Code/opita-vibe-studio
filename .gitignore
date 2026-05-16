@@ -35,3 +35,4 @@ fix-encoding.cjs
 .impeccable.md
 cf-function.js
 supabase/
+playwright/.auth/

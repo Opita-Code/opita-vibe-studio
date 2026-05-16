@@ -199,7 +199,7 @@ const GOOGLE_AI_KEY = process.env.AI_STUDIO_GOOGLE || process.env.GEMINI_API_KEY
 const HAS_GOOGLE_AI = GOOGLE_AI_KEY.length > 0;
 const HAS_DEEPSEEK = (process.env.DEEP_SEEK_KEY || "").length > 0;
 
-function getModel(providerId: string, customApiKey?: string, explicitModelId?: string) {
+export function getModel(providerId: string, customApiKey?: string, explicitModelId?: string) {
   switch (providerId) {
     case "openai":
     case "chatgpt-web": {
