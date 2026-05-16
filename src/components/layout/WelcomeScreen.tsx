@@ -3,7 +3,6 @@ import { useUIStore } from "@/stores/ui";
 import { useProjectStore } from "@/stores/project";
 import { getFileSystemBackend } from "@/lib/fs-backend";
 import { PROJECT_TEMPLATES, type ProjectTemplate } from "@/lib/templates";
-import { vibeEventBus } from "@/lib/vibe-events";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
 import {
   Rocket,
