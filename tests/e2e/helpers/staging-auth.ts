@@ -7,8 +7,8 @@ import * as path from 'path';
  * Fallback: process.env.E2E_STAGING_TOKEN
  */
 export function getStagingToken(): string | undefined {
-  // Ruta fija — la misma que escribe global-setup.ts
-  const tokenFile = path.resolve(process.cwd(), 'playwright/.auth/token.json');
+  // __dirname = tests/e2e/helpers → subir 3 niveles llega a la raíz del proyecto
+  const tokenFile = path.resolve(__dirname, '../../..', 'playwright/.auth/token.json');
   try {
     if (fs.existsSync(tokenFile)) {
       const { token } = JSON.parse(fs.readFileSync(tokenFile, 'utf-8'));
