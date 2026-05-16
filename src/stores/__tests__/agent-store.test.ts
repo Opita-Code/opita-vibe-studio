@@ -158,12 +158,12 @@ describe("Agent Store — UI state", () => {
   beforeEach(resetStore);
 
   it("toggles activity bar expansion", () => {
-    // starts collapsed (false) — bar is hidden until agent executes
-    expect(useAgentStore.getState().activityBarExpanded).toBe(false);
-    useAgentStore.getState().setActivityBarExpanded(true);
+    // starts expanded (true) — bar is visible by default
     expect(useAgentStore.getState().activityBarExpanded).toBe(true);
     useAgentStore.getState().setActivityBarExpanded(false);
     expect(useAgentStore.getState().activityBarExpanded).toBe(false);
+    useAgentStore.getState().setActivityBarExpanded(true);
+    expect(useAgentStore.getState().activityBarExpanded).toBe(true);
   });
 
   it("setPhase updates current phase", () => {

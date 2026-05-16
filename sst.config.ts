@@ -1,14 +1,17 @@
 /// <reference path="./.sst/platform/config.d.ts" />
 
+
 export default $config({
   app(input) {
     return {
       name: "opita-vibe-studio",
-      removal: input?.stage === "production" ? "retain" : "remove",
+      removal: input?.stage === "production" || input?.stage === "prod" ? "retain" : "remove",
       home: "aws",
     };
   },
   async run() {
+    const dotenv = await import("dotenv");
+    dotenv.config();
     // 1.2 Crear tabla DynamoDB (Conversations)
     const table = new sst.aws.Dynamo("Conversations", {
       fields: {
@@ -79,7 +82,12 @@ export default $config({
     // 1.4 Crear Bucket para Vibe Storage
     const storageBucket = new sst.aws.Bucket("VibeStorage", {
       cors: {
-        allowOrigins: ["*"],
+        allowOrigins: [
+          "https://vibe.opitacode.com",
+          "https://opitacode.com",
+          "https://cuenta.opitacode.com",
+          "http://localhost:1420",
+        ],
         allowMethods: ["GET", "PUT", "POST", "DELETE", "HEAD"],
         allowHeaders: ["*"],
       }
@@ -120,9 +128,19 @@ export default $config({
       ],
       environment: {
         JWT_SECRET: process.env.JWT_SECRET || "",
-        FRONTEND_URL: process.env.FRONTEND_URL || ($app.stage === "production" ? "https://vibe.opitacode.com" : "http://localhost:3000"),
+        FRONTEND_URL: process.env.FRONTEND_URL || ($app.stage === "production" || $app.stage === "prod" ? "https://vibe.opitacode.com" : "http://localhost:3000"),
         SES_FROM_EMAIL: process.env.SES_FROM_EMAIL || "owner@opitacode.com",
       },
+    });
+
+    const router = new sst.aws.Router("VibeRouter", {
+      domain: $app.stage === "production" || $app.stage === "prod" ? "api.opitacode.com" : "api-dev.opitacode.com",
+      routes: {
+        "/billing/*": billingApi.url,
+        "/chat/*": api.url,
+        "/core/*": coreApi.url,
+        "/storage/*": storageApi.url,
+      }
     });
 
     return {
@@ -130,6 +148,7 @@ export default $config({
       StorageApiUrl: storageApi.url,
       BillingApiUrl: billingApi.url,
       CoreApiUrl: coreApi.url,
+      RouterUrl: router.url,
       TableName: table.name,
       BucketName: storageBucket.name,
     };
