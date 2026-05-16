@@ -3,6 +3,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { Resource as SSTResource } from "sst";
 import { z } from "zod";
+import * as jose from "jose";
 import { randomUUID, createHmac, scryptSync, randomBytes, timingSafeEqual } from "crypto";
 import { getProfile, getMissions, completeMission, awardXP } from "./gamification.js";
 
@@ -90,18 +91,29 @@ const docClient = DynamoDBDocumentClient.from(ddbClient);
 /**
  * Extract authenticated email from the request.
  * Checks in order:
- * 1. Authorization: Bearer <token> header (Cognito JWT — decoded without verification,
- *    safe because plan enforcement happens in chat.ts with JWKS)
- * 2. opita_id_token cookie (Cognito — set by Identity Hub)
+ * 1. Authorization: Bearer <token> header (Cognito JWT — JWKS verified)
+ * 2. opita_id_token cookie (Cognito — JWKS verified)
  * 3. opita_session cookie (Legacy Magic Link — HMAC verified)
  */
 async function extractAuthEmail(event: any): Promise<string | null> {
+  const COGNITO_ISSUER = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_LItAcj2Aa";
+  const JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
+
+  async function verifyCognitoToken(token: string): Promise<string | null> {
+    try {
+      const decoded = await jose.jwtVerify(token, JWKS, { issuer: COGNITO_ISSUER });
+      return (decoded.payload.email || decoded.payload.sub) as string | null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // 1. Bearer token from Authorization header (Cognito JWT)
   const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (bearerToken) {
-    const claims = decodeJWTPayload(bearerToken);
-    if (claims?.email) return claims.email as string;
+    const email = await verifyCognitoToken(bearerToken);
+    if (email) return email;
   }
 
   const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
@@ -109,8 +121,8 @@ async function extractAuthEmail(event: any): Promise<string | null> {
   // 2. Cognito ID token cookie
   const cognitoMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
   if (cognitoMatch) {
-    const claims = decodeJWTPayload(cognitoMatch[1]);
-    if (claims?.email) return claims.email as string;
+    const email = await verifyCognitoToken(cognitoMatch[1]);
+    if (email) return email;
   }
 
   // 3. Legacy opita_session cookie (Magic Link HMAC)

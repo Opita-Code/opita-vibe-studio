@@ -153,8 +153,6 @@ export async function handler(event: any) {
         console.error("Referencia no reconocible, ignorando userId:", tx.reference);
       }
 
-      console.log(`Procesando pago para producto ${productId}, usuario ${userId}`);
-
       try {
         // A) Registrar transacción
         await docClient.send(new PutCommand({
@@ -185,7 +183,6 @@ export async function handler(event: any) {
               ":updated_at": new Date().toISOString()
             }
           }));
-          console.log(`Usuario ${userId} actualizado a plan ${newPlan}`);
         }
       } catch (dbError) {
         console.error("Error actualizando base de datos:", dbError);
