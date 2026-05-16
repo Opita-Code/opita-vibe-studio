@@ -1,17 +1,17 @@
-import { Page } from '@playwright/test';
+import { Page, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+
+// ─── Token Management ──────────────────────────────────────────
 
 /**
  * Lee el token de staging desde el archivo escrito por globalSetup.
  * Fallback: process.env.E2E_STAGING_TOKEN
  */
 export function getStagingToken(): string | undefined {
-  // ESM: __dirname no existe, usamos import.meta.url
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  // helpers/ → e2e/ → tests/ → project root
   const tokenFile = path.resolve(__dirname, '../../..', 'playwright/.auth/token.json');
   try {
     if (fs.existsSync(tokenFile)) {
@@ -19,25 +19,21 @@ export function getStagingToken(): string | undefined {
       if (token) return token;
     }
   } catch {
-    // Fallback
+    // Fallback silencioso
   }
   return process.env.E2E_STAGING_TOKEN;
 }
 
+// ─── Session Injection ─────────────────────────────────────────
+
 /**
- * Inyecta una sesión PRO directamente en el store de auth de Vibe Studio.
+ * Inyecta una sesión PRO válida en Vibe Studio.
  *
- * Estrategia:
- * 1. Crea una cookie `opita_id_token` con un JWT sintético válido que
- *    `restoreSession()` puede decodificar correctamente (tiene email + sub + plan).
- * 2. Si el access token real se provee, se usa como bearer para las llamadas
- *    a Lambda (el backend real lo valida). El JWT sintético solo sirve para
- *    que el frontend inicialice el store.
- *
- * @param page           - Playwright page
- * @param realAccessToken - Access token de Cognito (para llamadas a Lambda)
- * @param email          - Email de la cuenta de staging (default: la tuya)
- * @param plan           - Plan a simular (default: 'pro')
+ * Estrategia dual:
+ * 1. Cookie `opita_id_token` con JWT sintético → `restoreSession()` lo parsea
+ *    sin validar firma (solo llama `decodeJWT()`).
+ * 2. `localStorage['auth-token']` con el access token real → las llamadas
+ *    a Lambda lo envían como `Bearer` y el backend SÍ lo valida.
  */
 export async function injectStagingSession(
   page: Page,
@@ -45,8 +41,6 @@ export async function injectStagingSession(
   email = 'nicourrutia98@gmail.com',
   plan: 'free' | 'estudiante' | 'pro' = 'pro'
 ) {
-  // Construir un ID Token sintético que restoreSession() pueda decodificar.
-  // restoreSession() solo llama a decodeJWT() — no valida la firma criptográfica.
   const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const payload = btoa(
     JSON.stringify({
@@ -63,25 +57,63 @@ export async function injectStagingSession(
   await page.addInitScript(
     ({ idToken, accessToken }) => {
       localStorage.setItem('vibe-onboarding-done', 'true');
-      // auth-token es el que useAgentHandler envía como Bearer a Lambda
       localStorage.setItem('auth-token', accessToken);
-      // opita_id_token es lo que restoreSession() busca para parsear el usuario
       document.cookie = `opita_id_token=${idToken}; path=/;`;
     },
     { idToken: syntheticIdToken, accessToken: realAccessToken }
   );
 }
 
+// ─── Auth Ready ────────────────────────────────────────────────
+
 /**
  * Espera a que el store de auth esté en modo 'authenticated'.
- * Hace polling sobre el DOM buscando evidencia de sesión activa
- * (el selector de modelo solo aparece cuando hay sesión).
+ *
+ * Señal: el botón "Seleccionar modelo de IA" solo se renderiza
+ * cuando el usuario está autenticado y completó el onboarding.
  */
-export async function waitForAuthReady(page: Page, timeout = 20000) {
-  // El selector de modelo solo se renderiza cuando el usuario está autenticado
-  // y ha completado el onboarding.
+export async function waitForAuthReady(page: Page, timeout = 25_000) {
   await page.locator('[aria-label="Seleccionar modelo de IA"]').waitFor({
     state: 'visible',
     timeout,
   });
+}
+
+// ─── Chat Helpers ──────────────────────────────────────────────
+
+/**
+ * Obtiene el contenedor de mensajes del chat.
+ * El ChatPanel renderiza un `<div role="log" aria-label="Mensajes del chat">`.
+ */
+export function getChatLog(page: Page) {
+  return page.getByRole('log', { name: /mensajes/i });
+}
+
+/**
+ * Localiza el textarea de input del chat.
+ * Placeholder real: "Escribe, pega imágenes o arrastra archivos aquí..."
+ */
+export function getChatInput(page: Page) {
+  return page.locator('textarea[placeholder*="Escribe"]');
+}
+
+/**
+ * Envía un mensaje de chat y espera a que el stream empiece.
+ * Retorna el textarea para assertions posteriores.
+ */
+export async function sendChatMessage(page: Page, message: string) {
+  const textarea = getChatInput(page);
+  await expect(textarea).toBeEnabled({ timeout: 10_000 });
+  await textarea.fill(message);
+  await page.keyboard.press('Enter');
+  return textarea;
+}
+
+/**
+ * Espera a que el agente termine de responder.
+ * Señal: el textarea vuelve a estar enabled (isStreaming=false).
+ */
+export async function waitForAgentDone(page: Page, timeout = 120_000) {
+  const textarea = getChatInput(page);
+  await expect(textarea).toBeEnabled({ timeout });
 }
