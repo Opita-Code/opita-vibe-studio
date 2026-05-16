@@ -8,13 +8,36 @@
 import { vibeEvents, type VibeEvent } from "@/lib/vibe-events";
 import { useGamificationStore } from "@/stores/gamification";
 
-// ─── Session Progress ───────────────────────────────────────────
-
 /** Per-mission event counters for the current session */
-const missionProgress = new Map<string, number>();
+let missionProgress = new Map<string, number>();
 
 /** Timestamps of first event per mission (for `within` criteria) */
-const missionFirstEvent = new Map<string, number>();
+let missionFirstEvent = new Map<string, number>();
+
+const STORAGE_KEY = "vibe_mission_tracker";
+
+// Load from localStorage on init
+try {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    const data = JSON.parse(saved);
+    missionProgress = new Map(Object.entries(data.progress || {}));
+    missionFirstEvent = new Map(Object.entries(data.firstEvent || {}));
+  }
+} catch (e) {
+  console.warn("Failed to load mission progress from localStorage", e);
+}
+
+function saveProgress() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      progress: Object.fromEntries(missionProgress),
+      firstEvent: Object.fromEntries(missionFirstEvent)
+    }));
+  } catch (e) {
+    console.warn("Failed to save mission progress to localStorage", e);
+  }
+}
 
 // ─── Core Logic ─────────────────────────────────────────────────
 
@@ -73,6 +96,8 @@ function handleEvent(event: VibeEvent): void {
       missionProgress.delete(mission.id);
       missionFirstEvent.delete(mission.id);
     }
+    
+    saveProgress();
   }
 }
 
@@ -89,14 +114,9 @@ export function startMissionTracker(): void {
   unsubscribe = vibeEvents.on("*", handleEvent);
 }
 
-/**
- * Stop tracking. Call on logout or cleanup.
- */
 export function stopMissionTracker(): void {
   unsubscribe?.();
   unsubscribe = null;
-  missionProgress.clear();
-  missionFirstEvent.clear();
 }
 
 /**
@@ -105,6 +125,7 @@ export function stopMissionTracker(): void {
 export function resetMissionProgress(): void {
   missionProgress.clear();
   missionFirstEvent.clear();
+  saveProgress();
 }
 
 /**

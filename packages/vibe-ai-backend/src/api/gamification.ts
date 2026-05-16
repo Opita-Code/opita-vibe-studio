@@ -139,6 +139,7 @@ export interface XPProfile {
   earnedQuota: number;
   /** Computed: effective daily quota after decay */
   effectiveDailyQuota: number;
+  achievements?: Array<{ level: number; badge: string; label: string; unlockedAt: string }>;
 }
 
 export async function getProfile(email: string, plan: string): Promise<XPProfile> {
@@ -196,6 +197,28 @@ export async function getProfile(email: string, plan: string): Promise<XPProfile
   const cap = QUOTA_CAPS[plan] ?? QUOTA_CAPS.free;
   const baseFloor = QUOTA_DECAY_FLOOR[plan] ?? 150_000;
 
+  // Fetch achievements (milestones)
+  let achievements = [];
+  try {
+    const { QueryCommand } = await import("@aws-sdk/lib-dynamodb");
+    const milestonesResult = await docClient.send(new QueryCommand({
+      TableName: Resource.TokenUsage.name,
+      KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+      ExpressionAttributeValues: {
+        ":pk": pk,
+        ":skPrefix": "milestone#",
+      },
+    }));
+    achievements = (milestonesResult.Items || []).map(m => ({
+      level: parseInt(m.sk.replace("milestone#", ""), 10),
+      badge: m.badge,
+      label: m.label,
+      unlockedAt: m.unlockedAt,
+    })).sort((a, b) => a.level - b.level);
+  } catch (e) {
+    console.error("Error fetching achievements:", e);
+  }
+
   return {
     totalXp,
     level: calculateLevel(totalXp),
@@ -204,6 +227,7 @@ export async function getProfile(email: string, plan: string): Promise<XPProfile
     earnedQuota,
     // Effective = base plan quota + earned (capped at plan ceiling)
     effectiveDailyQuota: Math.min(baseFloor + earnedQuota, cap),
+    achievements,
   };
 }
 
@@ -327,9 +351,10 @@ export async function awardXP(
 
 // ─── Missions ───────────────────────────────────────────────────
 
-interface DailyMission {
+interface Mission {
   id: string;
-  type: "aprender" | "construir" | "explorar";
+  type: "aprender" | "construir" | "explorar" | "semanal";
+  period?: "daily" | "weekly";
   title: string;
   description: string;
   xpReward: number;
@@ -348,120 +373,163 @@ interface DailyMission {
 export async function getMissions(
   email: string,
   plan: string,
-): Promise<DailyMission[]> {
+): Promise<Mission[]> {
   const today = new Date().toISOString().split("T")[0];
   const pk = `user#${email}`;
-  const sk = `mission#${today}`;
+  const skDaily = `mission#${today}`;
+  
+  // Calculate ISO week string (e.g. "2026-W20")
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  const currentWeek = `${date.getUTCFullYear()}-W${weekNo.toString().padStart(2, "0")}`;
+  const skWeekly = `mission#weekly#${currentWeek}`;
 
-  // Check if today's missions exist
-  const result = await docClient.send(new GetCommand({
+  const resultDaily = await docClient.send(new GetCommand({
     TableName: Resource.TokenUsage.name,
-    Key: { pk, sk },
+    Key: { pk, sk: skDaily },
   }));
 
-  if (result.Item?.missions) {
-    return result.Item.missions as DailyMission[];
-  }
+  const resultWeekly = await docClient.send(new GetCommand({
+    TableName: Resource.TokenUsage.name,
+    Key: { pk, sk: skWeekly },
+  }));
 
-  // Generate new missions for today
+  let dailyMissions: Mission[] = resultDaily.Item?.missions || [];
+  let weeklyMissions: Mission[] = resultWeekly.Item?.missions || [];
+
   const profile = await getProfile(email, plan);
   const level = profile.level;
   const difficulty = level < 5 ? "novato" : level < 15 ? "intermedio" : "avanzado";
   
-  let missions: DailyMission[] = [];
+  const aiModel = getModel("gemini", undefined, "gemini-2.5-flash");
 
-  try {
-    const aiModel = getModel("gemini", undefined, "gemini-2.5-flash"); // Use fast flash model
+  // 1. Generate Daily Missions if missing
+  if (dailyMissions.length === 0) {
+    try {
+      const { object } = await generateObject({
+        model: aiModel as any,
+        schema: z.object({
+          missions: z.array(
+            z.object({
+              type: z.enum(["aprender", "construir", "explorar"]),
+              title: z.string().max(50),
+              description: z.string().max(120),
+              completionCriteria: z.object({
+                eventType: z.enum(["chat_sent", "template_used", "project_exported", "preview_opened", "agent_used"]),
+                count: z.number().int().positive(),
+              }),
+            })
+          ).length(3),
+        }),
+        prompt: `Genera 3 misiones diarias (una de cada tipo: 'aprender', 'construir', 'explorar') para un desarrollador nivel ${difficulty} (Nivel ${level}) en un IDE web. Responde en español con títulos épicos.`,
+      });
 
-    const { object } = await generateObject({
-      model: aiModel as any,
-      schema: z.object({
-        missions: z.array(
-          z.object({
-            type: z.enum(["aprender", "construir", "explorar"]),
-            title: z.string().max(50),
-            description: z.string().max(120),
-            completionCriteria: z.object({
-              eventType: z.enum(["chat_sent", "template_used", "project_exported", "preview_opened", "agent_used"]),
-              count: z.number().int().positive(),
-            }),
-          })
-        ).length(3),
-      }),
-      prompt: `Genera 3 misiones diarias (exactamente una de cada tipo: 'aprender', 'construir', 'explorar') para un desarrollador de nivel ${difficulty} (Nivel ${level}) en un IDE web con IA.
-      
-Eventos permitidos para completionCriteria.eventType y sugerencias de uso:
-- chat_sent: Hablar con la IA (ej. "Haz 3 preguntas a la IA")
-- template_used: Iniciar un proyecto usando un template
-- project_exported: Exportar un proyecto ZIP o desplegar
-- preview_opened: Abrir la previsualización del código
-- agent_used: Usar el agente autónomo (ej. pedirle que cree un componente completo)
-
-Reglas:
-1. Ajusta la dificultad y el evento al nivel del usuario. Novato = eventos fáciles (abrir preview, count: 1). Avanzado = eventos difíciles (usar agente autónomo, count: 3).
-2. Responde SIEMPRE en español.
-3. Sé creativo y da títulos épicos y motivadores (máx 50 caracteres).
-4. La descripción debe ser clara sobre qué acción tomar (máx 120 caracteres).`,
-    });
-
-    const quotaRewardKey = `mission_${difficulty}` as keyof typeof QUOTA_REWARDS;
-    const xpRewardKey = `mission_complete_${difficulty}` as keyof typeof XP_ACTIONS;
-
-    missions = object.missions.map((m) => ({
-      id: `${today}-${m.type}`,
-      type: m.type,
-      title: m.title,
-      description: m.description,
-      xpReward: XP_ACTIONS[xpRewardKey] ?? 100,
-      quotaReward: QUOTA_REWARDS[quotaRewardKey] ?? 5_000,
-      difficulty,
-      completed: false,
-      completionCriteria: m.completionCriteria,
-    }));
-  } catch (error) {
-    console.error("Error al generar misiones con IA. Usando fallback estático:", error);
-    
-    // Fallback: Pick from static pool
-    const pool = MISSION_POOL[difficulty] || MISSION_POOL.novato;
-    const types: Array<"aprender" | "construir" | "explorar"> = ["aprender", "construir", "explorar"];
-    
-    for (const type of types) {
-      const candidates = pool.filter((m) => m.type === type);
-      if (candidates.length === 0) continue;
-      const picked = candidates[Math.floor(Math.random() * candidates.length)];
-  
       const quotaRewardKey = `mission_${difficulty}` as keyof typeof QUOTA_REWARDS;
       const xpRewardKey = `mission_complete_${difficulty}` as keyof typeof XP_ACTIONS;
-  
-      missions.push({
-        id: `${today}-${type}`,
-        type: picked.type,
-        title: picked.title,
-        description: picked.description,
+
+      dailyMissions = object.missions.map((m) => ({
+        id: `${today}-${m.type}`,
+        type: m.type,
+        period: "daily",
+        title: m.title,
+        description: m.description,
         xpReward: XP_ACTIONS[xpRewardKey] ?? 100,
         quotaReward: QUOTA_REWARDS[quotaRewardKey] ?? 5_000,
         difficulty,
         completed: false,
-        completionCriteria: picked.completionCriteria,
-      });
+        completionCriteria: m.completionCriteria,
+      }));
+    } catch (error) {
+      console.error("Error generating daily missions:", error);
+      const pool = MISSION_POOL[difficulty] || MISSION_POOL.novato;
+      const types: Array<"aprender" | "construir" | "explorar"> = ["aprender", "construir", "explorar"];
+      for (const type of types) {
+        const candidates = pool.filter((m) => m.type === type);
+        if (candidates.length === 0) continue;
+        const picked = candidates[Math.floor(Math.random() * candidates.length)];
+        dailyMissions.push({
+          id: `${today}-${type}`,
+          type: picked.type,
+          period: "daily",
+          title: picked.title,
+          description: picked.description,
+          xpReward: 100,
+          quotaReward: 5000,
+          difficulty,
+          completed: false,
+          completionCriteria: picked.completionCriteria,
+        });
+      }
     }
+
+    const ttlDaily = Math.floor(Date.now() / 1000) + 3 * 86400; // 3-day TTL
+    await docClient.send(new PutCommand({
+      TableName: Resource.TokenUsage.name,
+      Item: { pk, sk: skDaily, missions: dailyMissions, generatedAt: new Date().toISOString(), difficulty, expiresAt: ttlDaily },
+    }));
   }
 
-  // Save today's missions
-  const ttl = Math.floor(Date.now() / 1000) + 3 * 86400; // 3-day TTL
-  await docClient.send(new PutCommand({
-    TableName: Resource.TokenUsage.name,
-    Item: {
-      pk,
-      sk,
-      missions,
-      generatedAt: new Date().toISOString(),
-      difficulty,
-      expiresAt: ttl,
-    },
-  }));
+  // 2. Generate Weekly Mission if missing
+  if (weeklyMissions.length === 0) {
+    try {
+      const { object } = await generateObject({
+        model: aiModel as any,
+        schema: z.object({
+          mission: z.object({
+            title: z.string().max(50),
+            description: z.string().max(120),
+            completionCriteria: z.object({
+              eventType: z.enum(["chat_sent", "project_create", "agent_used"]),
+              count: z.number().int().positive(),
+            }),
+          }),
+        }),
+        prompt: `Genera 1 misión semanal muy difícil para un desarrollador nivel ${difficulty} en un IDE.
+        El evento debe requerir mucha actividad, por ejemplo:
+        - chat_sent: count entre 20 y 50
+        - agent_used: count entre 10 y 20
+        - project_create: count entre 3 y 5
+        Responde en español con un título majestuoso y épico.`,
+      });
 
-  return missions;
+      weeklyMissions = [{
+        id: `${currentWeek}-semanal`,
+        type: "semanal",
+        period: "weekly",
+        title: object.mission.title,
+        description: object.mission.description,
+        xpReward: 500, // 5x regular
+        quotaReward: 50_000, // 10x regular
+        difficulty: "extremo",
+        completed: false,
+        completionCriteria: object.mission.completionCriteria,
+      }];
+    } catch (error) {
+      console.error("Error generating weekly mission:", error);
+      weeklyMissions = [{
+        id: `${currentWeek}-semanal`,
+        type: "semanal",
+        period: "weekly",
+        title: "Maratón de Código",
+        description: "Usa el Agente IA intensamente a lo largo de la semana para completar tu cuota de desarrollo.",
+        xpReward: 500,
+        quotaReward: 50000,
+        difficulty: "extremo",
+        completed: false,
+        completionCriteria: { eventType: "agent_used", count: 15 },
+      }];
+    }
+
+    const ttlWeekly = Math.floor(Date.now() / 1000) + 14 * 86400; // 14-day TTL
+    await docClient.send(new PutCommand({
+      TableName: Resource.TokenUsage.name,
+      Item: { pk, sk: skWeekly, missions: weeklyMissions, generatedAt: new Date().toISOString(), difficulty: "extremo", expiresAt: ttlWeekly },
+    }));
+  }
+
+  return [...dailyMissions, ...weeklyMissions];
 }
 
 export async function completeMission(
