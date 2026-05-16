@@ -56,17 +56,20 @@ export function PrivacyPanel() {
         }).catch(() => {});
       }
       
-      // Limpiar datos locales y cerrar sesión
+      // Limpiar datos locales y cerrar sesión (SSO logout limpia cookies + store)
       localStorage.clear();
-      if (authState.logout) {
-        authState.logout();
-      } else {
-        window.location.reload();
-      }
+      const { logout: ssoLogout } = await import("@/auth/sso");
+      await ssoLogout();
     } catch (e) {
       console.error("Error al eliminar datos", e);
       localStorage.clear();
-      window.location.reload();
+      // Fallback: limpiar cookies manualmente si el import falla
+      try {
+        const { logout: ssoLogout } = await import("@/auth/sso");
+        await ssoLogout();
+      } catch {
+        window.location.reload();
+      }
     }
   }, [confirmDataDeletion]);
 

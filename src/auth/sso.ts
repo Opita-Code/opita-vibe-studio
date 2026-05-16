@@ -138,6 +138,12 @@ export async function logout(): Promise<void> {
   removeSSOCookie('opita_access_token');
   removeSSOCookie('opita_refresh_token');
 
+  // Limpiar datos de sesión de localStorage (NO datos de trabajo como BYOK, sync, onboarding)
+  const sessionKeys = ['auth-token', 'vibe-guest-email'];
+  sessionKeys.forEach((key) => {
+    try { localStorage.removeItem(key); } catch { /* SSR / restricted */ }
+  });
+
   useAuthStore.getState().logout();
 }
 

@@ -16,7 +16,7 @@ export function ActivityBar() {
     chatFullscreen,
     toggleChatFullscreen,
   } = useUIStore();
-  const { authMode, user, logout } = useAuthStore();
+  const { authMode, user } = useAuthStore();
   const { missionPanelOpen, setMissionPanelOpen, missions, fetchProfile, profile } = useGamificationStore();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -281,9 +281,10 @@ export function ActivityBar() {
                     </a>
                     
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         setShowProfileMenu(false);
-                        logout();
+                        const { logout: ssoLogout } = await import("@/auth/sso");
+                        await ssoLogout();
                       }}
                       className="flex items-center gap-2 text-sm text-red-400/80 hover:text-red-400 hover:bg-red-500/10 px-2 py-2 rounded-lg transition-colors text-left"
                     >
