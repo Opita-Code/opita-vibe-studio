@@ -221,7 +221,7 @@ export default function IsolatedPreview() {
     }
 
     const hasPreviewableFiles = count > 0;
-    let template = hasPreviewableFiles ? detectTemplate(includedPaths) : "react-ts";
+    let template = hasPreviewableFiles ? detectTemplate(includedPaths) : "static";
 
     // INJECT FALLBACK HTML:
     // To prevent "Cannot set properties of null (setting 'innerHTML')" errors
@@ -243,6 +243,36 @@ export default function IsolatedPreview() {
     <div id="app"></div>
   </body>
 </html>`;
+    }
+
+    // INJECT REACT ENTRY POINTS:
+    // Sandpack react/react-ts templates require /src/index.tsx (or .jsx) and /src/App.tsx.
+    // Without them, Sandpack's internal bundler fetches /src/main.jsx → 404.
+    // We inject minimal entry points that mount whatever App component exists.
+    if (template === "react-ts" || template === "react") {
+      const ext = template === "react-ts" ? "tsx" : "jsx";
+
+      if (!sandpackFiles[`/src/index.${ext}`] && !sandpackFiles["/src/index.js"] && !sandpackFiles["/src/index.tsx"]) {
+        sandpackFiles[`/src/index.${ext}`] = `import React from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+
+const root = createRoot(document.getElementById("root")!);
+root.render(<App />);
+`;
+      }
+
+      if (!sandpackFiles["/src/App.tsx"] && !sandpackFiles["/src/App.jsx"] && !sandpackFiles["/App.tsx"]) {
+        sandpackFiles[`/src/App.${ext}`] = `import React from "react";
+
+export default function App() {
+  return <div style={{ padding: "2rem", fontFamily: "system-ui" }}>
+    <h1>Vista previa</h1>
+    <p>Escribe código React para verlo aquí.</p>
+  </div>;
+}
+`;
+      }
     }
 
     return {
