@@ -1,42 +1,48 @@
-# 🚀 Vibe Studio v0.1.0 — Foundation Release
+# 🔒 Vibe Studio v0.2.0 — Security & Polish Release
 
-Bienvenido a la versión **v0.1.0** de Vibe Studio. 
+Actualización de seguridad y estabilidad que reemplaza la v0.1.0.
 
-Como hito fundamental en nuestra arquitectura de producto, este release marca la transición oficial hacia un IDE nativo de escritorio impulsado por IA. Vibe Studio no es solo un editor; es un orquestador de desarrollo autónomo (Agentic IDE) diseñado para el ecosistema de Opita Code.
+> ⚠️ **Esta versión invalida la v0.1.0.** Si estás en una versión anterior, actualiza inmediatamente.
 
-## 🏗 Pilares Arquitectónicos en esta Versión
+## 🛡️ Seguridad
 
-- **Motor de Orquestación SDD (Spec-Driven Development):** Flujos de trabajo nativos para planear, diseñar y ejecutar código de manera estructurada antes de modificar el repositorio.
-- **Enrutador Multi-Modelo Híbrido:** Soporte integrado para los principales LLMs (Claude 3.5 Sonnet, GPT-4o, Gemini 1.5 Pro, DeepSeek), permitiendo delegación de tareas según la complejidad cognitiva.
-- **Ejecución Autónoma Segura:** Sandboxing local mediante integración profunda con Tauri 2.0 y Node.js, permitiendo lectura/escritura del filesystem local con salvaguardas de usuario.
-- **Identidad Centralizada (Cognito):** Sincronización transparente de la capa de autenticación y cuotas (planes Student/Pro) directamente con la nube de Opita Code.
-- **Rendimiento Nativo:** Frontend en React compilado sobre un core en Rust (Tauri), logrando un footprint de memoria ultra-bajo en comparación con los IDEs basados en Electron.
+- **CORS Hardening:** Eliminación del comodín `*` en todas las cabeceras CORS del backend. Ahora solo se aceptan orígenes explícitos (`vibe.opitacode.com`, `localhost`).
+- **CSP Tauri Endurecido:** Content Security Policy reforzada en el cliente de escritorio para prevenir inyección de scripts externos.
+- **Error Sanitization:** Los errores del backend ya no exponen stack traces ni rutas internas al cliente.
 
-## 📱 Experiencia Móvil (Responsive Architecture)
+## 🏗 Arquitectura & Backend
 
-- **Mobile-First Hub:** Nuevo *dashboard* interactivo para dispositivos móviles, unificando la experiencia de gamificación (Nivel, XP, Misiones y Streaks).
-- **Interacciones Premium:** Navegación inferior (Bottom Nav) impulsada por *Framer Motion* con micro-animaciones fluidas e indicadores deslizantes.
-- **Accesibilidad y Ergonomía:** Inputs optimizados para pantallas táctiles (Touch Targets de 44x44px), tipografía ajustada para prevenir zoom automático en iOS Safari, y soporte completo para *Safe Areas* nativas.
-- **Vibe AI Móvil:** Interfaz de chat rediseñada con soporte completo para carga de archivos, captura visual y conmutación ágil de modelos directamente desde tu celular.
-- **Progressive Web App (PWA):** Soporte de instalación nativa (Añadir a pantalla de inicio) en dispositivos Android, configuración de viewport optimizada contra interferencia del teclado virtual (`interactive-widget=resizes-content`) y eliminación total del bloqueo obsoleto "MobileNotSupportedScreen".
+- **API Router Unificado:** Todas las APIs ahora sirven desde `api.opitacode.com` a través de `sst.aws.Router`, eliminando la dependencia de URLs volátiles de Lambda.
+- **Motor de Gamificación:** Sistema completo de XP, niveles, misiones diarias/semanales generadas por IA, rachas y recompensas de cuota.
+- **Billing Pipeline:** Integración estable con Wompi para checkout y gestión de suscripciones desde `cuenta.opitacode.com`.
 
----
+## 📱 Experiencia Móvil (PWA)
 
-## 📦 Binarios y Despliegue
+- **Progressive Web App:** Instalación nativa ("Añadir a pantalla de inicio") en Android con `manifest.webmanifest`.
+- **Viewport Optimizado:** `interactive-widget=resizes-content` para que el teclado virtual de Android no tape los inputs.
+- **Mobile Layout Completo:** Eliminación del bloqueo "MobileNotSupportedScreen". Ahora el IDE es completamente funcional en móvil.
 
-La capa de despliegue ha sido automatizada para las tres plataformas principales. Haz clic en la sección de **Assets** al final de esta página para descargar el instalador:
+## ✨ UX Premium
 
-### 🪟 Windows (Recomendado)
-- **Ejecutable Base:** `Vibe.Studio_0.1.0_x64-setup.exe` (o `.msi` para despliegues administrados).
-- > ⚠️ *Aviso de Confianza (SmartScreen):* Al ser un certificado de firma reciente, Windows Defender puede mostrar la pantalla de "Windows protegió su PC". Haz clic en **Más información** -> **Ejecutar de todas formas**. Revisa la [documentación de arquitectura de instalación](https://github.com/Opita-Code/opita-vibe-studio/blob/main/docs/install/INSTALACION.md) para más detalles.
+- **Micro-Interacciones:** Animaciones spring con Framer Motion en CommandPalette, SettingsPanel, ModeButtons y AgentStepAccordion.
+- **Rendimiento Editor:** Selectores granulares de Zustand en EditorPanel para evitar re-renders innecesarios de Monaco Editor.
+- **Transparencia del Agente:** UI colapsable para logs de razonamiento de la IA con indicador de progreso.
+
+## 📦 Binarios
+
+Descarga el instalador desde la sección **Assets**:
+
+### 🪟 Windows
+- `Vibe.Studio_0.2.0_x64-setup.exe` / `.msi`
+- > ⚠️ SmartScreen puede mostrar aviso de confianza. Clic en **Más información** → **Ejecutar de todas formas**.
 
 ### 🍎 macOS
-- **Apple Silicon (Arquitectura ARM64):** `Vibe.Studio_0.1.0_aarch64.dmg`
-- **Intel (Arquitectura x64):** `Vibe.Studio_0.1.0_x64.dmg`
+- **Apple Silicon:** `Vibe.Studio_0.2.0_aarch64.dmg`
+- **Intel:** `Vibe.Studio_0.2.0_x64.dmg`
 
 ### 🐧 Linux
-- **Debian / Ubuntu:** `Vibe.Studio_0.1.0_amd64.deb`
-- **RHEL / Fedora:** `Vibe.Studio-0.1.0-1.x86_64.rpm`
+- **Debian/Ubuntu:** `Vibe.Studio_0.2.0_amd64.deb`
+- **RHEL/Fedora:** `Vibe.Studio-0.2.0-1.x86_64.rpm`
 
 ---
-*Diseñado desde los fundamentos para cambiar la forma en la que construimos software. Bienvenido a la era del código asistido.* ✨
+*Seguridad primero. Rendimiento siempre. Bienvenido a v0.2.0.* 🔒✨
