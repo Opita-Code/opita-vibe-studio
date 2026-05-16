@@ -42,8 +42,10 @@ export function getStagingToken(): string | undefined {
 export async function injectStagingSession(page: Page, idToken: string) {
   await page.addInitScript((token) => {
     localStorage.setItem('vibe-onboarding-done', 'true');
-    // opita_id_token: usado por restoreSession() para parsear el usuario Y
-    // enviado como cookie en los fetch con credentials:include a la Lambda
+    // auth-token: leído por aiService.ts → enviado como Authorization: Bearer a chat Lambda
+    // La Lambda verifica contra Cognito JWKS → necesita ID Token real (no sintético)
+    localStorage.setItem('auth-token', token);
+    // opita_id_token: leído por restoreSession() para inicializar el store de auth
     document.cookie = `opita_id_token=${token}; path=/; domain=dev.opitacode.com`;
     document.cookie = `opita_id_token=${token}; path=/;`;
   }, idToken);
