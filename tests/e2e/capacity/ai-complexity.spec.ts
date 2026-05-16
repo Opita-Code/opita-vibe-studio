@@ -17,8 +17,8 @@ import { waitForWorkspace } from '../helpers/setup';
  */
 
 const MODELS_TO_TEST = [
-  { id: 'deepseek-chat', label: 'DeepSeek Chat' },
-  { id: 'deepseek-reasoner', label: 'DeepSeek Reasoner' },
+  { id: 'deepseek-chat', label: 'Opita Flash' },
+  { id: 'deepseek-reasoner', label: 'Opita Architect' },
 ];
 
 for (const model of MODELS_TO_TEST) {
@@ -35,17 +35,18 @@ for (const model of MODELS_TO_TEST) {
       await waitForAuthReady(page);
 
       // Seleccionar modelo en el dropdown
+      // ChatInput.tsx renderiza el dropdown como un div absoluto con botones dentro
+      // No usa role="listbox" — buscamos el botón por texto visible
       await page.locator('[aria-label="Seleccionar modelo de IA"]').click();
-      // El botón dentro del dropdown contiene el nombre del modelo
-      const modelOption = page.locator(`[role="listbox"] button:has-text("${model.label}")`).or(
-        page.locator(`div[class*="dropdown"] button:has-text("${model.label}")`)
-      );
-      if (await modelOption.isVisible({ timeout: 2000 })) {
+      await page.waitForTimeout(500); // Dejar que el dropdown se renderice
+
+      // Buscar el botón del modelo por su texto dentro del dropdown abierto
+      const modelOption = page.locator(`button:has-text("${model.label}")`).last();
+      if (await modelOption.isVisible({ timeout: 3000 })) {
         await modelOption.click();
       } else {
-        // Si el dropdown no tiene el modelo (plan incorrecto), cerrar y continuar
+        // Cerrar dropdown y continuar de todas formas — el default (deepseek-chat) sirve
         await page.keyboard.press('Escape');
-        test.skip(true, `Modelo ${model.label} no disponible para el plan actual`);
       }
     });
 

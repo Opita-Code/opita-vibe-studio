@@ -30,7 +30,7 @@ export default async function globalSetup() {
       ` --auth-flow USER_PASSWORD_AUTH` +
       ` --client-id ${CLIENT_ID}` +
       ` --auth-parameters USERNAME=${E2E_USERNAME},PASSWORD=${E2E_PASSWORD}` +
-      ` --query "AuthenticationResult.AccessToken"` +
+      ` --query "AuthenticationResult.IdToken"` +
       ` --output text`,
       { encoding: 'utf-8' }
     ).trim();
