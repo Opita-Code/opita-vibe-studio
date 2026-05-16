@@ -87,8 +87,10 @@ describe("detectTemplate", () => {
     expect(detectTemplate(["index.html", "styles.css"])).toBe("static");
   });
 
-  it("detecta vanilla cuando hay html CON js", () => {
-    expect(detectTemplate(["index.html", "styles.css", "script.js"])).toBe("vanilla");
+  it("detecta static cuando hay html con js en la raíz (sin carpeta src/)", () => {
+    // Classic multi-file static site: JS loaded via <script> tags, not a bundled entry point.
+    // detectTemplate correctly returns "static" — Sandpack serves files as-is.
+    expect(detectTemplate(["index.html", "styles.css", "script.js"])).toBe("static");
   });
 
   it("detecta vanilla-ts cuando hay .ts sin React", () => {
