@@ -5,7 +5,8 @@ export default $config({
   app(input) {
     return {
       name: "opita-vibe-studio",
-      removal: input?.stage === "production" || input?.stage === "prod" ? "retain" : "remove",
+      // Canonical stages: dev, prod. Do NOT use "production" — it creates a separate stack.
+      removal: input?.stage === "prod" ? "retain" : "remove",
       home: "aws",
     };
   },
@@ -128,13 +129,13 @@ export default $config({
       ],
       environment: {
         JWT_SECRET: process.env.JWT_SECRET || "",
-        FRONTEND_URL: process.env.FRONTEND_URL || ($app.stage === "production" || $app.stage === "prod" ? "https://vibe.opitacode.com" : "http://localhost:3000"),
+        FRONTEND_URL: process.env.FRONTEND_URL || ($app.stage === "prod" ? "https://vibe.opitacode.com" : "http://localhost:3000"),
         SES_FROM_EMAIL: process.env.SES_FROM_EMAIL || "owner@opitacode.com",
       },
     });
 
     const router = new sst.aws.Router("VibeRouter", {
-      domain: $app.stage === "production" || $app.stage === "prod" ? "api.opitacode.com" : "api-dev.opitacode.com",
+      domain: $app.stage === "prod" ? "api.opitacode.com" : "api-dev.opitacode.com",
       routes: {
         "/billing/*": billingApi.url,
         "/chat/*": api.url,

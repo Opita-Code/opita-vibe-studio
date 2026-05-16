@@ -29,7 +29,7 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy via SST (Backend)
-        run: npx sst deploy --stage production
+        run: npx sst deploy --stage prod
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
