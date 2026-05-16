@@ -27,11 +27,9 @@ export function ChatPanel({ width }: ChatPanelProps) {
   const isStreaming = useChatStore((s) => s.isStreaming);
   const pipelinePhase = useChatStore((s) => s.pipelinePhase);
   const createNewSession = useChatStore((s) => s.createNewSession);
-  const useSubagent = useChatStore((s) => s.useSubagent);
-  const setUseSubagent = useChatStore((s) => s.setUseSubagent);
 
   const authMode = useAuthStore((s) => s.authMode);
-  const plan = useAuthStore((s) => s.plan);
+
 
   const chatFullscreen = useUIStore((s) => s.chatFullscreen);
   const toggleChatFullscreen = useUIStore((s) => s.toggleChatFullscreen);
