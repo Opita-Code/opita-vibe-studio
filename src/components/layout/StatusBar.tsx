@@ -1,6 +1,7 @@
 import { useUIStore } from "@/stores/ui";
 import { useProjectStore } from "@/stores/project";
 import { useAuthStore } from "@/stores/auth";
+import { useChatStore } from "@/stores/chat";
 
 /**
  * Barra de estado inferior.
@@ -8,11 +9,11 @@ import { useAuthStore } from "@/stores/auth";
  * Izquierda: estado de conexión (proveedor + modelo), mensaje de estado, rama git.
  * Derecha: autenticación (invitado o email + plan), tokens restantes.
  *
- * Muestra claramente "Sin conexión" cuando no hay proveedor/configuración activa.
+ * Lee el proveedor activo de chatStore (source of truth).
  */
 export function StatusBar() {
-  const connectedProvider = useUIStore((s) => s.connectedProvider);
-  const activeModel = useUIStore((s) => s.activeModel);
+  const connectedProvider = useChatStore((s) => s.activeProvider);
+  const activeModel = useChatStore((s) => s.activeModelId);
   const tokensRemaining = useUIStore((s) => s.tokensRemaining);
   const statusMessage = useUIStore((s) => s.statusMessage);
 
