@@ -339,8 +339,8 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
 
       <div className="mt-3 flex items-center justify-between px-2">
         <div className="flex items-center gap-4">
-          <span className="text-[10px] font-medium tracking-widest uppercase text-aura-purple/50 bg-aura-purple/5 px-2 py-0.5 rounded-full border border-aura-purple/10">
-            {isUploading ? "Subiendo..." : `Engine ${CHAR_LIMIT / 1000}k`}
+          <span className={`text-[10px] font-medium tracking-widest uppercase px-2 py-0.5 rounded-full border ${plan === 'pro' ? 'text-vibe-cyan/80 bg-vibe-cyan/5 border-vibe-cyan/20' : plan === 'estudiante' ? 'text-aura-purple/80 bg-aura-purple/5 border-aura-purple/20' : 'text-slate-400 bg-slate-800 border-white/10'}`}>
+            {isUploading ? "Subiendo..." : plan === "pro" ? "Opita Pro" : plan === "estudiante" ? "Estudiante" : "Plan Gratis"}
           </span>
           <div className="relative" ref={dropdownRef}>
             <button

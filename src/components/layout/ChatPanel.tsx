@@ -185,24 +185,6 @@ export function ChatPanel({ width }: ChatPanelProps) {
         </div>
       ) : (
         <div className="flex flex-col border-t border-white/5 mt-auto bg-black/20">
-          {(plan === "pro" || plan === "estudiante") && (
-            <div className="px-4 py-2 flex justify-between items-center bg-obsidian-800 border-b border-white/5">
-              <span className="text-[10px] font-bold text-vibe-cyan uppercase tracking-wider flex items-center gap-1.5">
-                <span className="text-[12px]">🚀</span> Vibe Pro Engine
-              </span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
-                  checked={useSubagent} 
-                  onChange={(e) => setUseSubagent(e.target.checked)} 
-                  disabled={isStreaming}
-                  aria-label="Activar Vibe Pro Engine"
-                />
-                <div className="w-7 h-4 bg-slate-700/80 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[12px] peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-300 after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-vibe-cyan/90 peer-disabled:opacity-50"></div>
-              </label>
-            </div>
-          )}
           <AuraNudgeBar inputText={inputText} />
           <ChatInput onSend={handleSend} disabled={isStreaming} onTextChange={setInputText} />
         </div>
