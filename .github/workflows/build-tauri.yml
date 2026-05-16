@@ -72,6 +72,6 @@ jobs:
             - **Linux:** `.AppImage` o `.deb`
 
             > ⚠️ **Windows:** Si SmartScreen muestra un aviso, sigue la [guía de instalación](https://github.com/Opita-Code/opita-vibe-studio/blob/main/docs/install/INSTALACION.md) — es completamente normal y seguro.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
