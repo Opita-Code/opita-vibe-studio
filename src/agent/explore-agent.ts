@@ -20,7 +20,7 @@
 import type { AgentEvent, AgentStep, SSEChunk } from "./types";
 import type { Message } from "@/lib/types";
 import { streamSSE, type StreamOptions } from "./stream-client";
-import { AURA_SYSTEM_PROMPT, EXPLORE_ADDON, getToolLabel } from "./prompts";
+import { getSystemPrompt, getToolLabel } from "./prompts";
 import { executeTool } from "@/tools/executor";
 import type { ToolCall } from "@/tools/definitions";
 
@@ -55,10 +55,17 @@ export async function* runExploreAgent(
   messages: Message[],
   config: ExploreAgentConfig
 ): AsyncGenerator<AgentEvent> {
-  // ─── System Prompt ──────────────────────────────────────────
+  // ─── System Prompt (single source: getSystemPrompt) ─────────
 
-  let systemPrompt = `${AURA_SYSTEM_PROMPT}\n${EXPLORE_ADDON}`;
+  let systemPrompt = getSystemPrompt({
+    intent: "explore",
+    hasProject: !!config.projectSummary,
+    testRunner: null,
+    customInstructions: config.customInstructions,
+    projectSummary: config.projectSummary,
+  });
 
+  // Research-specific addon (explore-agent only)
   systemPrompt += `\n\n## Tus capacidades de investigación
 Tienes acceso a herramientas especializadas para investigar a fondo:
 - **Navegar el proyecto**: leer archivos, buscar código, explorar la estructura
@@ -69,14 +76,6 @@ Tienes acceso a herramientas especializadas para investigar a fondo:
 
 Usa estas herramientas para dar respuestas COMPLETAS y BIEN FUNDAMENTADAS.
 No adivines — investiga primero, luego responde con evidencia.`;
-
-  if (config.projectSummary) {
-    systemPrompt += `\n\n## Contexto del proyecto\n${config.projectSummary}`;
-  }
-
-  if (config.customInstructions) {
-    systemPrompt += `\n\n## Instrucciones del usuario\n${config.customInstructions}`;
-  }
 
   // ─── State ──────────────────────────────────────────────────
 

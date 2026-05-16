@@ -27,47 +27,23 @@ export async function mockGuestAuth(page: Page) {
  * 2. After page load, inject auth state via window.__VIBE_TEST_AUTH__
  */
 export async function mockProAuth(page: Page, email = 'owner@opitacode.com') {
-  // Block auth API calls
-  await page.route('**/auth/me', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ user: { email, plan: 'pro' } }),
-    })
-  );
-  
   // Skip onboarding
   await page.addInitScript(() => {
     localStorage.setItem('vibe-onboarding-done', 'true');
   });
   
-  // After React mounts, inject auth state
-  await page.addInitScript((testEmail: string) => {
-    // Poll until Zustand store is ready
-    const injectAuth = () => {
-      try {
-        // Access the auth store's internal setState
-        const stores = (window as any).__zustand_stores__;
-        if (stores?.auth) {
-          stores.auth.setState({
-            authMode: 'authenticated',
-            user: { email: testEmail, plan: 'pro' },
-            plan: 'pro',
-            hasCompletedOnboarding: true,
-            sessionDetected: true,
-          });
-          return;
-        }
-      } catch {}
-      setTimeout(injectAuth, 100);
-    };
-    // Start polling after DOM is ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => setTimeout(injectAuth, 500));
-    } else {
-      setTimeout(injectAuth, 500);
-    }
-  }, email);
+  // Create a dummy JWT that decodeJWT in sso.ts can parse
+  const payloadStr = JSON.stringify({
+    email,
+    plan: 'pro',
+    sub: 'user-1234'
+  });
+  const dummyJwt = `header.${btoa(payloadStr)}.signature`;
+
+  // Inject the cookie before page loads so detectSession picks it up
+  await page.addInitScript((jwt) => {
+    document.cookie = `opita_id_token=${jwt}; path=/;`;
+  }, dummyJwt);
 }
 
 // ─── Chat SSE Mock ─────────────────────────────────────────────

@@ -87,10 +87,34 @@ const docClient = DynamoDBDocumentClient.from(ddbClient);
 
 // ─── Auth Helper ────────────────────────────────────────────────
 
-/** Extract authenticated email from session cookie. Returns null if not authenticated. */
+/**
+ * Extract authenticated email from the request.
+ * Checks in order:
+ * 1. Authorization: Bearer <token> header (Cognito JWT — decoded without verification,
+ *    safe because plan enforcement happens in chat.ts with JWKS)
+ * 2. opita_id_token cookie (Cognito — set by Identity Hub)
+ * 3. opita_session cookie (Legacy Magic Link — HMAC verified)
+ */
 async function extractAuthEmail(event: any): Promise<string | null> {
+  // 1. Bearer token from Authorization header (Cognito JWT)
+  const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (bearerToken) {
+    const claims = decodeJWTPayload(bearerToken);
+    if (claims?.email) return claims.email as string;
+  }
+
+  const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
+
+  // 2. Cognito ID token cookie
+  const cognitoMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
+  if (cognitoMatch) {
+    const claims = decodeJWTPayload(cognitoMatch[1]);
+    if (claims?.email) return claims.email as string;
+  }
+
+  // 3. Legacy opita_session cookie (Magic Link HMAC)
   const cookies = event.cookies || [];
-  const cookieHeader = event.headers?.cookie || "";
   let sessionToken = null;
 
   const match = cookieHeader.match(/opita_session=([^;]+)/);
@@ -673,34 +697,11 @@ export const handler = async (event: any) => {
 
     // ─── Token Usage Endpoint ────────────────────────────────────
     if (path === "/usage" && method === "GET") {
-      const cookies = event.cookies || [];
-      const cookieHeader = event.headers.cookie || "";
-      let sessionToken = null;
-
-      const match = cookieHeader.match(/opita_session=([^;]+)/);
-      if (match) {
-        sessionToken = match[1];
-      } else {
-        for (const c of cookies) {
-          if (c.startsWith("opita_session=")) {
-            sessionToken = c.split("=")[1];
-            break;
-          }
-        }
-      }
-
-      if (!sessionToken) {
+      // Unified auth: Bearer token, Cognito cookie, or legacy session cookie
+      const email = await extractAuthEmail(event);
+      if (!email) {
         return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
       }
-
-      let payload: any;
-      try {
-        payload = verifyJWT(sessionToken, process.env.JWT_SECRET || "");
-      } catch (e) {
-        return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Invalid session" }) };
-      }
-
-      const email = payload.email as string;
 
       // Resolve plan from Cognito (source of truth), fallback to DynamoDB
       const plan = await resolvePlan(event, email);

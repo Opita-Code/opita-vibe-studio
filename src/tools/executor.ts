@@ -21,6 +21,67 @@ import {
 } from "@/lib/fs";
 import { useProjectStore } from "@/stores/project";
 
+// ─── Virtual Workspace Detection ───────────────────────────────
+
+/**
+ * Returns true if the workspace ID is a virtual (in-memory) workspace.
+ * Virtual workspaces use `template://` protocol and store files in Zustand,
+ * NOT on the filesystem.
+ */
+export function isVirtualWorkspace(workspaceId: string | null): boolean {
+  return typeof workspaceId === "string" && workspaceId.startsWith("template://");
+}
+
+/**
+ * Sanitizes a path for use in the project:
+ * 1. Strips template:// prefix if present
+ * 2. Strips leading slashes
+ * 3. Validates against path traversal attacks
+ *
+ * Returns a clean relative path like "src/App.tsx".
+ */
+export function sanitizePath(rawPath: string): string {
+  let cleaned = rawPath;
+
+  // Strip template:// protocol and template ID
+  const templateMatch = cleaned.match(/^template:\/\/[^/]+\/(.+)$/);
+  if (templateMatch) {
+    cleaned = templateMatch[1];
+  }
+
+  // Strip leading slashes
+  cleaned = cleaned.replace(/^[/\\]+/, "");
+
+  // Validate — no traversal, no absolute paths, no nulls
+  const forbidden = [
+    "..",           // Path traversal
+    "~",            // Home directory expansion
+    "\0",           // Null byte injection
+    "%2e%2e",       // URL-encoded ..
+    "%2f",          // URL-encoded /
+    "%5c",          // URL-encoded \
+  ];
+
+  const lower = cleaned.toLowerCase();
+  if (forbidden.some((p) => lower.includes(p))) {
+    throw new Error(
+      "Ruta inválida: no se permiten rutas con caracteres de escape o traversal.",
+    );
+  }
+
+  // Reject absolute paths (Unix or Windows) AFTER stripping
+  if (
+    /^[a-zA-Z]:/.test(cleaned) ||
+    cleaned.startsWith("file:")
+  ) {
+    throw new Error(
+      "Ruta inválida: no se permiten rutas absolutas. Usa rutas relativas al proyecto.",
+    );
+  }
+
+  return cleaned;
+}
+
 // ─── Security ──────────────────────────────────────────────────
 
 /** Valida que una ruta no escapa del proyecto. */
@@ -81,6 +142,39 @@ function resolveProjectPath(relativePath: string): string {
   return resolved;
 }
 
+// ─── Virtual Workspace I/O ─────────────────────────────────────
+
+/**
+ * Reads a file from a virtual (template://) workspace.
+ * Files live in Zustand's fileContents, not on the filesystem.
+ * Returns null if the file doesn't exist in memory.
+ */
+function virtualRead(relativePath: string): string | null {
+  const store = useProjectStore.getState();
+  const wsId = store.activeWorkspaceId;
+  if (!wsId) return null;
+
+  const cleanPath = sanitizePath(relativePath);
+  const fullVirtualPath = `${wsId}/${cleanPath}`;
+
+  return store.fileContents[fullVirtualPath] ?? null;
+}
+
+/**
+ * Writes a file to a virtual (template://) workspace.
+ * Updates Zustand state — no filesystem access needed.
+ */
+function virtualWrite(relativePath: string, content: string): void {
+  const store = useProjectStore.getState();
+  const wsId = store.activeWorkspaceId;
+  if (!wsId) throw new Error("No hay un proyecto abierto.");
+
+  const cleanPath = sanitizePath(relativePath);
+  const fullVirtualPath = `${wsId}/${cleanPath}`;
+
+  store.setFileContent(fullVirtualPath, content);
+}
+
 // ─── Tool Implementations ──────────────────────────────────────
 
 async function toolReadFile(
@@ -90,6 +184,27 @@ async function toolReadFile(
   if (!path) return { name: "read_file", success: false, error: "Se requiere el parámetro 'path'" };
 
   try {
+    const wsId = useProjectStore.getState().activeWorkspaceId;
+
+    // Virtual workspace — read from Zustand memory
+    if (isVirtualWorkspace(wsId)) {
+      const content = virtualRead(path);
+      if (content === null) {
+        return {
+          name: "read_file",
+          success: false,
+          error: `Archivo '${sanitizePath(path)}' no encontrado en el proyecto.`,
+        };
+      }
+      const lines = content.split("\n");
+      return {
+        name: "read_file",
+        success: true,
+        result: `[${sanitizePath(path)} — ${lines.length} líneas]\n${content}`,
+      };
+    }
+
+    // Real filesystem
     const fullPath = resolveProjectPath(path);
     const content = await readFileContent(fullPath);
 
@@ -129,6 +244,24 @@ async function toolWriteFile(
   if (!path) return { name: "write_file", success: false, error: "Se requiere el parámetro 'path'" };
 
   try {
+    const wsId = useProjectStore.getState().activeWorkspaceId;
+
+    // Virtual workspace — write to Zustand memory
+    if (isVirtualWorkspace(wsId)) {
+      const cleanPath = sanitizePath(path);
+      // Snapshot existing content if available
+      const existing = virtualRead(path);
+      if (existing !== null) saveSnapshot(cleanPath, existing, "write");
+
+      virtualWrite(path, content);
+      return {
+        name: "write_file",
+        success: true,
+        result: `Archivo '${cleanPath}' escrito exitosamente (${content.length} caracteres).`,
+      };
+    }
+
+    // Real filesystem
     const fullPath = resolveProjectPath(path);
 
     // Save snapshot before overwriting
@@ -173,11 +306,29 @@ async function toolApplyDiff(
   if (!search) return { name: "apply_diff", success: false, error: "Se requiere 'search'" };
 
   try {
-    const fullPath = resolveProjectPath(path);
-    const content = await readFileContent(fullPath);
+    const wsId = useProjectStore.getState().activeWorkspaceId;
+    const isVirtual = isVirtualWorkspace(wsId);
+
+    // Read content (virtual or filesystem)
+    let content: string;
+    let fullPath = "";
+    if (isVirtual) {
+      const virtualContent = virtualRead(path);
+      if (virtualContent === null) {
+        return {
+          name: "apply_diff",
+          success: false,
+          error: `Archivo '${sanitizePath(path)}' no encontrado. Usa list_files para ver los archivos disponibles.`,
+        };
+      }
+      content = virtualContent;
+    } else {
+      fullPath = resolveProjectPath(path);
+      content = await readFileContent(fullPath);
+    }
 
     // Save snapshot before modifying
-    saveSnapshot(path, content, "diff");
+    saveSnapshot(isVirtual ? sanitizePath(path) : path, content, "diff");
 
     // Contar ocurrencias para evitar reemplazos ambiguos
     const occurrences = content.split(search).length - 1;
@@ -205,7 +356,6 @@ async function toolApplyDiff(
             matchEnd = j;
             break;
           }
-          // Si ya es más largo que el search, no vale la pena seguir
           if (accumulated.length > normalizedSearch.length * 2) break;
         }
         if (matchStart >= 0) break;
@@ -231,17 +381,20 @@ async function toolApplyDiff(
       };
     }
 
-    await saveFileContent(fullPath, newContent);
-
-    // Actualizar editor
-    const store = useProjectStore.getState();
-    store.setFileContent(fullPath, newContent);
-    await store.openFile(fullPath);
+    // Write result (virtual or filesystem)
+    if (isVirtual) {
+      virtualWrite(path, newContent);
+    } else {
+      await saveFileContent(fullPath, newContent);
+      const store = useProjectStore.getState();
+      store.setFileContent(fullPath, newContent);
+      await store.openFile(fullPath);
+    }
 
     return {
       name: "apply_diff",
       success: true,
-      result: `Diff aplicado a '${path}' exitosamente.`,
+      result: `Diff aplicado a '${isVirtual ? sanitizePath(path) : path}' exitosamente.`,
     };
   } catch (err) {
     return {
@@ -263,6 +416,20 @@ async function toolListFiles(
       return { name: "list_files", success: false, error: "No hay proyecto abierto." };
     }
 
+    // Virtual workspace — read from Zustand workspace.files
+    if (isVirtualWorkspace(rootPath)) {
+      const workspace = useProjectStore.getState().workspaces.find((w) => w.id === rootPath);
+      if (!workspace) {
+        return { name: "list_files", success: false, error: "Workspace no encontrado." };
+      }
+      let formatted = formatFileTree(workspace.files, "", 0, 4);
+      if (formatted.length > 3000) {
+        formatted = formatted.slice(0, 3000) + "\n... (truncado)";
+      }
+      return { name: "list_files", success: true, result: formatted };
+    }
+
+    // Real filesystem
     const targetPath = relativePath
       ? resolveProjectPath(relativePath)
       : rootPath;
@@ -314,12 +481,18 @@ async function toolSearchCode(
     const MAX_RESULTS = 20;
     const MAX_FILES = 200; // Scan more files but with early exit on results
 
+    const isVirtual = isVirtualWorkspace(rootPath);
+    const storeContents = useProjectStore.getState().fileContents;
+
     let scanned = 0;
     for (const file of files) {
       if (scanned >= MAX_FILES || matches.length >= MAX_RESULTS) break;
 
       try {
-        const content = await readFileContent(file.path);
+        // Virtual: read from store memory; Real: read from filesystem
+        const content = isVirtual
+          ? (storeContents[file.path] ?? "")
+          : await readFileContent(file.path);
         const lines = content.split("\n");
 
         for (let i = 0; i < lines.length; i++) {
@@ -368,6 +541,29 @@ async function toolDeleteFile(
   if (!path) return { name: "delete_file", success: false, error: "Se requiere 'path'" };
 
   try {
+    const wsId = useProjectStore.getState().activeWorkspaceId;
+
+    // Virtual workspace — delete from Zustand
+    if (isVirtualWorkspace(wsId)) {
+      const cleanPath = sanitizePath(path);
+      const fullVirtualPath = `${wsId}/${cleanPath}`;
+      const existing = virtualRead(path);
+      if (existing !== null) saveSnapshot(cleanPath, existing, "delete");
+
+      const store = useProjectStore.getState();
+      if (store.openTabs.includes(fullVirtualPath)) {
+        store.closeTab(fullVirtualPath);
+      }
+      // Remove from fileContents by setting empty and closing
+      // (Zustand doesn't have a delete method, closeTab cleans up)
+      return {
+        name: "delete_file",
+        success: true,
+        result: `Archivo '${cleanPath}' eliminado.`,
+      };
+    }
+
+    // Real filesystem
     const fullPath = resolveProjectPath(path);
 
     // Save snapshot before deleting (most destructive operation)
@@ -729,6 +925,7 @@ async function toolPreviewComponent(
 
 const TOOL_MAP: Record<string, (args: Record<string, unknown>) => Promise<ToolResult>> = {
   read_file: toolReadFile,
+  read_local_file: toolReadFile,  // Alias — some models call it this way
   write_file: toolWriteFile,
   apply_diff: toolApplyDiff,
   list_files: toolListFiles,

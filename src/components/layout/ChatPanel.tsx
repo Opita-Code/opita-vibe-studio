@@ -6,7 +6,8 @@ import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { PhaseConfirmationBar } from "@/components/chat/ModeButtons";
 import { AuraNudgeBar } from "@/components/chat/AuraNudgeBar";
-import { AgentStepAccordion } from "@/components/chat/AgentStepAccordion";
+import { AgentActivityBar } from "@/components/chat/AgentActivityBar";
+
 import { useAgentHandler } from "@/agent";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
 
@@ -24,7 +25,6 @@ export function ChatPanel({ width }: ChatPanelProps) {
   const [inputText, setInputText] = useState("");
 
   const isStreaming = useChatStore((s) => s.isStreaming);
-  const isExecutingMCP = useChatStore((s) => s.isExecutingMCP);
   const pipelinePhase = useChatStore((s) => s.pipelinePhase);
   const createNewSession = useChatStore((s) => s.createNewSession);
   const useSubagent = useChatStore((s) => s.useSubagent);
@@ -40,17 +40,6 @@ export function ChatPanel({ width }: ChatPanelProps) {
 
   // ─── Agent Hook (replaces the 345-line sendMessage function) ───
   const { send, abort } = useAgentHandler();
-
-  // ─── Steps for accordion (from last assistant message) ─────────
-  const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
-  const steps = (lastAssistantMsg?.subagentSteps || []).map((s) => ({
-    id: s.id,
-    icon: "⚙️",
-    label: s.phrase,
-    detail: s.target || undefined,
-    status: "done" as const,
-    timestamp: s.timestamp,
-  }));
 
   const handleSend = useCallback(
     (text: string, attachments?: Attachment[]) => {
@@ -145,15 +134,8 @@ export function ChatPanel({ width }: ChatPanelProps) {
         </div>
       </div>
 
-      {isExecutingMCP && (
-        <div className="bg-indigo-500/10 border-b border-indigo-500/20 px-4 py-2 flex items-center gap-3">
-          <div className="relative flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-vibe-cyan opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-vibe-indigo"></span>
-          </div>
-          <span className="text-xs text-indigo-200 font-mono">IA interactuando con la terminal local...</span>
-        </div>
-      )}
+      {/* Agent Activity Bar — Real-time transparency panel */}
+      <AgentActivityBar />
 
       {isStreaming && (
         <div className="absolute bottom-24 left-0 right-0 flex justify-center z-20">
@@ -172,7 +154,7 @@ export function ChatPanel({ width }: ChatPanelProps) {
 
       <MessageList messages={messages} isStreaming={isStreaming} hasPipelinePhase={pipelinePhase !== null} onSuggestionClick={handleSend} onNewChat={createNewSession} />
       
-      <AgentStepAccordion steps={steps} isActive={isStreaming} />
+
 
       <PhaseConfirmationBar />
 

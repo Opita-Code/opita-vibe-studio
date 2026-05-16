@@ -64,7 +64,7 @@ export async function* streamAwsSse(
   signal?: AbortSignal,
   customApiKey?: string,
   options?: { action?: string; subagentId?: string; customInstructions?: string; modelId?: string }
-): AsyncGenerator<{ type: "text" | "error" | "done" | "mcp_tool_request"; content: string; tool?: string; args?: Record<string, unknown>; errorType?: "network" | "rate-limit" | "abort" | "server" }> {
+): AsyncGenerator<{ type: "text" | "reasoning" | "error" | "done" | "mcp_tool_request"; content: string; tool?: string; args?: Record<string, unknown>; errorType?: "network" | "rate-limit" | "abort" | "server" }> {
   try {
     const token = useAuthStore.getState().session?.token;
     const headers: Record<string, string> = {
@@ -163,6 +163,10 @@ export async function* streamAwsSse(
               const friendlyMessage = translateBackendError(parsed);
               yield { type: "error", errorType: "server", content: friendlyMessage };
               return;
+            }
+            // Reasoning tokens from the model (thinking/chain-of-thought)
+            else if (parsed.type === "reasoning") {
+              yield { type: "reasoning", content: parsed.content || "" };
             }
             // Si es texto de chat
             else if (parsed.content) {

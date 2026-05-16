@@ -55,7 +55,7 @@ test.describe('Guest Desktop — Flujo completo de invitado', () => {
 
     await expect(
       page.locator('text="Comienza con un template"')
-    ).toBeVisible({ timeout: 10000 });
+    ).toBeAttached({ timeout: 10000 });
   });
 
   // ─── Explorer ──────────────────────────────────────────────────

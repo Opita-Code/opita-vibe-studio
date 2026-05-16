@@ -19,6 +19,7 @@ import { runChatAgent, type ChatAgentConfig } from "./chat-agent";
 import { runExploreAgent, type ExploreAgentConfig } from "./explore-agent";
 import { runBuildAgent, type BuildAgentConfig } from "./build-agent";
 import { getProjectSummary } from "@/tools/executor";
+import { selectModel } from "./model-router";
 
 // ─── Config ────────────────────────────────────────────────────
 
@@ -32,6 +33,10 @@ export interface OrchestratorConfig {
   modelId?: string;
   /** Custom API key (BYOK) */
   customApiKey?: string;
+  /** User plan tier for intelligent model routing */
+  plan: "free" | "estudiante" | "pro";
+  /** Whether user is quota-degraded (Pro forced to cheaper model) */
+  degraded?: boolean;
   /** Execution mode: auto runs everything, interactive pauses for confirmation */
   executionMode: ExecutionMode;
   /** AbortSignal for cancellation */
@@ -76,21 +81,43 @@ export async function* handleMessage(
   // 1. Classify intent
   const intent = classifyIntent(userText, config.hasProjectOpen);
 
-  // 2. Emit intent detection (for UI phase indicator)
+  // 2. Intelligent model selection based on plan tier
+  const action = intent === "code" ? "subagent" : "chat";
+  const routing = selectModel({
+    plan: config.plan,
+    action,
+    subagentId: intent === "code" ? "sdd-apply" : undefined,
+    modelId: config.modelId,
+    customApiKey: config.customApiKey,
+    degraded: config.degraded ?? false,
+    hasGoogleAI: true,  // Backend availability — frontend assumes true
+    hasDeepSeek: true,
+  });
+
+  // If blocked (e.g. free user trying subagent), emit error
+  if (routing.blocked) {
+    yield { type: "error", message: routing.blockReason || "Acción no permitida en tu plan actual." };
+    return;
+  }
+
+  const routedProviderId = routing.providerId;
+  const routedModelId = routing.modelId;
+
+  // 3. Emit intent detection (for UI phase indicator)
   yield { type: "phase", phase: intentToPhase(intent) };
 
-  // 3. Get project context if available
+  // 4. Get project context if available
   const projectSummary = config.hasProjectOpen
     ? getProjectSummary() ?? undefined
     : undefined;
 
-  // 4. Route to appropriate agent
+  // 5. Route to appropriate agent
   switch (intent) {
     case "chat":
       yield* runChatAgent(conversationHistory, {
         intent: "chat",
-        providerId: config.providerId,
-        modelId: config.modelId,
+        providerId: routedProviderId,
+        modelId: routedModelId,
         customApiKey: config.customApiKey,
         signal: config.signal,
         customInstructions: config.customInstructions,
@@ -100,8 +127,8 @@ export async function* handleMessage(
 
     case "explore":
       yield* runExploreAgent(conversationHistory, {
-        providerId: config.providerId,
-        modelId: config.modelId,
+        providerId: routedProviderId,
+        modelId: routedModelId,
         customApiKey: config.customApiKey,
         signal: config.signal,
         customInstructions: config.customInstructions,
@@ -126,8 +153,8 @@ export async function* handleMessage(
       );
 
       yield* runBuildAgent(conversationHistory, {
-        providerId: config.providerId,
-        modelId: config.modelId,
+        providerId: routedProviderId,
+        modelId: routedModelId,
         customApiKey: config.customApiKey,
         signal: config.signal,
         customInstructions: config.customInstructions,

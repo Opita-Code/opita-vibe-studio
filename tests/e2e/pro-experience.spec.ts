@@ -58,7 +58,7 @@ test.describe('Pro Experience — Chat Core', () => {
     await waitForWorkspace(page);
     await ensureChatOpen(page);
 
-    const welcomeHeading = page.locator('text="¿Qué vamos a construir hoy?"');
+    const welcomeHeading = page.locator('h3:has-text("Hola, soy")');
     await expect(welcomeHeading).toBeVisible({ timeout: 15000 });
 
     // Click a starter prompt
@@ -73,106 +73,53 @@ test.describe('Pro Experience — Chat Core', () => {
     }
   });
 
-  test('Quick action "Explicar" inyecta template en textarea', async ({ page }) => {
+  test('ModeButtons cambian modo de operación', async ({ page }) => {
     await page.goto('/app/');
     await waitForWorkspace(page);
     await ensureChatOpen(page);
 
-    const textarea = page.locator('textarea[placeholder*="Escribe"]');
-    await expect(textarea).toBeVisible({ timeout: 15000 });
+    // Botón de Modo actual (por defecto "Construir" o "Auto")
+    const modeBtn = page.locator('button[aria-label*="Modo:"]');
+    await expect(modeBtn).toBeVisible({ timeout: 15000 });
 
-    const explainBtn = page.locator('button[aria-label*="Explicar código"]');
-    await expect(explainBtn).toBeVisible();
-    await explainBtn.click();
+    // Abrir dropdown
+    await modeBtn.click();
+    await page.waitForTimeout(300);
 
-    // Textarea should now have the template text
-    const value = await textarea.inputValue();
-    expect(value).toContain('Explica el siguiente código');
+    // Seleccionar "Planear"
+    const planearOption = page.locator('button').filter({ hasText: 'Planear' }).first();
+    await expect(planearOption).toBeVisible();
+    await planearOption.click();
+    await page.waitForTimeout(300);
+
+    // Verificar que el botón cambió a Planear
+    await expect(page.locator('button[aria-label*="Modo: Planear"]')).toBeVisible();
   });
 
-  test('Quick action "Optimizar" inyecta template', async ({ page }) => {
+  test('ModeButtons cambian modo de ejecución (Interactivo/Auto)', async ({ page }) => {
     await page.goto('/app/');
     await waitForWorkspace(page);
     await ensureChatOpen(page);
 
-    const textarea = page.locator('textarea[placeholder*="Escribe"]');
-    await expect(textarea).toBeVisible({ timeout: 15000 });
+    const execBtn = page.locator('button[aria-label*="Ejecución:"]');
+    await expect(execBtn).toBeVisible({ timeout: 15000 });
 
-    await page.locator('button[aria-label*="Optimizar código"]').click();
-    const value = await textarea.inputValue();
-    expect(value).toContain('Optimiza el siguiente código');
-  });
+    // Abrir dropdown
+    await execBtn.click();
+    await page.waitForTimeout(300);
 
-  test('Quick action "Corregir" inyecta template', async ({ page }) => {
-    await page.goto('/app/');
-    await waitForWorkspace(page);
-    await ensureChatOpen(page);
+    // Seleccionar "Auto"
+    const autoOption = page.locator('button').filter({ hasText: 'Auto' }).last();
+    await expect(autoOption).toBeVisible();
+    await autoOption.click();
+    await page.waitForTimeout(300);
 
-    const textarea = page.locator('textarea[placeholder*="Escribe"]');
-    await expect(textarea).toBeVisible({ timeout: 15000 });
-
-    await page.locator('button[aria-label*="Corregir errores"]').click();
-    const value = await textarea.inputValue();
-    expect(value).toContain('Encuentra y corrige');
-  });
-
-  test('Quick action "Generar tests" inyecta template', async ({ page }) => {
-    await page.goto('/app/');
-    await waitForWorkspace(page);
-    await ensureChatOpen(page);
-
-    const textarea = page.locator('textarea[placeholder*="Escribe"]');
-    await expect(textarea).toBeVisible({ timeout: 15000 });
-
-    await page.locator('button[aria-label*="Generar tests"]').click();
-    const value = await textarea.inputValue();
-    expect(value).toContain('test');
+    // Verificar que el botón cambió a Auto
+    await expect(page.locator('button[aria-label="Ejecución: Auto"]')).toBeVisible();
   });
 });
 
-test.describe('Pro Experience — Vibe Pro Engine', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockProAuth(page);
-    await mockChatResponse(page);
-  });
 
-  test('Pro Engine toggle visible con label', async ({ page }) => {
-    await page.goto('/app/');
-    await waitForWorkspace(page);
-    await ensureChatOpen(page);
-
-    await expect(page.locator('text="Vibe Pro Engine"')).toBeVisible({ timeout: 15000 });
-
-    const toggle = page.locator('input[aria-label="Activar Vibe Pro Engine"]');
-    await expect(toggle).toBeAttached();
-  });
-
-  test('Pro Engine toggle cambia estado', async ({ page }) => {
-    await page.goto('/app/');
-    await waitForWorkspace(page);
-    await ensureChatOpen(page);
-
-    const toggle = page.locator('input[aria-label="Activar Vibe Pro Engine"]');
-    await expect(toggle).toBeAttached({ timeout: 15000 });
-
-    // Check initial state (default: true)
-    const initialChecked = await toggle.isChecked();
-    expect(initialChecked).toBe(true);
-
-    // Click the visual toggle (the label wrapping the hidden input)
-    const toggleLabel = toggle.locator('..');
-    await toggleLabel.click();
-    await page.waitForTimeout(300);
-
-    const afterClick = await toggle.isChecked();
-    expect(afterClick).toBe(false);
-
-    // Toggle back
-    await toggleLabel.click();
-    await page.waitForTimeout(300);
-    expect(await toggle.isChecked()).toBe(true);
-  });
-});
 
 test.describe('Pro Experience — Chat Header Controls', () => {
   test.beforeEach(async ({ page }) => {
@@ -255,8 +202,8 @@ test.describe('Pro Experience — Settings Pro', () => {
     // All tabs visible
     await expect(page.locator('button:has-text("Conexiones IA")')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('button:has-text("Apariencia")')).toBeVisible();
-    await expect(page.locator('button:has-text("Suscripción")')).toBeVisible();
-    await expect(page.locator('button:has-text("Agentes Pro")')).toBeVisible();
+    await expect(page.locator('button:has-text("Suscripción y Uso")')).toBeVisible();
+    await expect(page.locator('button:has-text("Agentes SDD")')).toBeVisible();
     await expect(page.locator('button:has-text("Privacidad")')).toBeVisible();
   });
 
@@ -265,8 +212,8 @@ test.describe('Pro Experience — Settings Pro', () => {
     await waitForWorkspace(page);
     await openSettings(page);
 
-    // Navigate to Agentes Pro tab
-    await page.locator('button:has-text("Agentes Pro")').click();
+    // Navigate to Agentes SDD tab
+    await page.locator('button:has-text("Agentes SDD")').click();
     await page.waitForTimeout(300);
 
     // SubagentPanel content
@@ -333,7 +280,7 @@ test.describe('Pro Experience — Model Selector & Switching', () => {
     const textarea = page.locator('textarea[placeholder*="Escribe"]');
     await expect(textarea).toBeVisible({ timeout: 15000 });
 
-    const modelSelector = page.locator('select[aria-label="Seleccionar modelo de IA"]');
+    const modelSelector = page.locator('button[aria-label="Seleccionar modelo de IA"]');
     await expect(modelSelector).toBeVisible({ timeout: 5000 });
   });
 
@@ -345,12 +292,12 @@ test.describe('Pro Experience — Model Selector & Switching', () => {
     const textarea = page.locator('textarea[placeholder*="Escribe"]');
     await expect(textarea).toBeVisible({ timeout: 15000 });
 
-    const modelSelector = page.locator('select[aria-label="Seleccionar modelo de IA"]');
+    const modelSelector = page.locator('button[aria-label="Seleccionar modelo de IA"]');
     await expect(modelSelector).toBeVisible();
 
     // Store default is deepseek-chat (Opita Flash)
-    const selectedValue = await modelSelector.inputValue();
-    expect(selectedValue).toBe('deepseek-chat');
+    const buttonText = await modelSelector.textContent();
+    expect(buttonText).toContain('Opita Flash');
   });
 
   test('Cambiar a Opita Architect actualiza selector', async ({ page }) => {
@@ -361,15 +308,17 @@ test.describe('Pro Experience — Model Selector & Switching', () => {
     const textarea = page.locator('textarea[placeholder*="Escribe"]');
     await expect(textarea).toBeVisible({ timeout: 15000 });
 
-    const modelSelector = page.locator('select[aria-label="Seleccionar modelo de IA"]');
+    const modelSelector = page.locator('button[aria-label="Seleccionar modelo de IA"]');
     await expect(modelSelector).toBeVisible();
 
     // Switch to Opita Architect
-    await modelSelector.selectOption('deepseek-reasoner');
+    await modelSelector.click();
+    await page.waitForTimeout(300);
+    await page.locator('button', { hasText: 'Opita Architect' }).first().click();
     await page.waitForTimeout(300);
 
-    const newValue = await modelSelector.inputValue();
-    expect(newValue).toBe('deepseek-reasoner');
+    const newValue = await modelSelector.textContent();
+    expect(newValue).toContain('Opita Architect');
   });
 
   test('Model selector tiene opciones disponibles', async ({ page }) => {
@@ -380,11 +329,21 @@ test.describe('Pro Experience — Model Selector & Switching', () => {
     const textarea = page.locator('textarea[placeholder*="Escribe"]');
     await expect(textarea).toBeVisible({ timeout: 15000 });
 
-    const modelSelector = page.locator('select[aria-label="Seleccionar modelo de IA"]');
+    const modelSelector = page.locator('button[aria-label="Seleccionar modelo de IA"]');
     await expect(modelSelector).toBeVisible();
 
-    // Should have at least 2 options (Opita Architect + Opita Flash + others from provider)
-    const options = modelSelector.locator('option');
+    // Open dropdown
+    await modelSelector.click();
+    await page.waitForTimeout(300);
+
+    // Should have at least 2 options (Opita Architect + Opita Flash)
+    // The dropdown renders buttons for each option
+    // It's the sibling div of the button containing the options
+    const dropdown = page.locator('.absolute.bottom-full');
+    await expect(dropdown).toBeVisible();
+    
+    // There are several buttons inside the dropdown
+    const options = dropdown.locator('button');
     const count = await options.count();
     expect(count).toBeGreaterThanOrEqual(2);
   });
@@ -397,11 +356,13 @@ test.describe('Pro Experience — Model Selector & Switching', () => {
     const textarea = page.locator('textarea[placeholder*="Escribe"]');
     await expect(textarea).toBeVisible({ timeout: 15000 });
 
-    const modelSelector = page.locator('select[aria-label="Seleccionar modelo de IA"]');
+    const modelSelector = page.locator('button[aria-label="Seleccionar modelo de IA"]');
     await expect(modelSelector).toBeVisible();
 
     // Switch model
-    await modelSelector.selectOption('deepseek-reasoner');
+    await modelSelector.click();
+    await page.waitForTimeout(300);
+    await page.locator('button', { hasText: 'Opita Architect' }).first().click();
     await page.waitForTimeout(300);
 
     // Textarea should still be functional
@@ -422,11 +383,13 @@ test.describe('Pro Experience — Model Selector & Switching', () => {
     const textarea = page.locator('textarea[placeholder*="Escribe"]');
     await expect(textarea).toBeVisible({ timeout: 15000 });
 
-    const modelSelector = page.locator('select[aria-label="Seleccionar modelo de IA"]');
+    const modelSelector = page.locator('button[aria-label="Seleccionar modelo de IA"]');
     await expect(modelSelector).toBeVisible();
 
     // Switch to a different model
-    await modelSelector.selectOption('deepseek-reasoner');
+    await modelSelector.click();
+    await page.waitForTimeout(300);
+    await page.locator('button', { hasText: 'Opita Architect' }).first().click();
     await page.waitForTimeout(300);
 
     // Send a message with the new model
@@ -562,27 +525,28 @@ test.describe('Pro Experience — Keyboard Shortcuts', () => {
     await mockChatResponse(page);
   });
 
-  test('Ctrl+L toggle del chat sidebar', async ({ page }) => {
+  test('Ctrl+L toggle del chat fullscreen', async ({ page }) => {
     await page.goto('/app/');
     await waitForWorkspace(page);
     await ensureChatOpen(page);
 
-    // Chat header with specific class — the chat panel header
-    const chatPanel = page.locator('aside').filter({ has: page.locator('span:has-text("Vibe AI")') });
-    await expect(chatPanel).toBeVisible({ timeout: 10000 });
+    // Initial state: Expand button visible
+    const fullscreenBtn = page.locator('button[aria-label*="Expandir panel de chat"]');
+    await expect(fullscreenBtn).toBeVisible({ timeout: 10000 });
+
+    // Toggle on
+    await page.keyboard.press('Control+l');
+    await page.waitForTimeout(800);
+
+    // The contract button should appear
+    const contractBtn = page.locator('button[aria-label*="Contraer panel de chat"]');
+    await expect(contractBtn).toBeVisible({ timeout: 5000 });
 
     // Toggle off
     await page.keyboard.press('Control+l');
     await page.waitForTimeout(800);
 
-    // The entire aside (ChatPanel) should be hidden
-    await expect(chatPanel).toBeHidden({ timeout: 5000 });
-
-    // Toggle back on
-    await page.keyboard.press('Control+l');
-    await page.waitForTimeout(800);
-
-    await expect(chatPanel).toBeVisible({ timeout: 5000 });
+    await expect(fullscreenBtn).toBeVisible({ timeout: 5000 });
   });
 });
 

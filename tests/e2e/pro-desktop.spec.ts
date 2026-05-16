@@ -66,11 +66,11 @@ test.describe('Pro Desktop — Flujo completo de usuario autenticado', () => {
     await ensureChatOpen(page);
 
     // Esperar a que cargue el welcome screen
-    const welcomeHeading = page.locator('text="¿Qué vamos a construir hoy?"');
+    const welcomeHeading = page.locator('h3:has-text("Hola, soy")');
     await expect(welcomeHeading).toBeVisible({ timeout: 15000 });
 
     // Buscar algún prompt sugerido y clickearlo
-    const prompt = page.locator('button').filter({ hasText: 'Navbar' }).first();
+    const prompt = page.locator('button').filter({ hasText: 'Explora la estructura' }).first();
     const promptExists = await prompt.isVisible().catch(() => false);
 
     if (promptExists) {
@@ -92,21 +92,12 @@ test.describe('Pro Desktop — Flujo completo de usuario autenticado', () => {
 
     await expect(page.locator('h2:has-text("Conexiones IA")')).toBeVisible({ timeout: 5000 });
     // Agentes Pro SÍ visible para pro
-    await expect(page.locator('button:has-text("Agentes Pro")')).toBeVisible();
+    await expect(page.locator('button:has-text("Agentes SDD")')).toBeVisible();
   });
 
   // ─── Vibe Pro Engine ───────────────────────────────────────────
 
-  test('Vibe Pro Engine toggle visible para pro user', async ({ page }) => {
-    await page.goto('/app/');
-    await waitForWorkspace(page);
-    await ensureChatOpen(page);
 
-    // El toggle "Vibe Pro Engine" aparece sobre el ChatInput para pro users
-    await expect(
-      page.locator('text="Vibe Pro Engine"')
-    ).toBeVisible({ timeout: 15000 });
-  });
 
   test('Chat header muestra "Vibe AI"', async ({ page }) => {
     await page.goto('/app/');

@@ -195,6 +195,10 @@ export async function* streamSSE(
             };
             return;
           }
+          // Explicit reasoning event from backend (AI SDK reasoning chunks)
+          else if (parsed.type === "reasoning") {
+            yield { type: "reasoning", content: parsed.content || "" };
+          }
           // Text content — FIX: use !== undefined to avoid dropping empty strings
           else if (parsed.content !== undefined) {
             // Check if this is reasoning content (wrapped in <think> tags)

@@ -1,72 +1,110 @@
+/**
+ * Prompts — Tests
+ *
+ * Verifies that getSystemPrompt() composes the correct prompt
+ * based on intent, project state, and test runner availability.
+ */
+
 import { describe, it, expect } from "vitest";
-import { getToolLabel, PHASE_LABELS, AURA_SYSTEM_PROMPT } from "../prompts";
+import { getSystemPrompt, type PromptConfig } from "../prompts";
 
-describe("prompts", () => {
-  describe("AURA_SYSTEM_PROMPT", () => {
-    it("should not contain technical jargon", () => {
-      const jargon = ["TDD", "SDD", "spec", "pipeline", "orquestar", "refactorizar"];
-      for (const term of jargon) {
-        expect(AURA_SYSTEM_PROMPT).not.toContain(term);
-      }
-    });
+// ─── Helpers ───────────────────────────────────────────────────
 
-    it("should mention Aura by name", () => {
-      expect(AURA_SYSTEM_PROMPT).toContain("Aura");
-    });
+function config(overrides: Partial<PromptConfig> = {}): PromptConfig {
+  return {
+    intent: "chat",
+    hasProject: false,
+    testRunner: null,
+    customInstructions: undefined,
+    projectSummary: undefined,
+    ...overrides,
+  };
+}
 
-    it("should mention Vibe Studio", () => {
-      expect(AURA_SYSTEM_PROMPT).toContain("Vibe Studio");
-    });
+// ─── Base Prompt ───────────────────────────────────────────────
+
+describe("getSystemPrompt — Base", () => {
+  it("always includes Aura personality", () => {
+    const prompt = getSystemPrompt(config());
+    expect(prompt).toContain("Eres Aura");
+    expect(prompt).toContain("directa, concisa");
   });
 
-  describe("getToolLabel", () => {
-    it("should return friendly label for read_file", () => {
-      const label = getToolLabel("read_file", { path: "/src/App.tsx" });
-      expect(label).toBe("Revisando App.tsx");
-    });
+  it("always includes security rules", () => {
+    const prompt = getSystemPrompt(config());
+    expect(prompt).toContain("NUNCA reveles");
+  });
+});
 
-    it("should return friendly label for write_file", () => {
-      const label = getToolLabel("write_file", { path: "/src/Login.tsx" });
-      expect(label).toBe("Creando Login.tsx");
-    });
+// ─── Intent Addons ─────────────────────────────────────────────
 
-    it("should return friendly label for search_code", () => {
-      const label = getToolLabel("search_code", { query: "useState" });
-      expect(label).toContain("useState");
-    });
-
-    it("should return friendly label for apply_diff", () => {
-      const label = getToolLabel("apply_diff", { path: "src/utils.ts" });
-      expect(label).toBe("Modificando utils.ts");
-    });
-
-    it("should return fallback for unknown tool", () => {
-      const label = getToolLabel("some_custom_tool", {});
-      expect(label).toBe("Ejecutando some_custom_tool");
-    });
-
-    it("should handle missing path gracefully", () => {
-      const label = getToolLabel("read_file", {});
-      expect(label).toBe("Revisando archivo");
-    });
+describe("getSystemPrompt — Intent modes", () => {
+  it("includes chat addon for chat intent", () => {
+    const prompt = getSystemPrompt(config({ intent: "chat" }));
+    expect(prompt).toContain("Conversación");
+    expect(prompt).not.toContain("Construcción");
   });
 
-  describe("PHASE_LABELS", () => {
-    it("should have all phases defined", () => {
-      expect(PHASE_LABELS.thinking).toBeDefined();
-      expect(PHASE_LABELS.planning).toBeDefined();
-      expect(PHASE_LABELS.building).toBeDefined();
-      expect(PHASE_LABELS.verifying).toBeDefined();
-      expect(PHASE_LABELS.chatting).toBeDefined();
-    });
+  it("includes build addon for code intent", () => {
+    const prompt = getSystemPrompt(config({ intent: "code", hasProject: true }));
+    expect(prompt).toContain("Construcción");
+    expect(prompt).not.toContain("Análisis");
+  });
 
-    it("should not contain technical jargon", () => {
-      const values = Object.values(PHASE_LABELS);
-      for (const label of values) {
-        expect(label).not.toContain("SDD");
-        expect(label).not.toContain("TDD");
-        expect(label).not.toContain("pipeline");
-      }
-    });
+  it("includes explore addon for explore intent", () => {
+    const prompt = getSystemPrompt(config({ intent: "explore", hasProject: true }));
+    expect(prompt).toContain("Análisis");
+    expect(prompt).not.toContain("Construcción");
+  });
+});
+
+// ─── TDD Addon ─────────────────────────────────────────────────
+
+describe("getSystemPrompt — TDD", () => {
+  it("includes TDD instructions when test runner is available and intent is code", () => {
+    const prompt = getSystemPrompt(config({ intent: "code", hasProject: true, testRunner: "vitest" }));
+    expect(prompt).toContain("vitest");
+    expect(prompt).toContain("test");
+  });
+
+  it("does NOT include TDD for chat intent even with test runner", () => {
+    const prompt = getSystemPrompt(config({ intent: "chat", testRunner: "vitest" }));
+    expect(prompt).not.toContain("Verificación con tests");
+  });
+
+  it("does NOT include TDD when no test runner available", () => {
+    const prompt = getSystemPrompt(config({ intent: "code", hasProject: true, testRunner: null }));
+    expect(prompt).not.toContain("Verificación con tests");
+  });
+});
+
+// ─── Custom Instructions ───────────────────────────────────────
+
+describe("getSystemPrompt — Custom instructions", () => {
+  it("appends custom instructions when provided", () => {
+    const prompt = getSystemPrompt(config({ customInstructions: "Siempre usa TypeScript" }));
+    expect(prompt).toContain("Siempre usa TypeScript");
+  });
+
+  it("omits custom instructions section when not provided", () => {
+    const prompt = getSystemPrompt(config());
+    expect(prompt).not.toContain("Instrucciones personalizadas");
+  });
+});
+
+// ─── Project Context ───────────────────────────────────────────
+
+describe("getSystemPrompt — Project context", () => {
+  it("includes project summary when provided", () => {
+    const prompt = getSystemPrompt(config({
+      hasProject: true,
+      projectSummary: "React + TypeScript + Vite project with 15 components",
+    }));
+    expect(prompt).toContain("React + TypeScript");
+  });
+
+  it("omits project section when no project open", () => {
+    const prompt = getSystemPrompt(config({ hasProject: false }));
+    expect(prompt).not.toContain("Contexto del proyecto");
   });
 });

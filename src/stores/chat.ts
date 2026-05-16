@@ -78,6 +78,7 @@ interface ChatActions {
   replaceLastMessageContent: (content: string) => void;
   editMessage: (messageId: string, newContent: string) => void;
   addMessageStep: (messageId: string, step: import("@/lib/types").SubagentStep) => void;
+  appendReasoningToLastMessage: (content: string) => void;
   
   // Transient & Flags
   setStreaming: (streaming: boolean) => void;
@@ -310,6 +311,24 @@ export const useChatStore = create<ChatStore>()(
             }
             return msg;
           });
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [session.id]: { ...session, messages: updatedMessages, updatedAt: Date.now() }
+            }
+          };
+        }),
+
+      appendReasoningToLastMessage: (content) =>
+        set((state) => {
+          const session = state.sessions[state.activeSessionId];
+          if (!session || session.messages.length === 0) return state;
+
+          const updatedMessages = [...session.messages];
+          const last = { ...updatedMessages[updatedMessages.length - 1] };
+          last.reasoning = (last.reasoning || "") + content;
+          updatedMessages[updatedMessages.length - 1] = last;
 
           return {
             sessions: {

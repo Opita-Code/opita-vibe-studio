@@ -89,6 +89,15 @@ export function isPreviewableFile(relativePath: string): boolean {
 
 /**
  * Detects the best Sandpack template from file extensions present.
+ *
+ * Priority:
+ * 1. React (.tsx/.jsx) → react-ts / react
+ * 2. HTML-first (root index.html, NO src/ folder) → static
+ *    Pure HTML+JS/CSS sites where JS is loaded via <script> tags.
+ * 3. HTML + src/ folder (e.g. Vite/CRA app) → vanilla-ts / vanilla
+ *    The index.html is a shell; bundled JS drives the page.
+ * 4. TypeScript without HTML → vanilla-ts
+ * 5. Fallback → vanilla
  */
 export function detectTemplate(filePaths: string[]): SandpackTemplate {
   if (filePaths.length === 0) return "vanilla";
@@ -97,16 +106,26 @@ export function detectTemplate(filePaths: string[]): SandpackTemplate {
     filePaths.map((p) => "." + (p.split(".").pop() || "").toLowerCase())
   );
 
+  // React projects always take priority
   if (extensions.has(".tsx")) return "react-ts";
   if (extensions.has(".jsx")) return "react";
 
-  // Static = HTML-driven site (must have .html, no .ts/.js entry files in src/)
-  const hasHtml = extensions.has(".html") || extensions.has(".htm");
-  const hasJsOrTs = extensions.has(".js") || extensions.has(".ts") || extensions.has(".mjs");
-  const hasSrcFiles = filePaths.some((p) => p.replace(/\\/g, "/").includes("src/"));
+  // Check for src/ folder — indicates a bundled app (Vite, CRA, etc.)
+  const hasSrcFiles = filePaths.some((p) =>
+    p.replace(/\\/g, "/").startsWith("src/") || p.replace(/\\/g, "/").includes("/src/")
+  );
 
-  if (hasHtml && !hasSrcFiles && !hasJsOrTs) return "static";
+  // HTML-first detection: root index.html WITHOUT a src/ folder = static site.
+  // JS/CSS files alongside are loaded via <script>/<link> tags, not as entry points.
+  // But if there's a src/ folder, the HTML is just a shell for a bundled app.
+  const hasRootHtml = filePaths.some((p) => {
+    const normalized = p.replace(/\\/g, "/").replace(/^\/+/, "");
+    return /^(index|main)\.(html|htm)$/i.test(normalized);
+  });
 
+  if (hasRootHtml && !hasSrcFiles) return "static";
+
+  // JS/TS-only projects (no HTML entry point)
   if (extensions.has(".ts")) return "vanilla-ts";
   return "vanilla";
 }
@@ -202,7 +221,29 @@ export default function IsolatedPreview() {
     }
 
     const hasPreviewableFiles = count > 0;
-    const template = hasPreviewableFiles ? detectTemplate(includedPaths) : "react-ts";
+    let template = hasPreviewableFiles ? detectTemplate(includedPaths) : "react-ts";
+
+    // INJECT FALLBACK HTML:
+    // To prevent "Cannot set properties of null (setting 'innerHTML')" errors
+    // when AI writes to #root or #app, we guarantee an index.html exists with both mount points
+    // if the user hasn't explicitly created one.
+    if (hasPreviewableFiles && !sandpackFiles["/index.html"] && !sandpackFiles["/public/index.html"]) {
+      const isReact = template === "react-ts" || template === "react";
+      const htmlPath = isReact ? "/public/index.html" : "/index.html";
+      
+      sandpackFiles[htmlPath] = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Studio Preview</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="app"></div>
+  </body>
+</html>`;
+    }
 
     return {
       files: sandpackFiles,

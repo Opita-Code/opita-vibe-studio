@@ -21,7 +21,7 @@ import type {
 } from "./types";
 import type { Message } from "@/lib/types";
 import { streamSSE, type StreamOptions } from "./stream-client";
-import { AURA_SYSTEM_PROMPT, BUILD_ADDON, getToolLabel } from "./prompts";
+import { getSystemPrompt, getToolLabel } from "./prompts";
 import { executeTool } from "@/tools/executor";
 import type { ToolCall } from "@/tools/definitions";
 
@@ -68,39 +68,21 @@ export async function* runBuildAgent(
   messages: Message[],
   config: BuildAgentConfig
 ): AsyncGenerator<AgentEvent> {
-  // ─── Setup ──────────────────────────────────────────────────
+  // ─── Setup (single source: getSystemPrompt) ───────────────
 
-  let systemPrompt = `${AURA_SYSTEM_PROMPT}\n${BUILD_ADDON}`;
+  let systemPrompt = getSystemPrompt({
+    intent: "code",
+    hasProject: true,
+    testRunner: config.testRunner ?? null,
+    customInstructions: config.customInstructions,
+    projectSummary: config.projectSummary,
+  });
 
-  if (config.projectSummary) {
-    systemPrompt += `\n\n## Contexto del proyecto\n${config.projectSummary}`;
-  }
-
-  if (config.customInstructions) {
-    systemPrompt += `\n\n## Instrucciones adicionales\n${config.customInstructions}`;
-  }
-
-  if (config.testRunner) {
-    if (config.useTDD) {
-      systemPrompt += `\n\n## Testing (modo TDD activo)
-Este proyecto usa ${config.testRunner}. SIGUE ESTE ORDEN:
-1. Primero escribe el test para la funcionalidad nueva
-2. Verifica que el test falla (es lo esperado)
-3. Implementa el código mínimo para que el test pase
-4. Refina si es necesario
-Esto asegura que cada pieza de código tiene cobertura desde el inicio.`;
-    } else {
-      systemPrompt += `\n\n## Testing
-Este proyecto usa ${config.testRunner}. Si modificas archivos que tienen tests asociados, verifica que pasen después de tus cambios.`;
-    }
-  }
-
+  // Delivery strategy addon (build-specific, not in the composer)
   if (config.deliveryStrategy === "feature-branch") {
-    systemPrompt += `\n\n## Entrega
-Este cambio se entregará en una rama separada (feature branch). Agrupa los cambios de forma lógica.`;
+    systemPrompt += `\n\n## Entrega\nEste cambio se entregará en una rama separada (feature branch). Agrupa los cambios de forma lógica.`;
   } else if (config.deliveryStrategy === "pr") {
-    systemPrompt += `\n\n## Entrega
-Este cambio se preparará como Pull Request. Mantén los cambios atómicos y bien documentados.`;
+    systemPrompt += `\n\n## Entrega\nEste cambio se preparará como Pull Request. Mantén los cambios atómicos y bien documentados.`;
   }
 
   // ─── State ──────────────────────────────────────────────────

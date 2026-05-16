@@ -110,4 +110,4 @@ XPBar and MilestoneToast overlay are rendered globally in App.tsx.
 - `src/components/layout/EditorPanel.tsx` — Code editor
 - `src/components/gamification/XPBar.tsx` — XP progress bar
 - `src/components/gamification/MilestoneToast.tsx` — Achievement overlay
-- `src/renderer/LegacyLogicManager.tsx` — TEMPORARY: legacy business logic (pending decomposition)
+- `src/renderer/AppLifecycle.tsx` — Lifecycle hooks (replaces legacy LegacyLogicManager)

@@ -30,25 +30,15 @@ declare const awslambda: AWSTypes;
 
 // ─── Constants & Setup ───────────────────────────────────────── (deployed 2026-05-14T17:42)
 
-const SYSTEM_PROMPT = `Eres Vibe Studio, un agente ingeniero de IA senior enfocado en TDD (Test-Driven Development).
-REGLA ESTRICTA 1: NUNCA asumas el contenido de un archivo. Si necesitas modificar algo, usa la herramienta 'read_local_file' primero.
-REGLA ESTRICTA 2: Cuando se te pida crear código, DEBES escribir un test primero y usar 'execute_test_command' para correrlo en la máquina del usuario.
-REGLA ESTRICTA 3: Solo puedes entregar la respuesta final de código una vez que la herramienta te confirme que el test pasó exitosamente.`;
+// System prompts are composed by the frontend (src/agent/prompts.ts) and sent
+// as the first system message. The backend is a streaming proxy — it does NOT
+// maintain its own prompts. This eliminates the dual source of truth problem.
+//
+// The frontend calls getSystemPrompt({ intent, testRunner, ... }) and sends
+// the composed prompt as part of the conversation context.
 
-const SUBAGENT_PROMPTS: Record<string, string> = {
-  "sdd-apply": `Eres Vibe Studio Pro, un ingeniero de software senior y subagente autónomo especializado en Test-Driven Development (TDD).
-Tu tarea es implementar la funcionalidad requerida usando un ciclo SDD estricto (Red-Green-Refactor).
-
-FLUJO DE TRABAJO ESTRICTO (EJECUTA AUTÓNOMAMENTE):
-1. [RED] ANTES de escribir código, usa 'write_local_file' para crear un archivo de prueba (ej. usando vitest o el framework del proyecto).
-2. [RED] Ejecuta 'execute_test_command' para confirmar que el test FALLA (porque la función no existe o no hace lo correcto). Esto es OBLIGATORIO.
-3. [GREEN] Usa 'write_local_file' o 'multi_replace_file_content' para implementar el código que haga pasar el test.
-4. [GREEN] Ejecuta 'execute_test_command' hasta que los tests pasen con éxito. Si fallan, corrige la implementación y vuelve a probar.
-5. [REFACTOR] Refactoriza si es necesario, asegurando que los tests sigan en verde.
-6. [DONE] Solo después de que 'execute_test_command' retorne éxito, emite tu respuesta final explicando lo logrado.
-
-REGLA DE ORO: TIENES TOTAL PROHIBICIÓN de dar una respuesta final sin haber escrito un test y haberlo ejecutado con éxito. No pidas permiso para usar herramientas, hazlo de forma continua hasta completar el requerimiento.`,
-};
+// Legacy fallback — used ONLY if the frontend doesn't send a system message.
+const FALLBACK_SYSTEM_PROMPT = `Eres Aura, la asistente de desarrollo de Vibe Studio. Responde de forma concisa y profesional en español.`;
 
 const awsConfig = process.env.LOCALSTACK_ENDPOINT ? {
   endpoint: process.env.LOCALSTACK_ENDPOINT,
@@ -275,6 +265,7 @@ interface StreamChunk {
   type: string;
   text?: string;
   textDelta?: string;
+  reasoning?: string;
   toolName?: string;
   input?: unknown;
   totalUsage?: unknown;
@@ -543,10 +534,18 @@ export const handler = awslambda.streamifyResponse(
       }
 
       try {
-        let selectedSystemPrompt = action === "subagent" ? (SUBAGENT_PROMPTS[subagentId] || SUBAGENT_PROMPTS["sdd-apply"]) : SYSTEM_PROMPT;
+        // System prompt: the frontend composes and sends it as the first system message.
+        // We only use a fallback if no system message is present in the conversation.
+        let selectedSystemPrompt = FALLBACK_SYSTEM_PROMPT;
         
-        if (action === "subagent" && body.customInstructions) {
-          selectedSystemPrompt += `\n\nINSTRUCCIONES PERSONALIZADAS DEL USUARIO:\n${body.customInstructions}`;
+        // Check if frontend already sent a system message
+        const hasSystemMessage = messages.some(
+          (m: { role: string }) => m.role === "system"
+        );
+        
+        if (hasSystemMessage) {
+          // Frontend-composed prompt is already in the messages array — no need to override
+          selectedSystemPrompt = "";
         }
 
         // Enviar warning de degradación si aplica
@@ -662,6 +661,10 @@ export const handler = awslambda.streamifyResponse(
           let chunkStr = "";
           if (chunk.type === 'text-delta') {
             const payload = JSON.stringify({ content: chunk.textDelta || chunk.text || "" });
+            chunkStr = `data: ${payload}\n\n`;
+            responseStream.write(chunkStr);
+          } else if (chunk.type === 'reasoning') {
+            const payload = JSON.stringify({ type: "reasoning", content: chunk.textDelta || chunk.text || chunk.reasoning || "" });
             chunkStr = `data: ${payload}\n\n`;
             responseStream.write(chunkStr);
           } else if (chunk.type === 'tool-call') {

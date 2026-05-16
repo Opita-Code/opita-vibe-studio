@@ -37,10 +37,12 @@ export interface Message {
   filePaths?: string[];
   attachments?: Attachment[];
   subagentSteps?: SubagentStep[];
+  /** Accumulated reasoning/thinking tokens from the model */
+  reasoning?: string;
 }
 
 export interface ChatChunk {
-  type: "text" | "code" | "file_create" | "file_update" | "done" | "error" | "mcp_tool_request";
+  type: "text" | "code" | "reasoning" | "file_create" | "file_update" | "done" | "error" | "mcp_tool_request";
   content: string;
   language?: string;
   filePath?: string;

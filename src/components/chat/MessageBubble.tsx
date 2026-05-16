@@ -102,25 +102,39 @@ function StepItem({ step }: { step: import("@/lib/types").SubagentStep }) {
 
 // ─── Reasoning Accordion ────────────────────────────────────────
 
-function ReasoningAccordion({ steps, thinkContent }: { steps?: import("@/lib/types").SubagentStep[], thinkContent?: string | null }) {
-  const [isOpen, setIsOpen] = useState(false);
+function ReasoningAccordion({ steps, thinkContent, isStreaming }: { steps?: import("@/lib/types").SubagentStep[], thinkContent?: string | null, isStreaming?: boolean }) {
+  const [isOpen, setIsOpen] = useState(false); // Collapsed by default
   const hasSteps = steps && steps.length > 0;
+  const stepCount = steps?.length || 0;
+  const label = isStreaming
+    ? "Pensando..."
+    : stepCount > 0
+      ? `${stepCount} operación${stepCount === 1 ? "" : "es"}`
+      : "Razonamiento";
   
   if (!hasSteps && !thinkContent) return null;
 
   return (
-    <div className="mb-2 w-full max-w-[85%] pr-12 animate-fade-in">
+    <div className="mb-2 w-full animate-fade-in">
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 text-xs font-mono text-aura-cyan/60 hover:text-aura-cyan transition-colors"
+        className="flex items-center gap-2 text-xs font-mono text-emerald-400/70 hover:text-emerald-400 transition-colors"
       >
-        {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        <span>Razonamiento del Agente</span>
+        {/* Spinning donut when streaming, static chevron otherwise */}
+        {isStreaming ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" className="animate-spin text-emerald-400" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" opacity="0.2" />
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
+          </svg>
+        ) : (
+          isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+        )}
+        <span>{label}</span>
       </button>
       {isOpen && (
-        <div className="mt-2 pl-4 border-l-2 border-white/5 flex flex-col gap-2">
+        <div className="mt-2 pl-4 border-l-2 border-emerald-500/20 flex flex-col gap-2">
           {thinkContent && (
-            <div className="text-xs text-[#888] font-mono whitespace-pre-wrap italic">
+            <div className="text-xs text-emerald-300/70 font-mono whitespace-pre-wrap italic leading-relaxed max-h-[300px] overflow-y-auto scroll-smooth">
               {thinkContent}
             </div>
           )}
@@ -166,23 +180,32 @@ export function MessageBubble({ message, isThinking = false }: MessageBubbleProp
     );
   }
 
-  // Extract <think> content
-  let thinkContent = null;
+  // Extract thinking/reasoning content
+  // Priority: 1. message.reasoning (persisted), 2. <think> tag parsing (legacy)
+  let thinkContent: string | null = null;
   let cleanContent = message.content;
   
   if (!isUser) {
+    // Persisted reasoning (from AI SDK reasoning tokens)
+    if (message.reasoning) {
+      thinkContent = message.reasoning;
+    }
+    // Legacy: parse <think> tags from inline content
     const thinkMatch = message.content.match(/<think>([\s\S]*?)(?:<\/think>|$)/);
     if (thinkMatch) {
-      thinkContent = thinkMatch[1].trim();
+      if (!thinkContent) thinkContent = thinkMatch[1].trim();
       cleanContent = message.content.replace(/<think>[\s\S]*?(?:<\/think>|$)/, "").trim();
     }
   }
+
+  // Determine if reasoning should show as "live" (streaming indicator)
+  const reasoningIsLive = isThinking || (isThinking === false && !cleanContent && !!thinkContent);
 
   return (
     <>
       {/* Reasoning Accordion (Outside the bubble, only for assistant) */}
       {!isUser && (message.subagentSteps?.length || thinkContent) ? (
-        <ReasoningAccordion steps={message.subagentSteps} thinkContent={thinkContent} />
+        <ReasoningAccordion steps={message.subagentSteps} thinkContent={thinkContent} isStreaming={reasoningIsLive} />
       ) : null}
 
       <div className={`mb-4 flex group ${isUser ? "justify-end pl-12" : "justify-start pr-12"} animate-fade-in`}>

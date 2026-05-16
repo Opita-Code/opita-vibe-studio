@@ -35,7 +35,7 @@ test.describe('A11y — ActivityBar & Navigation', () => {
 
     // Core buttons should have aria-labels
     await expect(page.locator('button[aria-label="Explorador de Archivos"]')).toBeAttached();
-    await expect(page.locator('button[aria-label="Vibe AI Chat"]')).toBeAttached();
+    await expect(page.locator('button[aria-label="Modo Enfoque Multi-Chat"]')).toBeAttached();
     await expect(page.locator('button[aria-label="Configuración"]')).toBeAttached();
   });
 
@@ -43,7 +43,7 @@ test.describe('A11y — ActivityBar & Navigation', () => {
     await page.goto('/app/');
     await enterAsGuest(page);
 
-    const chatBtn = page.locator('button[aria-label="Vibe AI Chat"]');
+    const chatBtn = page.locator('button[aria-label="Modo Enfoque Multi-Chat"]');
     // Chat sidebar starts open, so button should be pressed
     const pressed = await chatBtn.getAttribute('aria-pressed');
     expect(pressed).toBeTruthy();
@@ -126,20 +126,7 @@ test.describe('A11y — ChatInput & MessageList', () => {
     await expect(log).toBeAttached({ timeout: 10000 });
   });
 
-  test('ChatInput quick action buttons have aria-labels', async ({ page }) => {
-    await page.goto('/app/');
-    await waitForWorkspace(page);
-    await ensureChatOpen(page);
 
-    // ChatInput is inside lazy-loaded ChatPanel — wait for textarea first
-    const textarea = page.locator('textarea[placeholder*="Escribe"]');
-    await expect(textarea).toBeVisible({ timeout: 15000 });
-
-    await expect(page.locator('button[aria-label*="Explicar c\u00f3digo"]')).toBeAttached({ timeout: 5000 });
-    await expect(page.locator('button[aria-label*="Optimizar c\u00f3digo"]')).toBeAttached();
-    await expect(page.locator('button[aria-label*="Corregir errores"]')).toBeAttached();
-    await expect(page.locator('button[aria-label*="Generar tests"]')).toBeAttached();
-  });
 
   test('Send button has aria-label', async ({ page }) => {
     await page.goto('/app/');

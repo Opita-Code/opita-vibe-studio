@@ -19,6 +19,7 @@ import { detectIdea, createIdea, saveIdea, matchCompletedWork, updateIdeaStatus 
 import type { Attachment } from "@/lib/types";
 import type { AgentEvent, AgentStep, RoadmapGoal, FileSummary } from "@/agent/types";
 import { useGamificationStore } from "@/stores/gamification";
+import { useAgentStore } from "@/stores/agent";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -113,6 +114,7 @@ export function useAgentHandler() {
 
       // ─── Prepare ──────────────────────────────────────────
       chatStore.setStreaming(true);
+      useAgentStore.getState().startExecution();
       const ac = new AbortController();
       abortRef.current = ac;
       chatStore.setAbortController(ac);
@@ -129,9 +131,12 @@ export function useAgentHandler() {
         const hasProjectOpen = projectStore.workspaces.length > 0;
 
         // ─── Build Orchestrator Config ────────────────────────
+        const plan = (authStore.plan || "free") as "free" | "estudiante" | "pro";
+
         const config: OrchestratorConfig = {
           providerId: chatStore.activeProvider,
           modelId: chatStore.activeModelId,
+          plan,
           executionMode: chatStore.executionMode === "automatic" ? "auto" : "interactive",
           signal: ac.signal,
           customInstructions: chatStore.subagentInstructions || undefined,
@@ -214,11 +219,12 @@ export function useAgentHandler() {
  */
 function processEvent(
   event: AgentEvent,
-  assistantMsgId: string,
+  _assistantMsgId: string,
   accumulatedContent: string,
   setAccumulated: (content: string) => void
 ): void {
   const chatStore = useChatStore.getState();
+  const agentStore = useAgentStore.getState();
 
   switch (event.type) {
     case "text":
@@ -228,40 +234,34 @@ function processEvent(
       break;
 
     case "thinking":
-      // Internal thinking — show as subtle phase indicator
-      chatStore.setPipelinePhase("entender");
+      // Internal thinking — update agent phase
+      agentStore.setPhase("thinking");
       break;
 
     case "thinking_visible":
-      // Visible reasoning — append with styling
-      accumulatedContent += event.content;
-      setAccumulated(accumulatedContent);
-      chatStore.replaceLastMessageContent(accumulatedContent);
+      // Reasoning tokens — accumulate separately from content for proper UI rendering
+      chatStore.appendReasoningToLastMessage(event.content);
       break;
 
     case "step":
-      chatStore.addMessageStep(assistantMsgId, {
-        id: event.step.id,
-        tool: event.step.label,
-        phrase: event.step.label,
-        target: event.step.detail || "",
-        timestamp: event.step.timestamp,
-      });
+      agentStore.addStep(event.step);
       if (event.step.status === "running") {
         chatStore.setExecutingMCP(true);
       } else {
+        agentStore.updateStepStatus(event.step.id, event.step.status);
         chatStore.setExecutingMCP(false);
       }
       break;
 
     case "file_changed": {
+      agentStore.addFileChange({ path: event.path, action: event.action });
       const fileName = event.path.split(/[/\\]/).pop() ?? event.path;
       const actionEmoji =
         event.action === "created"
-          ? "✅"
+          ? "\u2705"
           : event.action === "modified"
-            ? "🔧"
-            : "🗑️";
+            ? "\uD83D\uDD27"
+            : "\uD83D\uDDD1\uFE0F";
       accumulatedContent += `\n\n${actionEmoji} ${event.action === "created" ? "Creado" : event.action === "modified" ? "Modificado" : "Eliminado"}: \`${fileName}\``;
       setAccumulated(accumulatedContent);
       chatStore.replaceLastMessageContent(accumulatedContent);
@@ -269,6 +269,7 @@ function processEvent(
     }
 
     case "phase":
+      agentStore.setPhase(event.phase);
       chatStore.setPipelinePhase(
         event.phase === "building"
           ? "construir"
@@ -281,24 +282,25 @@ function processEvent(
       break;
 
     case "roadmap":
-      // TODO: Forward to ExecutionRoadmap component via store or context
+      agentStore.setRoadmap(event.goals);
       break;
 
     case "roadmap_update":
-      // TODO: Update specific goal in roadmap
+      agentStore.updateGoal(event.goalId, event.status, event.progress);
       break;
 
     case "progress":
-      // TODO: Forward to progress bar
+      agentStore.setProgress(event.percent);
       break;
 
     case "error":
-      accumulatedContent += `\n\n⚠️ ${event.message}`;
+      accumulatedContent += `\n\n\u26A0\uFE0F ${event.message}`;
       setAccumulated(accumulatedContent);
       chatStore.replaceLastMessageContent(accumulatedContent);
       break;
 
     case "done":
+      agentStore.endExecution();
       chatStore.setPipelinePhase(null);
       chatStore.setExecutingMCP(false);
       if (event.summary.length > 0) {

@@ -13,7 +13,7 @@
 import type { AgentEvent, SSEChunk } from "./types";
 import type { Message } from "@/lib/types";
 import { streamSSE, type StreamOptions } from "./stream-client";
-import { AURA_SYSTEM_PROMPT, CHAT_ADDON, EXPLORE_ADDON } from "./prompts";
+import { getSystemPrompt } from "./prompts";
 import type { IntentClass } from "./types";
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -41,18 +41,14 @@ export async function* runChatAgent(
   messages: Message[],
   config: ChatAgentConfig
 ): AsyncGenerator<AgentEvent> {
-  // Build system prompt
-  const addon = config.intent === "explore" ? EXPLORE_ADDON : CHAT_ADDON;
-
-  let systemPrompt = `${AURA_SYSTEM_PROMPT}\n${addon}`;
-
-  if (config.projectSummary) {
-    systemPrompt += `\n\n## Contexto del proyecto\n${config.projectSummary}`;
-  }
-
-  if (config.customInstructions) {
-    systemPrompt += `\n\n## Instrucciones adicionales del usuario\n${config.customInstructions}`;
-  }
+  // Build system prompt (single source: getSystemPrompt)
+  const systemPrompt = getSystemPrompt({
+    intent: config.intent === "explore" ? "explore" : "chat",
+    hasProject: !!config.projectSummary,
+    testRunner: null,
+    customInstructions: config.customInstructions,
+    projectSummary: config.projectSummary,
+  });
 
   // Prepend system message
   const fullMessages: Message[] = [

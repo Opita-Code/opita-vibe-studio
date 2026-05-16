@@ -55,6 +55,8 @@ export function createDeepSeekProvider(apiKey?: string): AIProvider {
           if (chunk.type === "text") {
             fullContent += chunk.content;
             yield { type: "text", content: chunk.content };
+          } else if (chunk.type === "reasoning") {
+            yield { type: "reasoning", content: chunk.content };
           } else if (chunk.type === "error") {
             yield { type: "error", content: chunk.content };
           }

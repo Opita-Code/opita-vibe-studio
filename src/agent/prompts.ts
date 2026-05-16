@@ -203,3 +203,91 @@ export const PHASE_LABELS = {
   verifying: "Verificando...",
   chatting: "Respondiendo...",
 } as const;
+
+// ─── TDD Addon (conditional) ───────────────────────────────────
+
+/**
+ * TDD instructions — only injected when the project has a test runner
+ * and the intent is code/build.
+ */
+function tddAddon(testRunner: string): string {
+  return `
+## Verificación con tests
+
+### Test runner detectado: ${testRunner}
+- ANTES de entregar cambios, ejecuta los tests con execute_command
+- Si un test falla después de tus cambios, investiga y corrige antes de responder
+- Para features nuevas: escribe un test básico que valide el comportamiento esperado
+- No reescribas tests existentes a menos que el usuario lo pida`;
+}
+
+// ─── Prompt Composer ───────────────────────────────────────────
+
+/**
+ * Configuration for composing the system prompt.
+ * This is the single entry point — no duplicated prompts in the backend.
+ */
+export interface PromptConfig {
+  /** Classified intent */
+  intent: "chat" | "code" | "explore";
+  /** Whether a project is open in the editor */
+  hasProject: boolean;
+  /** Detected test runner (e.g., "vitest", "jest") */
+  testRunner: string | null;
+  /** User's custom instructions from settings */
+  customInstructions?: string;
+  /** Project summary from context loader */
+  projectSummary?: string;
+}
+
+/**
+ * Composes the full system prompt by combining:
+ * 1. Base Aura personality (always)
+ * 2. Intent-specific addon (chat/build/explore)
+ * 3. TDD addon (only for code intent + test runner)
+ * 4. Project context (if available)
+ * 5. Custom instructions (if provided)
+ *
+ * This is the SINGLE source of truth for system prompts.
+ * The backend does NOT maintain its own prompts.
+ */
+export function getSystemPrompt(config: PromptConfig): string {
+  const sections: string[] = [AURA_SYSTEM_PROMPT];
+
+  // Intent-specific addon
+  switch (config.intent) {
+    case "chat":
+      sections.push(CHAT_ADDON);
+      break;
+    case "code":
+      sections.push(BUILD_ADDON);
+      break;
+    case "explore":
+      sections.push(EXPLORE_ADDON);
+      break;
+  }
+
+  // TDD addon (only for code intent with test runner)
+  if (config.intent === "code" && config.testRunner) {
+    sections.push(tddAddon(config.testRunner));
+  }
+
+  // Project context
+  if (config.hasProject && config.projectSummary) {
+    sections.push(`
+## Contexto del proyecto
+
+${config.projectSummary}`);
+  }
+
+  // Custom instructions
+  if (config.customInstructions) {
+    sections.push(`
+## Instrucciones personalizadas del usuario
+
+${config.customInstructions}`);
+  }
+
+  return sections.join("\n");
+}
+
