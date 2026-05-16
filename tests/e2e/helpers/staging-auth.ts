@@ -24,43 +24,34 @@ export function getStagingToken(): string | undefined {
   return process.env.E2E_STAGING_TOKEN;
 }
 
-// ─── Session Injection ─────────────────────────────────────────
-
 /**
- * Inyecta una sesión PRO válida en Vibe Studio.
+ * Inyecta una sesión válida en Vibe Studio para E2E testing.
  *
- * Estrategia dual:
- * 1. Cookie `opita_id_token` con JWT sintético → `restoreSession()` lo parsea
- *    sin validar firma (solo llama `decodeJWT()`).
- * 2. `localStorage['auth-token']` con el access token real → las llamadas
- *    a Lambda lo envían como `Bearer` y el backend SÍ lo valida.
+ * El token proviene de `global-setup.ts` que autentica con Cognito
+ * via `aws cognito-idp initiate-auth` — es un ID Token real con
+ * firma RSA válida, email, plan, y sub.
+ *
+ * Flujo:
+ * 1. Se inyecta como cookie `opita_id_token` (addInitScript)
+ * 2. `restoreSession()` (sso.ts) lo decodifica → extrae email, plan
+ * 3. `session.token` = este mismo token → streamSSE lo envía como Bearer
+ * 4. Lambda verifica la firma via JWKS de Cognito → acepta
+ *
+ * No necesita JWTs sintéticos, monkeypatching, ni hacks de store.
  */
 export async function injectStagingSession(
   page: Page,
-  realAccessToken: string,
-  email = 'nicourrutia98@gmail.com',
-  plan: 'free' | 'estudiante' | 'pro' = 'pro'
+  cognitoIdToken: string,
 ) {
-  const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const payload = btoa(
-    JSON.stringify({
-      sub: '54a864c8-8041-709c-ccc3-be80c7a3585a',
-      email,
-      given_name: 'Nico',
-      'custom:plan': plan,
-      exp: Math.floor(Date.now() / 1000) + 3600,
-      iat: Math.floor(Date.now() / 1000),
-    })
-  ).replace(/=/g, '');
-  const syntheticIdToken = `${header}.${payload}.fake_signature`;
-
   await page.addInitScript(
-    ({ idToken, accessToken }) => {
+    (token) => {
+      // Marcar onboarding como completado para saltar la intro
       localStorage.setItem('vibe-onboarding-done', 'true');
-      localStorage.setItem('auth-token', accessToken);
-      document.cookie = `opita_id_token=${idToken}; path=/;`;
+      // Inyectar el ID Token real de Cognito como cookie
+      // restoreSession() lo lee, lo decodifica, y lo usa como session.token
+      document.cookie = `opita_id_token=${token}; path=/;`;
     },
-    { idToken: syntheticIdToken, accessToken: realAccessToken }
+    cognitoIdToken
   );
 }
 
