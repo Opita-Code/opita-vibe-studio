@@ -12,7 +12,7 @@ import { usePurchaseIntentStore } from "@/hooks/usePurchaseIntent";
  */
 
 // Use the dynamic Vite environment variable
-const API_BASE_URL = import.meta.env.VITE_STORAGE_API_URL || "https://suy2kd74af.execute-api.us-east-1.amazonaws.com/v1";
+const API_BASE_URL = "https://api.opitacode.com/storage";
 
 export class SyncEngine {
   /**

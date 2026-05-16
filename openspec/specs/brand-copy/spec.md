@@ -68,13 +68,13 @@ The source tree MUST NOT contain any user-facing instance of "Opita Vibe". The s
 
 ### Requirement: Colombian-Neutral Spanish
 
-All user-facing strings, system prompts, tooltips, and placeholder text MUST use Colombian-neutral Spanish. Argentine voseo forms (Sos, Usá, tenés, hacé, Podés, Escribí, querés, Abrí) MUST NOT appear anywhere.
+All user-facing strings, system prompts, tooltips, and placeholder text MUST use Colombian-neutral Spanish. Argentine voseo forms (Sos, Usá, tienes, hacé, Puedes, Escribí, quieres, Abrí) MUST NOT appear anywhere.
 
 #### Scenario: No voseo in UI text
 
 - GIVEN any component renders user-facing text
 - WHEN the text contains a verb in second person
-- THEN it uses "Escribe" (not "Escribí"), "Abre" (not "Abrí"), "Puedes" (not "Podés")
+- THEN it uses "Escribe" (not "Escribí"), "Abre" (not "Abrí"), "Puedes" (not "Puedes")
 - AND no form of voseo conjugation is present
 
 #### Scenario: No voseo in system prompts

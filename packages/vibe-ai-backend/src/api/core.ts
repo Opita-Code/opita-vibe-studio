@@ -307,7 +307,8 @@ export const handler = async (event: any) => {
     return { statusCode: 200, headers: getCorsHeaders(event), body: "" };
   }
 
-  const path = event.requestContext?.http?.path;
+  const rawPath = event.requestContext?.http?.path || "";
+  const path = rawPath.replace(/^\/(core|chat|billing|storage)/, "");
   const method = event.requestContext?.http?.method;
 
   try {

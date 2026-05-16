@@ -84,7 +84,7 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
         const token = localStorage.getItem("auth-token") || "";
         // El Storage API endpoint (dummy URL local por ahora o usar backend URL de AuthStore si existiera, pero podemos apuntar a /api/storage/presign si tenemos un proxy, u obtener el host del backend de la store)
         // Por ahora lo haremos de forma simple:
-        const backendHost = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"; // Fallback para local
+        const backendHost = "https://api.opitacode.com/billing"; // Fallback para local
         
         const res = await fetch(`${backendHost}/storage/presign`, {
           method: "POST",

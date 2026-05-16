@@ -45,7 +45,7 @@ describe("TIP_DICTIONARY", () => {
     const gridTip = TIP_DICTIONARY.find((t) => t.id === "css-grid");
     expect(gridTip).toBeDefined();
     expect(gridTip!.explanation).not.toContain("Definis");
-    expect(gridTip!.explanation).not.toContain("Podés");
+    expect(gridTip!.explanation).not.toContain("Puedes");
     expect(gridTip!.explanation).toContain("Defines");
     expect(gridTip!.explanation).toContain("Puedes");
   });

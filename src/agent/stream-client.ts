@@ -15,8 +15,7 @@ import type { SSEChunk } from "./types";
 import { useAuthStore } from "@/stores/auth";
 
 const AWS_API_URL =
-  import.meta.env.VITE_AWS_API_URL ||
-  "https://einddwm36yl3zday4ubjfgbehe0ufhjj.lambda-url.us-east-1.on.aws/";
+  "https://api.opitacode.com/chat";
 
 // ─── Error Translation ─────────────────────────────────────────
 

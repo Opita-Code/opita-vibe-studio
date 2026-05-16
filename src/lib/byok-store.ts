@@ -170,7 +170,7 @@ export async function saveProviderKey(
   let finalKey = key;
 
   try {
-      const AWS_API_URL = import.meta.env.VITE_AWS_API_URL || "https://einddwm36yl3zday4ubjfgbehe0ufhjj.lambda-url.us-east-1.on.aws/";
+      const AWS_API_URL = "https://api.opitacode.com/chat";
       
       const res = await fetch(AWS_API_URL, {
         method: "POST",
