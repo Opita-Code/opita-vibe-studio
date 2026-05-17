@@ -40,12 +40,22 @@ const PRODUCTS: Record<string, { name: string; amountInCents: number; currency: 
 export async function handler(event: any) {
   const method = event.requestContext.http.method;
 
+  // ── CORS helper (same pattern as core.ts) ──────────────────────
+  const origin = event.headers?.origin || event.headers?.Origin || "";
+  let allowedOrigin = "https://cuenta.opitacode.com";
+  if (origin === "https://opitacode.com" || origin.endsWith(".opitacode.com") || origin.startsWith("http://localhost:")) {
+    allowedOrigin = origin;
+  }
+  const corsHeaders = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "OPTIONS, GET, POST",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+
   // ── GET /checkout-sign ──────────────────────────────────────────
   if (method === "GET") {
-    // CORS headers for cross-origin checkout page (managed by AWS now)
-    const headers = {
-      "Content-Type": "application/json",
-    };
+    const headers = corsHeaders;
 
     const params = event.queryStringParameters || {};
     const productKey = params.product;
@@ -88,6 +98,7 @@ export async function handler(event: any) {
   if (method === "OPTIONS") {
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: "",
     };
   }
