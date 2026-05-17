@@ -106,7 +106,7 @@ export default $config({
 
     // 1.6 Endpoint de facturación (Webhook Wompi + Checkout Sign)
     const billingApi = new sst.aws.Function("BillingAPI", {
-      url: true,
+      url: { cors: false },
       handler: "packages/vibe-ai-backend/src/api/billing.handler",
       link: [transactionsTable, usersTable],
       environment: {
