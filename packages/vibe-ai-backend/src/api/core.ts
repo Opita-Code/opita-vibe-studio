@@ -399,12 +399,13 @@ export const handler = async (event: any) => {
       const longVerifyUrl = `https://${stableApiDomain}${verifyPath}`;
       // Shorten magic link URL via Opita Links (15 min TTL matching JWT expiry)
       const verifyUrl = await shortenUrl(longVerifyUrl, { ttl: 900, meta: { source: "magic-link", service } });
-      const fromEmail = process.env.SES_FROM_EMAIL || "auth@opitacode.com";
+      const fromEmail = process.env.SES_FROM_EMAIL || "noreply@opitacode.com";
 
       try {
         await sesClient.send(new SendEmailCommand({
           Source: fromEmail,
           Destination: { ToAddresses: [email] },
+          ReplyToAddresses: ["owner@opitacode.com"],
           Message: {
             Subject: { Data: serviceCfg.subject },
             Body: {

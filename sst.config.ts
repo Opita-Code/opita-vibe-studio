@@ -138,7 +138,7 @@ export default $config({
       environment: {
         JWT_SECRET: process.env.JWT_SECRET || "",
         FRONTEND_URL: process.env.FRONTEND_URL || ($app.stage === "prod" ? "https://vibe.opitacode.com" : "http://localhost:3000"),
-        SES_FROM_EMAIL: process.env.SES_FROM_EMAIL || "owner@opitacode.com",
+        SES_FROM_EMAIL: process.env.SES_FROM_EMAIL || "noreply@opitacode.com",
         OPITA_LINKS_API_KEY: process.env.OPITA_LINKS_API_KEY || "",
         // Stable Router domain for magic link verify URLs.
         // Without this, verify URLs point to the raw Lambda Function URL which:

@@ -47,7 +47,7 @@
     "updater": {
       "active": false,
       "endpoints": [
-        "https://releases.opita.co/vibe-studio/{{target}}/{{current_version}}"
+        "https://releases.opitacode.com/vibe-studio/{{target}}/{{current_version}}"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU2N0QxOENDQzNBNDk4REMKUldUY21LVER6Qmg5VnJnUW9mTk54Nkc3Ri8vTG13UDRSL0FKZkg0bnFoclZaSmJ0SFE1ZkJybWQK"
     }
