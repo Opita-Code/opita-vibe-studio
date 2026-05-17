@@ -1,0 +1,28 @@
+name: Deploy Landing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'landing/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy Landing to S3
+        run: aws s3 sync landing/ s3://vibe-landing-728741135483/ --delete --exclude "app/*"
+
+      - name: Invalidate CloudFront Cache (Landing)
+        run: aws cloudfront create-invalidation --distribution-id EONGVOV3BDAVI --paths "/" "/index.html" "/assets/*" "/vibe-logo.svg" "/install.html"

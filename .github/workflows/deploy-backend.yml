@@ -1,9 +1,12 @@
-name: Deploy Vibe Studio
+name: Deploy Backend (SST)
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+    paths:
+      - 'sst.config.ts'
+      - 'packages/**'
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -28,19 +31,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Deploy via SST (Backend)
+      - name: Deploy via SST
         run: npx sst deploy --stage prod
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-
-      - name: Build Frontend
-        run: npm run build
-
-      - name: Deploy Frontend to S3 (Landing)
-        run: aws s3 sync landing/ s3://vibe-landing-728741135483/ --delete --exclude "app/*"
-
-      - name: Deploy Frontend to S3 (App)
-        run: aws s3 sync dist/ s3://vibe-landing-728741135483/app/ --delete
-
-      - name: Invalidate CloudFront Cache
-        run: aws cloudfront create-invalidation --distribution-id EONGVOV3BDAVI --paths "/*"
+          AI_STUDIO_GOOGLE: ${{ secrets.AI_STUDIO_GOOGLE }}
+          WOMPI_PUBLIC_KEY: ${{ secrets.WOMPI_PUBLIC_KEY }}
+          WOMPI_WEBHOOK_SECRET: ${{ secrets.WOMPI_WEBHOOK_SECRET }}
+          WOMPI_INTEGRITY_SECRET: ${{ secrets.WOMPI_INTEGRITY_SECRET }}
+          OPITA_LINKS_API_KEY: ${{ secrets.OPITA_LINKS_API_KEY }}
+          SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
