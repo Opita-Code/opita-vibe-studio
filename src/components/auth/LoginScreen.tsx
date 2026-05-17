@@ -38,7 +38,7 @@ export function LoginScreen({ onClose, onAuthenticated }: LoginScreenProps) {
     clearError();
 
     try {
-      await initiateSSO(email.trim(), { postAuthUrl: window.location.href });
+      await initiateSSO(email.trim());
       setSuccess(true);
     } catch (err: any) {
       setError(err.message || String(err));

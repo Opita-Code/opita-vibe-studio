@@ -37,8 +37,10 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           API_GOOGLE_CLOUD: ${{ secrets.API_GOOGLE_CLOUD }}
           AI_STUDIO_GOOGLE: ${{ secrets.AI_STUDIO_GOOGLE }}
+          GEMINI_API_KEY: ${{ secrets.API_GOOGLE_CLOUD }}
           WOMPI_PUBLIC_KEY: ${{ secrets.WOMPI_PUBLIC_KEY }}
           WOMPI_WEBHOOK_SECRET: ${{ secrets.WOMPI_WEBHOOK_SECRET }}
           WOMPI_INTEGRITY_SECRET: ${{ secrets.WOMPI_INTEGRITY_SECRET }}
           OPITA_LINKS_API_KEY: ${{ secrets.OPITA_LINKS_API_KEY }}
           SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
+          ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
