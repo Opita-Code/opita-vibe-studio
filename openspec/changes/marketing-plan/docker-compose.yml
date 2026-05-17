@@ -1,0 +1,48 @@
+services:
+  # --- PostgreSQL (required by Listmonk) ---
+  db:
+    image: postgres:16-alpine
+    container_name: marketing-db
+    environment:
+      POSTGRES_USER: listmonk
+      POSTGRES_PASSWORD: listmonk_dev_2026
+      POSTGRES_DB: listmonk
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+
+  # --- Listmonk (Email Marketing) ---
+  listmonk:
+    image: listmonk/listmonk:latest
+    container_name: listmonk
+    depends_on:
+      - db
+    environment:
+      - TZ=America/Bogota
+    volumes:
+      - ./listmonk-config.toml:/listmonk/config.toml
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+    command: ["sh", "-c", "yes | ./listmonk --install --config /listmonk/config.toml || true && ./listmonk --config /listmonk/config.toml"]
+
+  # --- SerpBear (SEO Rank Tracking) ---
+  serpbear:
+    image: towfiqi/serpbear:latest
+    container_name: serpbear
+    environment:
+      - USER=admin
+      - PASSWORD=VibeSEO2026!
+      - SECRET=opita_serpbear_secret_key_2026
+      - NEXT_PUBLIC_APP_URL=http://localhost:3001
+    ports:
+      - "3001:3000"
+    volumes:
+      - serpbear_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  serpbear_data:

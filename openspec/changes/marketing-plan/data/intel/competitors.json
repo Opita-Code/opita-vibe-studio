@@ -1,0 +1,105 @@
+{
+  "cursor": {
+    "url": "https://www.cursor.com/",
+    "title": "Vercel Security Checkpoint",
+    "meta_description": "",
+    "h1": "",
+    "h2s": [],
+    "ctas": [],
+    "pricing_mentions": [],
+    "key_features": [],
+    "scraped_at": "2026-05-16T17:27:11.800312"
+  },
+  "bolt": {
+    "url": "https://bolt.new/",
+    "title": "Bolt AI builder: Websites, apps & prototypes",
+    "meta_description": "Build and scale high-performing websites & apps using your words. Join millions and start building today.",
+    "h1": "What will you",
+    "h2s": [
+      "Your company's design system, now in Bolt",
+      "Use your team's components and brand guidelines to build for production",
+      "Everything you need to scale ",
+      "Bolt gives you superpowers",
+      "Ready to build something amazing?"
+    ],
+    "ctas": [
+      "Resources"
+    ],
+    "pricing_mentions": [],
+    "key_features": [],
+    "scraped_at": "2026-05-16T17:29:20.911983"
+  },
+  "windsurf": {
+    "url": "https://windsurf.com/",
+    "title": "Windsurf - The best AI for Coding",
+    "meta_description": "Windsurf is the world's most advanced AI coding assistant for developers and enterprises. Windsurf Editor — the first AI-native IDE that keeps developers in flow.",
+    "h1": "Where developers ",
+    "h2s": [
+      "Cascade",
+      "Devin",
+      "Tab Tab Tab...Ship",
+      "Cascade is available on JetBrains"
+    ],
+    "ctas": [
+      "Download",
+      "Download for Windows",
+      "Explore Features",
+      "See all articles",
+      "Download for x64"
+    ],
+    "pricing_mentions": [],
+    "key_features": [],
+    "scraped_at": "2026-05-16T17:29:27.467345"
+  },
+  "lovable": {
+    "url": "https://lovable.dev/",
+    "title": "AI App Builder | Vibe Code Apps & Websites with AI, Fast",
+    "meta_description": "Build apps, websites, and digital products faster using Lovable’s no-code and AI-powered platform, no deep coding skills required.",
+    "h1": "AI App Builder",
+    "h2s": [
+      "Discover ",
+      "Lovable "
+    ],
+    "ctas": [
+      "Solutions",
+      "Resources"
+    ],
+    "pricing_mentions": [],
+    "key_features": [],
+    "scraped_at": "2026-05-16T17:29:33.196036"
+  },
+  "replit": {
+    "url": "https://replit.com/",
+    "title": "Replit – Build apps and sites with AI - Replit",
+    "meta_description": "Build and deploy software collaboratively with the power of AI without spending a second on setup.",
+    "h1": "What will you build?",
+    "h2s": [
+      "Design Freely",
+      "Move faster",
+      "Ship Anything",
+      "Build together",
+      "Powered by the Replit platform"
+    ],
+    "ctas": [
+      "Create account",
+      "Create account",
+      "Create account",
+      "Deep dive into Agent 4",
+      "Sign up"
+    ],
+    "pricing_mentions": [
+      "Save $24",
+      "Publish up to 1 project",
+      "$18",
+      "$20 of monthly credits",
+      "Invite up to 5 collaborators",
+      "Work in parallel with up to 2 agents",
+      "$100",
+      "$90",
+      "$100",
+      "$90 / month"
+    ],
+    "key_features": [],
+    "scraped_at": "2026-05-16T17:29:40.177134"
+  }
+}

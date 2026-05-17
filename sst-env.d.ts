@@ -50,6 +50,10 @@ declare module "sst" {
       "name": string
       "type": "sst.aws.Dynamo"
     }
+    "VibeRouter": {
+      "type": "sst.aws.Router"
+      "url": string
+    }
     "VibeStorage": {
       "name": string
       "type": "sst.aws.Bucket"
