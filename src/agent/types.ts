@@ -108,7 +108,7 @@ export type AgentEvent =
 export type SSEChunk =
   | { type: "text"; content: string }
   | { type: "reasoning"; content: string }
-  | { type: "tool_request"; tool: string; args: Record<string, unknown> }
+  | { type: "tool_request"; tool: string; toolCallId: string; args: Record<string, unknown> }
   | { type: "error"; content: string }
   | { type: "done" };
 
@@ -116,6 +116,7 @@ export type SSEChunk =
 
 export interface ToolCall {
   name: string;
+  toolCallId: string;
   args: Record<string, unknown>;
 }
 

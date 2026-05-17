@@ -92,7 +92,9 @@ export async function* streamSSE(
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (token) {
+    // Only send Bearer when we have a real JWT (Cognito tokens).
+    // Magic link sessions use HttpOnly cookie (token === "opita_session" placeholder).
+    if (token && token !== "opita_session") {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
@@ -178,11 +180,12 @@ export async function* streamSSE(
         try {
           const parsed = JSON.parse(dataStr);
 
-          // MCP tool request from backend
+          // MCP tool request from backend (includes toolCallId for ReAct loop)
           if (parsed.type === "mcp_tool_request") {
             yield {
               type: "tool_request",
               tool: parsed.tool,
+              toolCallId: parsed.toolCallId || `call-${Date.now()}`,
               args: parsed.args || {},
             };
           }

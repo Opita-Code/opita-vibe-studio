@@ -93,7 +93,8 @@ export async function* runBuildAgent(
   let consecutiveErrors = 0;
   let accumulatedText = "";
 
-  // Tool results are fed back into the conversation
+  // Tool results are fed back into the conversation for the ReAct loop.
+  // Uses a sliding window to prevent unbounded context growth.
   const toolMessages: Message[] = [];
 
   // ─── Roadmap (dynamic based on task complexity) ──────────────
@@ -129,8 +130,8 @@ export async function* runBuildAgent(
       modelId: config.modelId,
       customApiKey: config.customApiKey,
       signal: config.signal,
-      action: "chat",
-      subagentId: "build",
+      action: "subagent",
+      subagentId: "sdd-apply",
     };
 
     let gotToolRequest = false;
@@ -261,17 +262,45 @@ async function* handleToolRequest(
     }
   }
 
-  // Feed result back to the LLM as a tool response
+  // Feed result back to the LLM with proper tool result format.
+  // The AI SDK expects tool results to include the toolCallId so it
+  // can match results to calls in the conversation history.
   const resultContent = result.success
     ? String(result.result || "OK")
     : `Error: ${result.error}`;
 
+  // Tool call message (what the LLM requested)
   toolMessages.push({
-    id: `tool-result-${Date.now()}`,
+    id: `tool-call-${chunk.toolCallId}`,
     role: "assistant",
-    content: `[Herramienta: ${toolCall.name}]\n${resultContent}`,
+    content: `[tool_call: ${toolCall.name}] toolCallId=${chunk.toolCallId}`,
     timestamp: Date.now(),
   });
+
+  // Tool result message (what we observed)
+  toolMessages.push({
+    id: `tool-result-${chunk.toolCallId}`,
+    role: "user",
+    content: `[tool_result: ${toolCall.name}] toolCallId=${chunk.toolCallId}\n${resultContent}`,
+    timestamp: Date.now(),
+  });
+
+  // Sliding window: trim old tool exchanges to prevent context bloat
+  const MAX_TOOL_MESSAGES = 16;
+  if (toolMessages.length > MAX_TOOL_MESSAGES) {
+    const removed = toolMessages.splice(0, toolMessages.length - MAX_TOOL_MESSAGES);
+    // Summarize removed messages so the LLM doesn't lose all context
+    const summary = removed.map(m => {
+      const match = m.content.match(/\[tool_(?:call|result): (\w+)\]/);
+      return match ? match[1] : 'unknown';
+    }).filter((v, i, a) => a.indexOf(v) === i).join(', ');
+    toolMessages.unshift({
+      id: `tool-summary-${Date.now()}`,
+      role: "user",
+      content: `[Resumen de herramientas anteriores: se ejecutaron ${summary}. Los resultados detallados fueron procesados exitosamente.]`,
+      timestamp: Date.now(),
+    });
+  }
 }
 
 /**

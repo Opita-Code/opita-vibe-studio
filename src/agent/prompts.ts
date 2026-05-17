@@ -78,6 +78,18 @@ export const CHAT_ADDON = `
 export const BUILD_ADDON = `
 ## Tu modo actual: Construcción
 
+### Protocolo de trabajo (ReAct loop)
+Operas en un ciclo iterativo: Pensar → Usar herramienta → Observar resultado → Pensar → Repetir.
+- Tienes MÚLTIPLES iteraciones disponibles — no intentes hacer todo en una sola respuesta
+- Cada herramienta que invoques se ejecutará y recibirás el resultado ANTES de tu siguiente respuesta
+- Planifica tus acciones: primero investiga, luego modifica, luego verifica
+- Si una herramienta falla, ANALIZA el error y reintenta con una estrategia diferente
+
+### Protocolo de memoria (PROACTIVO)
+- **Al empezar una tarea**: Usa memory_search con palabras clave del pedido — puede haber decisiones o patrones relevantes de sesiones anteriores
+- **Al descubrir algo no-obvio**: Usa memory_save inmediatamente (bugs, gotchas, decisiones)
+- **Al establecer convenciones**: Guárdalas con memory_save tipo "convention" para que persistan
+
 ### Estrategia de herramientas (sé eficiente)
 - **Antes de escribir**: SIEMPRE lee el archivo primero (read_file) para mantener consistencia
 - **Para entender el código**: Usa search_code ANTES de leer archivos completos — encuentra exactamente lo que necesitas sin gastar contexto
@@ -89,10 +101,16 @@ export const BUILD_ADDON = `
 - **Para eliminar**: Usa delete_file solo cuando estés seguro — snapshot automático te protege
 
 ### Flujo óptimo por tarea
-- **Crear feature**: list_files → read_file(s) → write_file (nuevos) → apply_diff (existentes) → execute_command (npm test)
-- **Fix bug**: search_code → read_file → apply_diff → execute_command (npm test)
+- **Crear feature**: memory_search → list_files → read_file(s) → write_file (nuevos) → apply_diff (existentes) → execute_command (npm test) → memory_save
+- **Fix bug**: memory_search → search_code → read_file → apply_diff → execute_command (npm test) → memory_save
 - **Instalar librería**: execute_command (npm install X) → write_file/apply_diff (código que la usa)
 - **Refactorizar**: search_code → read_file(s) → apply_diff(s) → execute_command (npx tsc --noEmit)
+
+### Recuperación de errores
+- **apply_diff falla ("no se encontró")**: Lee el archivo con read_file para ver el contenido ACTUAL, luego reintenta con el texto exacto
+- **apply_diff falla ("múltiples coincidencias")**: Incluye más líneas de contexto (antes/después) para desambiguar
+- **execute_command falla**: Lee el error, investiga con search_code si es relevante, corrige y reintenta
+- **Nunca te rindas en el primer error** — siempre intenta una estrategia alternativa antes de reportar el fallo
 
 ### Reglas de construcción
 - Sigue las convenciones del proyecto (imports, naming, estilos)
@@ -171,10 +189,6 @@ export function getToolLabel(
     delete_file: () => `Eliminando ${path || "archivo"}`,
     memory_save: () => "Guardando un aprendizaje",
     memory_search: () => `Recordando sobre "${query}"`,
-    // Backend MCP tools
-    read_local_file: () => `Leyendo ${path || "archivo"}`,
-    write_local_file: () => `Guardando cambios en ${path || "archivo"}`,
-    execute_test_command: () => "Ejecutando verificación",
     execute_command: () => {
       const cmd =
         typeof args.command === "string" ? args.command.slice(0, 30) : "comando";

@@ -34,6 +34,11 @@ declare module "sst" {
       "type": "sst.aws.Function"
       "url": string
     }
+    "SyncAPI": {
+      "name": string
+      "type": "sst.aws.Function"
+      "url": string
+    }
     "TokenUsage": {
       "name": string
       "type": "sst.aws.Dynamo"
