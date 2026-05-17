@@ -8,7 +8,7 @@ export interface AuthResult {
   session: Session;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || "https://api.opitacode.com";
+const API_URL = import.meta.env.VITE_API_URL || "https://api.opitacode.com/core";
 
 // ─── Public API ─────────────────────────────────────────────────
 
