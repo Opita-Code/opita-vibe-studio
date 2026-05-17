@@ -66,7 +66,14 @@ export default $config({
 
     // 1.3 Endpoint Dummy Streaming
     const api = new sst.aws.Function("ChatStreamAPI", {
-      url: true, // Enables AWS Lambda Function URLs
+      url: {
+        cors: {
+          allowOrigins: ["https://vibe.opitacode.com", "https://opitacode.com", "https://cuenta.opitacode.com", "http://localhost:1420"],
+          allowMethods: ["POST"],
+          allowHeaders: ["Content-Type", "Authorization", "Cookie"],
+          allowCredentials: true,
+        },
+      },
       handler: "packages/vibe-ai-backend/src/api/chat.handler",
       link: [table, keysTable, usersTable, tokenUsageTable], // Grants IAM permissions automatically
       environment: {
@@ -131,6 +138,7 @@ export default $config({
         JWT_SECRET: process.env.JWT_SECRET || "",
         FRONTEND_URL: process.env.FRONTEND_URL || ($app.stage === "prod" ? "https://vibe.opitacode.com" : "http://localhost:3000"),
         SES_FROM_EMAIL: process.env.SES_FROM_EMAIL || "owner@opitacode.com",
+        OPITA_LINKS_API_KEY: process.env.OPITA_LINKS_API_KEY || "",
       },
     });
 

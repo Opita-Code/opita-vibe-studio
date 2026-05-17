@@ -7,6 +7,22 @@ import * as jose from "jose";
 import { randomUUID, createHmac, scryptSync, randomBytes, timingSafeEqual } from "crypto";
 import { getProfile, getMissions, completeMission, awardXP } from "./gamification.js";
 
+// ─── Opita Links SDK (inline) ───────────────────────────────────────────────
+async function shortenUrl(url: string, options?: { ttl?: number; meta?: Record<string, string> }): Promise<string> {
+  const baseUrl = process.env.OPITA_LINKS_BASE_URL || "https://go.opitacode.com";
+  const apiKey = process.env.OPITA_LINKS_API_KEY;
+  if (!apiKey) { return url; }
+  try {
+    const res = await fetch(`${baseUrl}/api/links`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+      body: JSON.stringify({ url, ...(options?.ttl ? { ttl: options.ttl } : {}), ...(options?.meta ? { meta: options.meta } : {}) }),
+    });
+    if (!res.ok) { console.error(`[opita-links] ${res.status}`); return url; }
+    return ((await res.json()) as any).shortUrl;
+  } catch (e: any) { console.error("[opita-links]", e.message); return url; }
+}
+
 function base64url(buf: Buffer) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
@@ -369,7 +385,9 @@ export const handler = async (event: any) => {
 
       const apiHost = event.requestContext?.domainName || "localhost";
       const protocol = apiHost.includes("localhost") ? "http" : "https";
-      const verifyUrl = `${protocol}://${apiHost}/auth/verify?token=${token}`;
+      const longVerifyUrl = `${protocol}://${apiHost}/auth/verify?token=${token}`;
+      // Shorten magic link URL via Opita Links (15 min TTL matching JWT expiry)
+      const verifyUrl = await shortenUrl(longVerifyUrl, { ttl: 900, meta: { source: "magic-link", service } });
       const fromEmail = process.env.SES_FROM_EMAIL || "auth@opitacode.com";
 
       try {
