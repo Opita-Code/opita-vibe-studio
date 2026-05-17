@@ -351,10 +351,15 @@ export const handler = async (event: any) => {
   const rawPath = event.requestContext?.http?.path || "";
   const path = rawPath.replace(/^\/(core|chat|billing|storage)/, "");
   const method = event.requestContext?.http?.method;
+  // SST Router (CloudFront → Lambda Function URL) may base64-encode the body.
+  // Decode it once here so all route handlers can safely JSON.parse.
+  const rawBody = event.isBase64Encoded && event.body
+    ? Buffer.from(event.body, "base64").toString("utf8")
+    : (event.body || "{}");
 
   try {
     if (path === "/auth/request" && method === "POST") {
-      const body = JSON.parse(event.body || "{}");
+      const body = JSON.parse(rawBody);
       const email = body.email;
       const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!email || !emailRegex.test(email)) {
@@ -383,9 +388,15 @@ export const handler = async (event: any) => {
         15
       );
 
-      const apiHost = event.requestContext?.domainName || "localhost";
-      const protocol = apiHost.includes("localhost") ? "http" : "https";
-      const longVerifyUrl = `${protocol}://${apiHost}/auth/verify?token=${token}`;
+      // Build verify URL using the STABLE Router domain — never the raw Lambda URL.
+      // The Lambda's event.requestContext.domainName returns the Lambda Function URL
+      // (e.g., 4iqaqy...lambda-url.us-east-1.on.aws) which:
+      //   1. Bypasses the SST Router (api.opitacode.com)
+      //   2. Makes cookies unreachable from *.opitacode.com frontends
+      //   3. Breaks when Lambda URLs rotate on deploy
+      const stableApiDomain = process.env.STABLE_API_DOMAIN || "api.opitacode.com";
+      const verifyPath = `/core/auth/verify?token=${token}`;
+      const longVerifyUrl = `https://${stableApiDomain}${verifyPath}`;
       // Shorten magic link URL via Opita Links (15 min TTL matching JWT expiry)
       const verifyUrl = await shortenUrl(longVerifyUrl, { ttl: 900, meta: { source: "magic-link", service } });
       const fromEmail = process.env.SES_FROM_EMAIL || "auth@opitacode.com";
@@ -417,6 +428,7 @@ export const handler = async (event: any) => {
     if (path === "/auth/verify" && method === "GET") {
       const token = event.queryStringParameters?.token;
       
+      
       if (!token) {
         return { statusCode: 302, headers: { Location: `${process.env.FRONTEND_URL || "https://opitacode.com/projects"}?error=missing_token` } };
       }
@@ -427,19 +439,24 @@ export const handler = async (event: any) => {
         if (payload.type !== "magic_link") throw new Error("Invalid token type");
 
         // Prevenir Replay Attacks: Quemar el token JTI
+        // UserKeys table has only 'id' as hash key — namespace with prefix to avoid collisions
+        const jtiKey = `used-jti#${payload.jti}`;
         const jtiCheck = await docClient.send(new GetCommand({
           TableName: Resource.UserKeys.name,
-          Key: { userId: "used-tokens", id: payload.jti }
+          Key: { id: jtiKey }
         }));
         if (jtiCheck.Item) throw new Error("Token already used");
 
         await docClient.send(new PutCommand({
           TableName: Resource.UserKeys.name,
-          Item: { userId: "used-tokens", id: payload.jti, usedAt: new Date().toISOString() }
+          Item: { id: jtiKey, usedAt: new Date().toISOString() }
         }));
 
-      } catch (e) {
-        return { statusCode: 302, headers: { Location: `${process.env.FRONTEND_URL || "https://opitacode.com/projects"}?error=invalid_token` } };
+      } catch (e: any) {
+        console.error("[DEBUG-VERIFY] Error:", e.message);
+        // Redirect to the service's default instead of a generic FRONTEND_URL
+        const errorRedirect = payload?.redirectTo || process.env.FRONTEND_URL || "https://opitacode.com/projects";
+        return { statusCode: 302, headers: { Location: `${errorRedirect}?error=invalid_token` } };
       }
 
       // Resolve the canonical redirect: prefer the one baked into the token,
@@ -474,9 +491,15 @@ export const handler = async (event: any) => {
         7 * 24 * 60 // 7 days in minutes
       );
 
-      // Set HttpOnly Cookie and Redirect
+      // Set HttpOnly Cookie and Redirect.
+      // CRITICAL: Domain=.opitacode.com ensures the cookie is accessible from ALL
+      // Opita subdomains (dev.opitacode.com, vibe.opitacode.com, cuenta.opitacode.com).
+      // Without this, the cookie binds to the Lambda URL domain and is unreachable.
       const isLocalhost = (event.requestContext?.domainName || "").includes("localhost");
-      const cookieAttrs = isLocalhost ? "Path=/; HttpOnly; SameSite=Lax" : "Path=/; HttpOnly; Secure; SameSite=None";
+      const cookieDomain = isLocalhost ? "" : "Domain=.opitacode.com;";
+      const cookieAttrs = isLocalhost
+        ? "Path=/; HttpOnly; SameSite=Lax"
+        : `Path=/; ${cookieDomain} HttpOnly; Secure; SameSite=None`;
       const setCookie = `opita_session=${sessionToken}; ${cookieAttrs}; Max-Age=${7 * 24 * 60 * 60}`;
 
       return {
@@ -530,7 +553,10 @@ export const handler = async (event: any) => {
 
     if (path === "/auth/logout" && method === "POST") {
       const isLocalhost = (event.requestContext?.domainName || "").includes("localhost");
-      const cookieAttrs = isLocalhost ? "Path=/; HttpOnly; SameSite=Lax" : "Path=/; HttpOnly; Secure; SameSite=None";
+      const cookieDomain = isLocalhost ? "" : "Domain=.opitacode.com;";
+      const cookieAttrs = isLocalhost
+        ? "Path=/; HttpOnly; SameSite=Lax"
+        : `Path=/; ${cookieDomain} HttpOnly; Secure; SameSite=None`;
       return {
         statusCode: 200,
         headers: {
@@ -592,7 +618,7 @@ export const handler = async (event: any) => {
       }
 
       if (method === "POST") {
-        const body = JSON.parse(event.body || "{}");
+        const body = JSON.parse(rawBody);
         
         if (!body.title || !body.description) {
           return { statusCode: 400, body: JSON.stringify({ error: "Missing fields" }) };
@@ -622,7 +648,7 @@ export const handler = async (event: any) => {
 
     // ─── Password Auth ────────────────────────────────────────
     if (path === "/auth/register" && method === "POST") {
-      const body = JSON.parse(event.body || "{}");
+      const body = JSON.parse(rawBody);
       const email = body.email?.trim()?.toLowerCase();
       const password = body.password;
       const name = body.name?.trim() || email?.split("@")[0] || "Usuario";
@@ -670,7 +696,10 @@ export const handler = async (event: any) => {
       );
 
       const isLocalhost = (event.requestContext?.domainName || "").includes("localhost");
-      const cookieAttrs = isLocalhost ? "Path=/; HttpOnly; SameSite=Lax" : "Path=/; HttpOnly; Secure; SameSite=None";
+      const cookieDomain = isLocalhost ? "" : "Domain=.opitacode.com;";
+      const cookieAttrs = isLocalhost
+        ? "Path=/; HttpOnly; SameSite=Lax"
+        : `Path=/; ${cookieDomain} HttpOnly; Secure; SameSite=None`;
       const setCookie = `opita_session=${sessionToken}; ${cookieAttrs}; Max-Age=${7 * 24 * 60 * 60}`;
 
       return {
@@ -684,7 +713,7 @@ export const handler = async (event: any) => {
     }
 
     if (path === "/auth/login" && method === "POST") {
-      const body = JSON.parse(event.body || "{}");
+      const body = JSON.parse(rawBody);
       const email = body.email?.trim()?.toLowerCase();
       const password = body.password;
 
@@ -726,7 +755,10 @@ export const handler = async (event: any) => {
       );
 
       const isLocalhost = (event.requestContext?.domainName || "").includes("localhost");
-      const cookieAttrs = isLocalhost ? "Path=/; HttpOnly; SameSite=Lax" : "Path=/; HttpOnly; Secure; SameSite=None";
+      const cookieDomain = isLocalhost ? "" : "Domain=.opitacode.com;";
+      const cookieAttrs = isLocalhost
+        ? "Path=/; HttpOnly; SameSite=Lax"
+        : `Path=/; ${cookieDomain} HttpOnly; Secure; SameSite=None`;
       const setCookie = `opita_session=${sessionToken}; ${cookieAttrs}; Max-Age=${7 * 24 * 60 * 60}`;
 
       return {
@@ -856,7 +888,7 @@ export const handler = async (event: any) => {
       const email = await extractAuthEmail(event);
       if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
       const plan = await resolvePlan(event, email);
-      const body = JSON.parse(event.body || "{}");
+      const body = JSON.parse(rawBody);
       const result = await awardXP(email, body.action || "chat_message", plan);
       return {
         statusCode: 200,
