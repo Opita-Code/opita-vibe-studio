@@ -204,44 +204,53 @@ function buildMagicLinkEmail(service: ServiceId, verifyUrl: string): string {
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #020617;
-      color: #f8fafc;
+      background-color: #f8fafc;
+      color: #0f172a;
       margin: 0;
       padding: 0;
     }
     .container {
       max-width: 560px;
-      margin: 48px auto;
-      background-color: #0f172a;
+      margin: 48px auto 0 auto;
+      background-color: #ffffff;
       border-radius: 16px;
-      border: 1px solid #1e293b;
-      padding: 48px 40px;
-      box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.6);
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+      box-shadow: 0 4px 24px -6px rgba(0, 0, 0, 0.05);
     }
-    .logo { text-align: center; margin-bottom: 36px; }
-    .logo img { height: 40px; }
+    .header {
+      background-color: #020617;
+      padding: 32px 40px;
+      text-align: center;
+      border-bottom: 1px solid #1e293b;
+    }
+    .header img { height: 40px; }
+    .content {
+      padding: 48px 40px;
+    }
     .badge {
       display: inline-block;
-      background: #1e293b;
-      border: 1px solid #334155;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
       border-radius: 20px;
       padding: 4px 14px;
       font-size: 12px;
-      color: #94a3b8;
+      color: #475569;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       margin-bottom: 20px;
+      font-weight: 500;
     }
     h1 {
       font-size: 26px;
       font-weight: 700;
-      color: #f8fafc;
+      color: #0f172a;
       margin: 0 0 12px 0;
     }
     p {
       font-size: 15px;
       line-height: 1.65;
-      color: #94a3b8;
+      color: #475569;
       margin: 0 0 24px 0;
     }
     .button-wrap { text-align: center; margin: 36px 0; }
@@ -254,12 +263,12 @@ function buildMagicLinkEmail(service: ServiceId, verifyUrl: string): string {
       font-weight: 600;
       font-size: 16px;
       display: inline-block;
-      box-shadow: 0 0 20px ${cfg.accentColor};
+      box-shadow: 0 4px 14px ${cfg.accentColor};
       letter-spacing: 0.01em;
     }
     .divider {
       border: none;
-      border-top: 1px solid #1e293b;
+      border-top: 1px solid #e2e8f0;
       margin: 32px 0;
     }
     .link-fallback {
@@ -267,33 +276,37 @@ function buildMagicLinkEmail(service: ServiceId, verifyUrl: string): string {
       color: #64748b;
       word-break: break-all;
     }
-    .link-fallback a { color: #94a3b8; }
+    .link-fallback a { color: ${cfg.brandColor}; text-decoration: none; }
+    .link-fallback a:hover { text-decoration: underline; }
     .footer {
       font-size: 12px;
-      color: #475569;
+      color: #94a3b8;
       text-align: center;
-      margin-top: 32px;
+      margin-top: 24px;
+      margin-bottom: 48px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="logo">
+    <div class="header">
       <img src="${cfg.logoUrl}" alt="${cfg.name}">
     </div>
-    <div style="text-align:center">
-      <span class="badge">${cfg.name}</span>
+    <div class="content">
+      <div style="text-align:center">
+        <span class="badge">${cfg.name}</span>
+      </div>
+      <h1>Accede a tu cuenta</h1>
+      <p>Hemos recibido una solicitud para iniciar sesi&oacute;n. Haz clic en el bot&oacute;n para acceder&mdash;el enlace expira en <strong>15 minutos</strong>.</p>
+      <div class="button-wrap">
+        <a href="${verifyUrl}" class="button">Iniciar Sesi&oacute;n &rarr;</a>
+      </div>
+      <hr class="divider">
+      <p class="link-fallback">Si el bot&oacute;n no funciona, copia y pega este enlace en tu navegador:<br><a href="${verifyUrl}">${verifyUrl}</a></p>
+      <p style="font-size:13px;color:#64748b;margin:16px 0 0">Si no solicitaste este acceso, ignora este correo. Tu cuenta est&aacute; segura.</p>
     </div>
-    <h1>Accede a tu cuenta</h1>
-    <p>Hemos recibido una solicitud para iniciar sesi&oacute;n. Haz clic en el bot&oacute;n para acceder&mdash;el enlace expira en <strong>15 minutos</strong>.</p>
-    <div class="button-wrap">
-      <a href="${verifyUrl}" class="button">Iniciar Sesi&oacute;n &rarr;</a>
-    </div>
-    <hr class="divider">
-    <p class="link-fallback">Si el bot&oacute;n no funciona, copia y pega este enlace en tu navegador:<br><a href="${verifyUrl}">${verifyUrl}</a></p>
-    <p style="font-size:13px;color:#475569;margin:16px 0 0">Si no solicitaste este acceso, ignora este correo. Tu cuenta est&aacute; segura.</p>
-    <div class="footer">&copy; ${new Date().getFullYear()} Opita Code &mdash; El c&oacute;digo fluye.</div>
   </div>
+  <div class="footer">&copy; ${new Date().getFullYear()} Opita Code &mdash; El c&oacute;digo fluye.</div>
 </body>
 </html>`;
 }

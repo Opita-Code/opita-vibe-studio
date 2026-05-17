@@ -118,7 +118,7 @@ export default $config({
 
     // 1.7 Endpoint de Autenticación y Proyectos (CoreAPI)
     const coreApi = new sst.aws.Function("CoreAPI", {
-      url: true,
+      url: { cors: false },
       handler: "packages/vibe-ai-backend/src/api/core.handler",
       link: [usersTable, projectsTable, tokenUsageTable, keysTable],
       permissions: [
