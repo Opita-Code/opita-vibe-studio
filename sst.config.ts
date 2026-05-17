@@ -80,6 +80,7 @@ export default $config({
         JWT_SECRET: process.env.JWT_SECRET || "",
         DEEP_SEEK_KEY: process.env.DEEP_SEEK_KEY || "",
         OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+        API_GOOGLE_CLOUD: process.env.API_GOOGLE_CLOUD || "",
         AI_STUDIO_GOOGLE: process.env.AI_STUDIO_GOOGLE || "",
         GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
         OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
@@ -139,12 +140,46 @@ export default $config({
         FRONTEND_URL: process.env.FRONTEND_URL || ($app.stage === "prod" ? "https://vibe.opitacode.com" : "http://localhost:3000"),
         SES_FROM_EMAIL: process.env.SES_FROM_EMAIL || "owner@opitacode.com",
         OPITA_LINKS_API_KEY: process.env.OPITA_LINKS_API_KEY || "",
+        // Stable Router domain for magic link verify URLs.
+        // Without this, verify URLs point to the raw Lambda Function URL which:
+        // (a) bypasses the Router, (b) sets cookies on the wrong domain, (c) rotates on deploy.
+        // Always use production Router because auth is shared infrastructure
+        // (same JWT_SECRET, same Cognito, same DynamoDB Users table).
+        STABLE_API_DOMAIN: "api.opitacode.com",
       },
+    });
+
+    // 1.8 Sync API — Opita Sync Operations Hub with server-side tools
+    const syncApi = new sst.aws.Function("SyncAPI", {
+      url: {
+        cors: {
+          allowOrigins: [
+            "https://sync.opitacode.com",
+            "https://admin.opitacode.com", // Legacy alias
+            "http://localhost:5174",
+            "http://localhost:5175",
+          ],
+          allowMethods: ["POST"],
+          allowHeaders: ["Content-Type", "Authorization", "Cookie"],
+          allowCredentials: true,
+        },
+      },
+      handler: "packages/vibe-ai-backend/src/api/admin.handler",
+      link: [usersTable, transactionsTable, tokenUsageTable, keysTable, projectsTable, table],
+      environment: {
+        JWT_SECRET: process.env.JWT_SECRET || "",
+        API_GOOGLE_CLOUD: process.env.API_GOOGLE_CLOUD || "",
+        AI_STUDIO_GOOGLE: process.env.AI_STUDIO_GOOGLE || "",
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
+        ADMIN_EMAILS: process.env.ADMIN_EMAILS || "",
+      },
+      streaming: true,
     });
 
     const router = new sst.aws.Router("VibeRouter", {
       domain: $app.stage === "prod" ? "api.opitacode.com" : "api-dev.opitacode.com",
       routes: {
+        "/sync/*": syncApi.url,
         "/billing/*": billingApi.url,
         "/chat/*": api.url,
         "/core/*": coreApi.url,
@@ -153,6 +188,7 @@ export default $config({
     });
 
     return {
+      SyncApiUrl: syncApi.url,
       ChatApiUrl: api.url,
       StorageApiUrl: storageApi.url,
       BillingApiUrl: billingApi.url,

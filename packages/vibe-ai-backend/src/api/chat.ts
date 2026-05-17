@@ -80,6 +80,35 @@ const TOKEN_QUOTAS: Record<string, { daily: number; hourly: number }> = {
   pro:        { daily: 1_000_000, hourly: 200_000 },
 };
 
+// ─── Per-Model RPM Limits (requests per minute per user) ─────
+// Prevents any single user from burning through provider RPM quotas.
+// These are per-user limits — Google Cloud's global RPM is ~2000.
+const MODEL_RPM_LIMITS: Record<string, Record<string, number>> = {
+  free: {
+    "gemini-2.5-flash": 6,
+    "deepseek-chat": 6,
+    "deepseek-v4-flash": 6,
+    "deepseek-reasoner": 3,
+    "*": 5, // default for unknown models
+  },
+  estudiante: {
+    "gemini-2.5-flash": 12,
+    "deepseek-chat": 12,
+    "deepseek-v4-flash": 12,
+    "deepseek-v4-pro": 8,
+    "deepseek-reasoner": 5,
+    "*": 10,
+  },
+  pro: {
+    "gemini-2.5-flash": 25,
+    "deepseek-chat": 25,
+    "deepseek-v4-flash": 25,
+    "deepseek-v4-pro": 15,
+    "deepseek-reasoner": 10,
+    "*": 20,
+  },
+};
+
 interface QuotaResult {
   allowed: boolean;
   degraded?: boolean;       // true = Pro forced to V4-Flash
@@ -160,6 +189,50 @@ async function checkQuota(userId: string, plan: string): Promise<QuotaResult> {
   return { ...base, allowed: true };
 }
 
+/** Per-model RPM guard — returns seconds to wait if over limit, 0 if OK */
+async function checkModelRPM(userId: string, plan: string, modelId: string): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  const planLimits = MODEL_RPM_LIMITS[plan] || MODEL_RPM_LIMITS.free;
+  const rpm = planLimits[modelId] ?? planLimits["*"] ?? 5;
+
+  const now = new Date();
+  const minuteKey = `rpm#${now.toISOString().slice(0, 16)}`; // "2026-05-17T21:18"
+  const pk = `user#${userId}`;
+
+  try {
+    const result = await docClient.send(new GetCommand({
+      TableName: Resource.TokenUsage.name,
+      Key: { pk, sk: minuteKey },
+    }));
+
+    const currentCount = (result.Item?.requestCount as number) || 0;
+
+    if (currentCount >= rpm) {
+      // Calculate seconds until next minute
+      const nextMinute = new Date(now);
+      nextMinute.setSeconds(0, 0);
+      nextMinute.setMinutes(nextMinute.getMinutes() + 1);
+      return { allowed: false, retryAfterSeconds: Math.ceil((nextMinute.getTime() - now.getTime()) / 1000) };
+    }
+
+    // Increment counter atomically
+    await docClient.send(new UpdateCommand({
+      TableName: Resource.TokenUsage.name,
+      Key: { pk, sk: minuteKey },
+      UpdateExpression: "ADD requestCount :one SET expiresAt = if_not_exists(expiresAt, :ttl)",
+      ExpressionAttributeValues: {
+        ":one": 1,
+        ":ttl": Math.floor(now.getTime() / 1000) + 120, // TTL: 2 minutes
+      },
+    }));
+
+    return { allowed: true, retryAfterSeconds: 0 };
+  } catch (err) {
+    console.error("[RPM] Error checking rate limit:", err);
+    // Fail open — don't block users on DynamoDB errors
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+}
+
 async function recordUsage(userId: string, tokensUsed: number): Promise<void> {
   const now = new Date();
   const dailyKey = `daily#${now.toISOString().split("T")[0]}`;
@@ -194,8 +267,9 @@ async function recordUsage(userId: string, tokensUsed: number): Promise<void> {
 
 // ─── Provider Setup ────────────────────────────────────────────
 
-// AI_STUDIO_GOOGLE is the canonical env var; GEMINI_API_KEY is kept as alias
-const GOOGLE_AI_KEY = process.env.AI_STUDIO_GOOGLE || process.env.GEMINI_API_KEY || "";
+// API_GOOGLE_CLOUD (paid Google Cloud, ~2000 RPM) is the primary key.
+// AI_STUDIO_GOOGLE and GEMINI_API_KEY are legacy free-tier aliases (15 RPM).
+const GOOGLE_AI_KEY = process.env.API_GOOGLE_CLOUD || process.env.AI_STUDIO_GOOGLE || process.env.GEMINI_API_KEY || "";
 const HAS_GOOGLE_AI = GOOGLE_AI_KEY.length > 0;
 const HAS_DEEPSEEK = (process.env.DEEP_SEEK_KEY || "").length > 0;
 
@@ -276,20 +350,20 @@ interface StreamChunk {
 
 export const handler = awslambda.streamifyResponse(
   async (event: { headers?: Record<string, string>; body?: string }, responseStream: NodeJS.WritableStream & { setContentType: (type: string) => void; write: (data: string | Uint8Array) => void; end: () => void }, _context: unknown) => {
-    // 1. JWT Validation (Strictly Required for AWS now)
+    // 1. JWT Validation — Multi-source token extraction
+    // Bearer token has priority, but if it fails verification, fall back to cookie.
     const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
-    let token = authHeader.split(" ")[1];
+    const bearerToken = authHeader.split(" ")[1] || "";
+    
+    // Extract cookie token (always, as fallback)
+    const cookies = event.headers?.cookie || event.headers?.Cookie || "";
+    const cookieMatch = cookies.match(/opita_session=([^;]+)/);
+    const cookieToken = cookieMatch?.[1] || "";
+    
+    // Token candidates: try bearer first, then cookie
+    const tokenCandidates = [bearerToken, cookieToken].filter(Boolean);
 
-    if (!token) {
-      // Intentar leer token desde cookie opita_session si no hay Bearer token
-      const cookies = event.headers?.cookie || event.headers?.Cookie || "";
-      const match = cookies.match(/opita_session=([^;]+)/);
-      if (match) {
-        token = match[1];
-      }
-    }
-
-    if (!token) {
+    if (tokenCandidates.length === 0) {
       responseStream.setContentType("application/json");
       responseStream.write(JSON.stringify({ error: "Unauthorized: Falta token Bearer o cookie" }));
       responseStream.end();
@@ -302,27 +376,39 @@ export const handler = awslambda.streamifyResponse(
 
     let userId = "guest";
     let plan = "free";
-    try {
-      // Try Cognito JWKS first (RSA signed tokens)
-      const decoded = await jose.jwtVerify(token, JWKS, {
-        issuer: COGNITO_ISSUER,
-      });
-      userId = (decoded.payload.email || decoded.payload.sub || "guest") as string;
-      plan = (decoded.payload["custom:plan"] as string) || "free";
-    } catch (cognitoErr) {
-      // Fallback: try legacy HMAC verification (Magic Link tokens)
+    let tokenVerified = false;
+
+    for (const token of tokenCandidates) {
       try {
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET || "");
-        const decoded = await jose.jwtVerify(token, secret);
-        userId = (decoded.payload.sub || decoded.payload.email || "guest") as string;
-        plan = (decoded.payload.plan || "free") as string;
+        // Try Cognito JWKS first (RSA signed tokens)
+        const decoded = await jose.jwtVerify(token, JWKS, {
+          issuer: COGNITO_ISSUER,
+        });
+        userId = (decoded.payload.email || decoded.payload.sub || "guest") as string;
+        plan = (decoded.payload["custom:plan"] as string) || "free";
+        tokenVerified = true;
+        break;
       } catch {
-        console.error("JWT verification failed for both Cognito and legacy:", cognitoErr);
-        responseStream.setContentType("application/json");
-        responseStream.write(JSON.stringify({ error: "Unauthorized: Token inválido" }));
-        responseStream.end();
-        return;
+        // Fallback: try legacy HMAC verification (Magic Link session tokens)
+        try {
+          const secret = new TextEncoder().encode(process.env.JWT_SECRET || "");
+          const decoded = await jose.jwtVerify(token, secret);
+          userId = (decoded.payload.sub || decoded.payload.email || "guest") as string;
+          plan = (decoded.payload.plan || "free") as string;
+          tokenVerified = true;
+          break;
+        } catch {
+          // This candidate failed — try next one
+        }
       }
+    }
+
+    if (!tokenVerified) {
+      console.error("JWT verification failed for all token sources (Bearer + cookie)");
+      responseStream.setContentType("application/json");
+      responseStream.write(JSON.stringify({ error: "Unauthorized: Token inválido" }));
+      responseStream.end();
+      return;
     }
 
     // 2. Parse Payload
@@ -533,6 +619,19 @@ export const handler = awslambda.streamifyResponse(
          }
       }
 
+      // ─── PER-MODEL RPM GUARD ───
+      // Check AFTER routing so we know the final modelId
+      const effectiveModel = modelId || "unknown";
+      const rpmCheck = await checkModelRPM(userId, plan, effectiveModel);
+      if (!rpmCheck.allowed) {
+        responseStream.write(`data: ${JSON.stringify({
+          content: `\n\n⏳ **Límite de velocidad alcanzado.** Estás enviando mensajes muy rápido. Espera ${rpmCheck.retryAfterSeconds} segundo${rpmCheck.retryAfterSeconds !== 1 ? "s" : ""} e intenta de nuevo.`
+        })}\n\n`);
+        responseStream.write(`data: [DONE]\n\n`);
+        responseStream.end();
+        return;
+      }
+
       try {
         // System prompt: the frontend composes and sends it as the first system message.
         // We only use a fallback if no system message is present in the conversation.
@@ -553,43 +652,67 @@ export const handler = awslambda.streamifyResponse(
           selectedSystemPrompt += "\n\n[SISTEMA: Estás operando en modo optimizado por límite de quota del usuario. Usa respuestas concisas.]";
         }
 
-        // Use jsonSchema() instead of Zod — Zod v4 generates schemas with type:null
-        // which DeepSeek rejects with "schema must be a JSON Schema of type: object"
+        // ─── TOOL DEFINITIONS ───
+        // All tools the LLM can invoke. Uses jsonSchema() because Zod v4
+        // generates schemas with type:null which DeepSeek rejects.
+        //
+        // Tools are "client-executed": the backend registers them so the LLM
+        // knows they exist, but execution happens on the frontend. The backend
+        // forwards tool_call events via SSE with toolCallId so the frontend
+        // can return results in a follow-up request.
+
+        // ── Base tools (all plans) ──────────────────────────────────────
         const tools: Record<string, unknown> = {
-          read_local_file: {
-            description: 'Lee un archivo local de la máquina del usuario para obtener contexto.',
+          read_file: {
+            description: 'Lee un archivo del proyecto para analizarlo. Retorna el contenido completo del archivo.',
             inputSchema: jsonSchema({
               type: "object",
-              properties: { path: { type: "string", description: "Ruta del archivo a leer" } },
+              properties: { path: { type: "string", description: "Ruta relativa al archivo dentro del proyecto" } },
               required: ["path"]
             })
           },
-          "mcp_context7_resolve-library-id": {
-            description: "Resolves a package/product name to a Context7-compatible library ID and returns matching libraries.",
+          list_files: {
+            description: 'Explora la estructura de directorios del proyecto. Retorna un árbol de archivos.',
             inputSchema: jsonSchema({
               type: "object",
-              properties: {
-                libraryName: { type: "string", description: "Library name to search for (e.g., 'Next.js', 'React')" },
-                query: { type: "string", description: "The specific question or task you need help with" }
-              },
-              required: ["libraryName", "query"]
+              properties: { path: { type: "string", description: "Directorio a explorar (vacío = raíz del proyecto)" } },
+              required: []
             })
           },
-          "mcp_context7_query-docs": {
-            description: "Retrieves and queries up-to-date documentation and code examples from Context7 for any programming library.",
+          search_code: {
+            description: 'Busca texto o patrones en todos los archivos del proyecto. Úsalo ANTES de leer archivos completos para encontrar exactamente lo que necesitas.',
             inputSchema: jsonSchema({
               type: "object",
               properties: {
-                libraryId: { type: "string", description: "Exact Context7-compatible library ID (e.g., '/vercel/next.js')" },
-                query: { type: "string", description: "The specific question or task you need help with" }
+                query: { type: "string", description: "Texto a buscar" },
+                path: { type: "string", description: "Subdirectorio para filtrar la búsqueda" }
               },
-              required: ["libraryId", "query"]
+              required: ["query"]
             })
-          }
+          },
+          memory_search: {
+            description: 'Busca en la memoria del proyecto: decisiones previas, patrones, bugs resueltos, convenciones. Úsalo ANTES de responder para recordar contexto.',
+            inputSchema: jsonSchema({
+              type: "object",
+              properties: { query: { type: "string", description: "Término de búsqueda" } },
+              required: ["query"]
+            })
+          },
+          memory_save: {
+            description: 'Guarda un aprendizaje, decisión, o convención importante para recordar en el futuro.',
+            inputSchema: jsonSchema({
+              type: "object",
+              properties: {
+                title: { type: "string", description: "Título corto y buscable" },
+                content: { type: "string", description: "Detalle del aprendizaje o decisión" },
+                type: { type: "string", description: "Tipo: decision | pattern | bugfix | discovery | convention" }
+              },
+              required: ["title", "content"]
+            })
+          },
         };
 
-        // Herramientas autónomas (Modificación de archivos y ejecución de comandos)
-        // disponibles para Vibe Estudiante (con cuota diaria) y Vibe Pro (ilimitado).
+        // ── Write/execute tools (Estudiante + Pro only) ─────────────────
         if (action === "subagent" && (plan === "pro" || plan === "estudiante")) {
           // ─── SUBAGENT QUOTA GUARD (ESTUDIANTE: 30/día) ───
           if (plan === "estudiante") {
@@ -624,22 +747,45 @@ export const handler = awslambda.streamifyResponse(
             }
           }
 
-          tools.write_local_file = {
-            description: 'Escribe contenido de código en un archivo local. Úsalo para crear o modificar archivos.',
+          tools.write_file = {
+            description: 'Crea o sobreescribe un archivo completo en el proyecto. SIEMPRE lee el archivo primero con read_file.',
             inputSchema: jsonSchema({
               type: "object",
               properties: {
-                path: { type: "string", description: "La ruta del archivo relativa a la raíz del proyecto" },
-                content: { type: "string", description: "El código completo a escribir" }
+                path: { type: "string", description: "Ruta relativa del archivo" },
+                content: { type: "string", description: "Contenido completo del archivo" }
               },
               required: ["path", "content"]
             })
           };
-          tools.execute_test_command = {
-            description: 'Ejecuta vitest o npm test localmente.',
+          tools.apply_diff = {
+            description: 'Aplica un cambio parcial a un archivo existente. SIEMPRE lee el archivo antes con read_file. El texto de búsqueda debe ser EXACTO.',
             inputSchema: jsonSchema({
               type: "object",
-              properties: { command: { type: "string", description: "Comando a ejecutar" } },
+              properties: {
+                path: { type: "string", description: "Ruta del archivo" },
+                search: { type: "string", description: "Texto EXACTO a reemplazar (debe coincidir exactamente con el contenido actual)" },
+                replace: { type: "string", description: "Texto de reemplazo" }
+              },
+              required: ["path", "search", "replace"]
+            })
+          };
+          tools.delete_file = {
+            description: 'Elimina un archivo del proyecto. Se crea un snapshot automático antes de eliminar.',
+            inputSchema: jsonSchema({
+              type: "object",
+              properties: { path: { type: "string", description: "Ruta del archivo a eliminar" } },
+              required: ["path"]
+            })
+          };
+          tools.execute_command = {
+            description: 'Ejecuta un comando en la terminal del proyecto: tests, instalar paquetes, builds, linters, type-check.',
+            inputSchema: jsonSchema({
+              type: "object",
+              properties: {
+                command: { type: "string", description: "Comando a ejecutar (e.g., npm test, npx tsc --noEmit, npm install X)" },
+                cwd: { type: "string", description: "Directorio de trabajo relativo (opcional)" }
+              },
               required: ["command"]
             })
           };
@@ -650,7 +796,7 @@ export const handler = awslambda.streamifyResponse(
           system: selectedSystemPrompt,
           messages: messages,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          tools: tools as any // Final cast needed by the AI SDK internal mapping since our tool object structure might lack deep interface matching without specific generics
+          tools: tools as any,
         });
 
         let responseBytes = 0;
@@ -668,10 +814,14 @@ export const handler = awslambda.streamifyResponse(
             chunkStr = `data: ${payload}\n\n`;
             responseStream.write(chunkStr);
           } else if (chunk.type === 'tool-call') {
+            // Include toolCallId for proper ReAct loop — the frontend needs
+            // this to send back tool results that the AI SDK can match.
+            const tcChunk = chunk as unknown as { toolCallId?: string; toolName?: string; input?: unknown };
             const mcpPayload = JSON.stringify({ 
               type: "mcp_tool_request", 
-              tool: chunk.toolName, 
-              args: chunk.input 
+              tool: tcChunk.toolName, 
+              toolCallId: tcChunk.toolCallId || `call-${Date.now()}`,
+              args: tcChunk.input 
             });
             chunkStr = `data: ${mcpPayload}\n\n`;
             responseStream.write(chunkStr);
