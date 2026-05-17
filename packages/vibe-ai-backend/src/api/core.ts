@@ -479,7 +479,7 @@ export const handler = async (event: any) => {
       }
 
       if (!sessionToken) {
-        return { statusCode: 401, body: JSON.stringify({ error: "No session" }) };
+        return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
       }
 
       try {

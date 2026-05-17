@@ -84,7 +84,7 @@ function decodeJWT(token: string): any {
  */
 export async function restoreSession(): Promise<AuthResult | null> {
   try {
-    // 1. Intentar con Cognito Cookie primero
+    // 1. Intentar con Cognito Cookie primero (source of truth)
     const cognitoToken = getCookie("opita_id_token");
     if (cognitoToken) {
       const claims = decodeJWT(cognitoToken);
@@ -105,9 +105,34 @@ export async function restoreSession(): Promise<AuthResult | null> {
       }
     }
 
-    // No Cognito cookie found — user is not authenticated.
-    // Legacy /auth/me fallback removed (caused CORS errors and is no longer needed
-    // since the Identity Hub sets cookies with domain=.opitacode.com).
+    // 2. Fallback: Magic Link / Password backend session (opita_session HttpOnly cookie)
+    // The cookie is HttpOnly so we can't read it client-side — call /auth/me to validate
+    try {
+      const meResponse = await fetch(`${API_URL}/auth/me`, {
+        credentials: "include",
+      });
+      if (meResponse.ok) {
+        const data = await meResponse.json();
+        if (data.user?.email) {
+          const user: UserProfile = {
+            id: `user-${data.user.email}`,
+            email: data.user.email,
+            name: data.user.email.split("@")[0] || "Usuario",
+            plan: data.user.plan || "free",
+            verified: true,
+          };
+          const session: Session = {
+            token: "opita_session", // HttpOnly — real token is in the cookie
+            expiresAt: Date.now() + 7 * 24 * 3600000,
+          };
+          useAuthStore.getState().migrateFromGuest(user.email);
+          return { user, session };
+        }
+      }
+    } catch {
+      // /auth/me failed — user is not authenticated via backend session either
+    }
+
     return null;
   } catch (err) {
     console.error("Failed to restore session via AWS", err);
@@ -137,6 +162,9 @@ export async function logout(): Promise<void> {
   removeSSOCookie('opita_id_token');
   removeSSOCookie('opita_access_token');
   removeSSOCookie('opita_refresh_token');
+
+  // Eliminar cookie de sesión de Magic Link / Password backend
+  removeSSOCookie('opita_session');
 
   // Limpiar datos de sesión de localStorage (NO datos de trabajo como BYOK, sync, onboarding)
   const sessionKeys = ['auth-token', 'vibe-guest-email'];

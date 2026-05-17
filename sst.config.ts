@@ -120,7 +120,7 @@ export default $config({
     const coreApi = new sst.aws.Function("CoreAPI", {
       url: true,
       handler: "packages/vibe-ai-backend/src/api/core.handler",
-      link: [usersTable, projectsTable, tokenUsageTable],
+      link: [usersTable, projectsTable, tokenUsageTable, keysTable],
       permissions: [
         {
           actions: ["ses:SendEmail", "ses:SendRawEmail"],
