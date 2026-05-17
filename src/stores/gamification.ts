@@ -67,7 +67,7 @@ function getApiUrl(): string {
       window.location.hostname === "127.0.0.1");
   return isLocalhost
     ? "http://localhost:3000"
-    : "https://api.opitacode.com";
+    : "https://api.opitacode.com/core";
 }
 
 async function gamificationFetch(

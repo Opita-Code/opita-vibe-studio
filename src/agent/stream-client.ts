@@ -15,7 +15,7 @@ import type { SSEChunk } from "./types";
 import { useAuthStore } from "@/stores/auth";
 
 const AWS_API_URL =
-  "https://api.opitacode.com/chat";
+  "https://api.opitacode.com/chat/";
 
 // ─── Error Translation ─────────────────────────────────────────
 

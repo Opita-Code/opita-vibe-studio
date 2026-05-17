@@ -463,7 +463,7 @@ export const useProjectStore = create<ProjectStore>()(
         if (content === undefined) return;
 
         const workspaceId = get().activeWorkspaceId;
-        const isVirtual = workspaceId?.startsWith("template://");
+        const isVirtual = workspaceId?.startsWith("template://") || workspaceId?.startsWith("sandbox://");
 
         if (isVirtual) {
           // Virtual workspace: mark clean + trigger OPFS persist (no FS permission needed)

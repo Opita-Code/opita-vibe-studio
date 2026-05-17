@@ -170,7 +170,7 @@ export async function saveProviderKey(
   let finalKey = key;
 
   try {
-      const AWS_API_URL = "https://api.opitacode.com/chat";
+      const AWS_API_URL = "https://api.opitacode.com/chat/";
       
       const res = await fetch(AWS_API_URL, {
         method: "POST",
