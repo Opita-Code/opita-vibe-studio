@@ -2,6 +2,7 @@ import { useUIStore } from "@/stores/ui";
 import { useProjectStore } from "@/stores/project";
 import { useAuthStore } from "@/stores/auth";
 import { useChatStore } from "@/stores/chat";
+import { isSandboxWorkspace } from "@/lib/sandbox";
 
 /**
  * Barra de estado inferior.
@@ -23,6 +24,7 @@ export function StatusBar() {
   const activeWs = workspaces.find(w => w.id === activeWorkspaceId);
   const isGitRepo = activeWs?.isGitRepo || false;
   const gitBranch = activeWs?.gitBranch || null;
+  const isSandbox = isSandboxWorkspace(activeWorkspaceId);
 
   const authMode = useAuthStore((s) => s.authMode);
   const user = useAuthStore((s) => s.user);
@@ -60,10 +62,20 @@ export function StatusBar() {
         <span className="truncate hidden sm:inline">{statusMessage}</span>
 
         {/* Rama git */}
-        {isGitRepo && gitBranch && (
+        {isGitRepo && gitBranch && !isSandbox && (
           <span className="flex items-center gap-1 shrink-0 text-slate-400">
             <span className="text-[10px]">⑂</span>
             <span className="hidden sm:inline">{gitBranch}</span>
+          </span>
+        )}
+
+        {/* Sandbox indicator */}
+        {isSandbox && (
+          <span className="flex items-center gap-1.5 shrink-0 px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-500/90 border border-yellow-500/20 text-[10px] uppercase font-bold tracking-wider">
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+            </svg>
+            Sandbox local
           </span>
         )}
       </div>

@@ -12,6 +12,13 @@
 import type { ToolCall, ToolResult } from "./definitions";
 import type { FileNode } from "@/lib/types";
 import { saveSnapshot } from "./fileSnapshot";
+import {
+  isSandboxWorkspace,
+  ensureSandbox,
+  validateSandboxQuota,
+  getUserPlan,
+  syncSandboxFileTree,
+} from "@/lib/sandbox";
 import { saveMemory, searchMemories } from "@/lib/memory";
 import {
   readFileContent,
@@ -29,7 +36,9 @@ import { useProjectStore } from "@/stores/project";
  * NOT on the filesystem.
  */
 export function isVirtualWorkspace(workspaceId: string | null): boolean {
-  return typeof workspaceId === "string" && workspaceId.startsWith("template://");
+  return typeof workspaceId === "string" && (
+    workspaceId.startsWith("template://") || workspaceId.startsWith("sandbox://")
+  );
 }
 
 /**
@@ -118,11 +127,10 @@ function validatePath(relativePath: string): void {
 
 /** Resuelve una ruta relativa al workspace activo. */
 function resolveProjectPath(relativePath: string): string {
-  const rootPath = useProjectStore.getState().activeWorkspaceId;
+  let rootPath = useProjectStore.getState().activeWorkspaceId;
   if (!rootPath) {
-    throw new Error(
-      "No hay un proyecto abierto. Abre un proyecto primero para usar herramientas de código.",
-    );
+    // Auto-provision sandbox instead of failing
+    rootPath = ensureSandbox();
   }
 
   validatePath(relativePath);
@@ -166,13 +174,32 @@ function virtualRead(relativePath: string): string | null {
  */
 function virtualWrite(relativePath: string, content: string): void {
   const store = useProjectStore.getState();
-  const wsId = store.activeWorkspaceId;
-  if (!wsId) throw new Error("No hay un proyecto abierto.");
+  let wsId = store.activeWorkspaceId;
+  if (!wsId) {
+    wsId = ensureSandbox();
+  }
+
+  // Validate quotas for sandbox workspaces
+  if (isSandboxWorkspace(wsId)) {
+    const plan = getUserPlan();
+    const isNewFile = !store.fileContents[`${wsId}/${sanitizePath(relativePath)}`];
+    validateSandboxQuota(
+      plan,
+      store.fileContents,
+      new TextEncoder().encode(content).byteLength,
+      isNewFile,
+    );
+  }
 
   const cleanPath = sanitizePath(relativePath);
   const fullVirtualPath = `${wsId}/${cleanPath}`;
 
   store.setFileContent(fullVirtualPath, content);
+
+  // Sync file tree so Explorer panel shows the new file
+  if (isVirtualWorkspace(wsId)) {
+    syncSandboxFileTree(wsId, cleanPath);
+  }
 }
 
 // ─── Tool Implementations ──────────────────────────────────────
@@ -184,7 +211,8 @@ async function toolReadFile(
   if (!path) return { name: "read_file", success: false, error: "Se requiere el parámetro 'path'" };
 
   try {
-    const wsId = useProjectStore.getState().activeWorkspaceId;
+    let wsId = useProjectStore.getState().activeWorkspaceId;
+    if (!wsId) wsId = ensureSandbox();
 
     // Virtual workspace — read from Zustand memory
     if (isVirtualWorkspace(wsId)) {
@@ -244,7 +272,8 @@ async function toolWriteFile(
   if (!path) return { name: "write_file", success: false, error: "Se requiere el parámetro 'path'" };
 
   try {
-    const wsId = useProjectStore.getState().activeWorkspaceId;
+    let wsId = useProjectStore.getState().activeWorkspaceId;
+    if (!wsId) wsId = ensureSandbox();
 
     // Virtual workspace — write to Zustand memory
     if (isVirtualWorkspace(wsId)) {
@@ -306,7 +335,8 @@ async function toolApplyDiff(
   if (!search) return { name: "apply_diff", success: false, error: "Se requiere 'search'" };
 
   try {
-    const wsId = useProjectStore.getState().activeWorkspaceId;
+    let wsId = useProjectStore.getState().activeWorkspaceId;
+    if (!wsId) wsId = ensureSandbox();
     const isVirtual = isVirtualWorkspace(wsId);
 
     // Read content (virtual or filesystem)
@@ -411,9 +441,9 @@ async function toolListFiles(
   const relativePath = String(args.path || "");
 
   try {
-    const rootPath = useProjectStore.getState().activeWorkspaceId;
+    let rootPath = useProjectStore.getState().activeWorkspaceId;
     if (!rootPath) {
-      return { name: "list_files", success: false, error: "No hay proyecto abierto." };
+      rootPath = ensureSandbox();
     }
 
     // Virtual workspace — read from Zustand workspace.files
@@ -462,9 +492,9 @@ async function toolSearchCode(
   const relativePath = String(args.path || "");
 
   try {
-    const rootPath = useProjectStore.getState().activeWorkspaceId;
+    let rootPath = useProjectStore.getState().activeWorkspaceId;
     if (!rootPath) {
-      return { name: "search_code", success: false, error: "No hay proyecto abierto." };
+      rootPath = ensureSandbox();
     }
 
     // Obtener el árbol de archivos del workspace activo
@@ -541,7 +571,8 @@ async function toolDeleteFile(
   if (!path) return { name: "delete_file", success: false, error: "Se requiere 'path'" };
 
   try {
-    const wsId = useProjectStore.getState().activeWorkspaceId;
+    let wsId = useProjectStore.getState().activeWorkspaceId;
+    if (!wsId) wsId = ensureSandbox();
 
     // Virtual workspace — delete from Zustand
     if (isVirtualWorkspace(wsId)) {
