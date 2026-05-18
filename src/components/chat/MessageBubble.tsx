@@ -11,6 +11,7 @@ import { ConfirmationCard } from "@/components/chat/ConfirmationCard";
 import { Copy, Check, Terminal, FileEdit, HardDrive, BookOpen, ChevronDown, ChevronRight, X, Pencil } from "lucide-react";
 import { useProjectStore } from "@/stores/project";
 import { GRACE_WINDOW_MS } from "@/agent/useAgentHandler";
+import { SectionRenderer } from "@/components/chat/SectionRenderer";
 
 // ─── Phase Labels ───────────────────────────────────────────────
 
@@ -333,8 +334,11 @@ export function MessageBubble({ message, isThinking = false, onCancel, onEdit }:
   // Determine if reasoning should show as "live" (streaming indicator)
   const reasoningIsLive = isThinking || (isThinking === false && !cleanContent && !!thinkContent);
 
+  // Check if this message uses the new sections model
+  const hasSections = !isUser && (message.sections?.length ?? 0) > 0;
+
   // Skip rendering empty assistant bubbles (tool-only responses with no text)
-  if (!isUser && !isThinking && !cleanContent.trim()) {
+  if (!isUser && !isThinking && !cleanContent.trim() && !hasSections) {
     // Still show reasoning/steps accordion if present (legacy path)
     if (!hasAgentExecution && (message.subagentSteps?.length || thinkContent)) {
       return (
@@ -431,6 +435,13 @@ export function MessageBubble({ message, isThinking = false, onCancel, onEdit }:
             </>
           ) : isThinking ? (
             <ThinkingContent />
+          ) : hasSections ? (
+            /* ── Sections-based rendering (new path) ── */
+            <div className="flex flex-col gap-1">
+              {message.sections!.map((section) => (
+                <SectionRenderer key={section.id} section={section} />
+              ))}
+            </div>
           ) : (
             <div className="prose prose-invert max-w-none prose-sm prose-code:before:content-none prose-code:after:content-none prose-p:leading-relaxed">
               <ReactMarkdown

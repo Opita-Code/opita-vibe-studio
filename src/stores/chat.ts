@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage, StateStorage } from "zustand/middleware";
 import * as idb from "idb-keyval";
-import type { Message, AgentExecution, AgentExecutionStatus } from "@/lib/types";
+import type { Message, MessageSection, AgentExecution, AgentExecutionStatus } from "@/lib/types";
 import { sanitizeAllSessions } from "./chat-sanitize";
 
 // ─── IndexedDB Storage Adapter ─────────────────────────────────
@@ -111,6 +111,12 @@ interface ChatActions {
   setUserMessageStatus: (messageId: string, status: "pending" | "sent") => void;
   /** Delete a message by ID from the active session (used by cancel flow) */
   deleteMessage: (messageId: string) => void;
+
+  // ── Section mutations (for streaming section accumulation) ──
+  /** Append a new section to a message's sections array */
+  appendSection: (messageId: string, section: MessageSection) => void;
+  /** Append content to an existing section by ID */
+  appendToSection: (messageId: string, sectionId: string, content: string) => void;
 }
 
 // ─── Selectors ─────────────────────────────────────────────────
@@ -493,6 +499,52 @@ export const useChatStore = create<ChatStore>()(
           if (!session) return state;
 
           const updatedMessages = session.messages.filter((msg) => msg.id !== messageId);
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [session.id]: { ...session, messages: updatedMessages, updatedAt: Date.now() },
+            },
+          };
+        }),
+
+      // ── Section Mutations ──────────────────────────────────
+
+      appendSection: (messageId, section) =>
+        set((state) => {
+          const session = state.sessions[state.activeSessionId];
+          if (!session) return state;
+
+          const updatedMessages = session.messages.map((msg) => {
+            if (msg.id !== messageId) return msg;
+            return {
+              ...msg,
+              sections: [...(msg.sections || []), section],
+            };
+          });
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [session.id]: { ...session, messages: updatedMessages, updatedAt: Date.now() },
+            },
+          };
+        }),
+
+      appendToSection: (messageId, sectionId, content) =>
+        set((state) => {
+          const session = state.sessions[state.activeSessionId];
+          if (!session) return state;
+
+          const updatedMessages = session.messages.map((msg) => {
+            if (msg.id !== messageId || !msg.sections) return msg;
+            return {
+              ...msg,
+              sections: msg.sections.map((s) =>
+                s.id === sectionId ? { ...s, content: s.content + content } : s
+              ),
+            };
+          });
 
           return {
             sessions: {

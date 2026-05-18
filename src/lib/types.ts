@@ -94,6 +94,44 @@ export interface AgentExecution {
   };
 }
 
+// ─── Message Sections ──────────────────────────────────────────
+
+export type MessageSectionType = "thinking" | "text" | "code" | "steps" | "summary" | "notice";
+
+export interface MessageSection {
+  id: string;
+  type: MessageSectionType;
+  content: string;
+  /** For type: "code" */
+  language?: string;
+  /** Whether the section starts collapsed (thinking defaults to true) */
+  collapsed?: boolean;
+  /** Executive label (e.g. "Analizó 3 archivos", "💡 Dato extra") */
+  label?: string;
+}
+
+// ─── Personas ──────────────────────────────────────────────────
+
+export type PersonaId = "student" | "creator" | "senior" | "neutral" | "custom";
+
+export interface PersonaConfig {
+  id: PersonaId;
+  label: string;
+  icon: string;
+  tier: "free" | "pro";
+  description: string;
+}
+
+export const PERSONAS: PersonaConfig[] = [
+  { id: "student", label: "Estudiante", icon: "🎓", tier: "free", description: "Explica paso a paso con analogías" },
+  { id: "creator", label: "Creador", icon: "✨", tier: "free", description: "Directo y conciso" },
+  { id: "senior", label: "Ingeniero Senior", icon: "🔧", tier: "pro", description: "Terminología técnica y tradeoffs" },
+  { id: "neutral", label: "Neutral", icon: "⚡", tier: "pro", description: "Solo código, sin personalidad" },
+  { id: "custom", label: "Personalizado", icon: "✏️", tier: "pro", description: "Define tu propio estilo" },
+];
+
+// ─── Message ───────────────────────────────────────────────────
+
 export interface Message {
   id: string;
   role: "user" | "assistant" | "system";
@@ -107,6 +145,8 @@ export interface Message {
   reasoning?: string;
   /** Embedded agent execution state — makes this bubble a mini-dashboard */
   agentExecution?: AgentExecution;
+  /** Structured content sections — when present, rendered instead of raw content */
+  sections?: MessageSection[];
   /**
    * Delivery status for user messages.
    * "pending" = agent has not started reading the message yet (Cancel/Edit available).
