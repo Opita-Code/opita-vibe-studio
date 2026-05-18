@@ -1,6 +1,6 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { Resource as SSTResource } from "sst";
 import { z } from "zod";
 import * as jose from "jose";
@@ -11,16 +11,30 @@ import { getProfile, getMissions, completeMission, awardXP } from "./gamificatio
 async function shortenUrl(url: string, options?: { ttl?: number; meta?: Record<string, string> }): Promise<string> {
   const baseUrl = process.env.OPITA_LINKS_BASE_URL || "https://go.opitacode.com";
   const apiKey = process.env.OPITA_LINKS_API_KEY;
-  if (!apiKey) { return url; }
+  if (!apiKey) {
+    console.warn("[opita-links] WARNING: OPITA_LINKS_API_KEY not set — sending raw URL in email");
+    return url;
+  }
   try {
     const res = await fetch(`${baseUrl}/api/links`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": apiKey },
       body: JSON.stringify({ url, ...(options?.ttl ? { ttl: options.ttl } : {}), ...(options?.meta ? { meta: options.meta } : {}) }),
     });
-    if (!res.ok) { console.error(`[opita-links] ${res.status}`); return url; }
-    return ((await res.json()) as any).shortUrl;
-  } catch (e: any) { console.error("[opita-links]", e.message); return url; }
+    if (!res.ok) {
+      console.error(`[opita-links] WARNING: Shortener returned ${res.status} — sending raw URL`);
+      return url;
+    }
+    const data = (await res.json()) as any;
+    if (!data.shortUrl) {
+      console.error("[opita-links] WARNING: No shortUrl in response — sending raw URL");
+      return url;
+    }
+    return data.shortUrl;
+  } catch (e: any) {
+    console.error(`[opita-links] WARNING: Shortener unreachable (${e.message}) — sending raw URL`);
+    return url;
+  }
 }
 
 function base64url(buf: Buffer) {
@@ -476,14 +490,24 @@ export const handler = async (event: any) => {
       
       const email = payload.email as string;
 
-      // Upsert user in DynamoDB
+      // Update last_login WITHOUT overwriting existing user data (plan, name, password_hash, etc.)
+      // CRITICAL: PutCommand was here before and it WIPED the entire user record.
       await docClient.send(new PutCommand({
         TableName: Resource.Users.name,
         Item: {
           email: email,
           last_login: new Date().toISOString(),
-        }
-      }));
+        },
+        ConditionExpression: "attribute_not_exists(email)"
+      })).catch(() => {
+        // User exists — just update last_login
+        return docClient.send(new UpdateCommand({
+          TableName: Resource.Users.name,
+          Key: { email },
+          UpdateExpression: "SET last_login = :ll",
+          ExpressionAttributeValues: { ":ll": new Date().toISOString() },
+        }));
+      });
 
       // Generate Session Token
       const sessionToken = signJWT(
