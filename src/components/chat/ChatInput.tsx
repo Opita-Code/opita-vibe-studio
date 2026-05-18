@@ -224,7 +224,6 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
     [handleSend, text, sessions, activeSessionId],
   );
 
-  const isOverLimit = text.length >= CHAR_LIMIT; // used only for send-button disable
   const activeModelId = useChatStore(s => s.activeModelId);
   const setActiveModelId = useChatStore(s => s.setActiveModelId);
   const setActiveProvider = useChatStore(s => s.setActiveProvider);

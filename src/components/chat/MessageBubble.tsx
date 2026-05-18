@@ -12,6 +12,83 @@ import { Copy, Check, Terminal, FileEdit, HardDrive, BookOpen, ChevronDown, Chev
 import { useProjectStore } from "@/stores/project";
 import { GRACE_WINDOW_MS } from "@/agent/useAgentHandler";
 import { SectionRenderer } from "@/components/chat/SectionRenderer";
+import { FileRefChip } from "@/components/chat/FileRefChip";
+import type { FileNode } from "@/lib/types";
+
+// ─── File Reference Detection ───────────────────────────────────
+
+/**
+ * Matches inline code that looks like a file path, optionally with line numbers.
+ * Examples: `src/utils.ts`, `src/utils.ts:42`, `src/utils.ts:42-58`
+ */
+const FILE_REF_PATTERN = /^([\w./@\\-]+\.\w{1,8})(?::(\d+)(?:-(\d+))?)?$/;
+
+/** Known code file extensions for matching */
+const CODE_EXTENSIONS = new Set([
+  "ts", "tsx", "js", "jsx", "mjs", "cjs",
+  "css", "scss", "less", "html", "vue", "svelte",
+  "json", "yaml", "yml", "toml", "xml",
+  "md", "mdx", "txt", "env", "gitignore",
+  "py", "rb", "go", "rs", "java", "kt", "swift", "c", "cpp", "h",
+  "sh", "bash", "zsh", "ps1", "bat",
+  "sql", "graphql", "prisma",
+  "dockerfile", "conf", "cfg", "ini", "lock",
+]);
+
+/** Recursively collect all file paths from the workspace tree */
+function collectFilePaths(nodes: FileNode[], prefix = ""): Set<string> {
+  const paths = new Set<string>();
+  for (const node of nodes) {
+    const rel = prefix ? `${prefix}/${node.name}` : node.name;
+    if (node.type === "file") {
+      paths.add(rel);
+    } else if (node.children) {
+      for (const p of collectFilePaths(node.children, rel)) {
+        paths.add(p);
+      }
+    }
+  }
+  return paths;
+}
+
+interface ParsedFileRef {
+  path: string;
+  line?: number;
+  endLine?: number;
+}
+
+/**
+ * Parses inline code text as a file reference.
+ * Returns null if it doesn't match or the file doesn't exist in the workspace.
+ */
+export function parseFileRef(text: string, workspaceFiles: Set<string>): ParsedFileRef | null {
+  const m = FILE_REF_PATTERN.exec(text.trim());
+  if (!m) return null;
+
+  const filePath = m[1];
+  const ext = filePath.split(".").pop()?.toLowerCase();
+  if (!ext || !CODE_EXTENSIONS.has(ext)) return null;
+
+  // Normalize separators for matching
+  const normalized = filePath.replace(/\\/g, "/");
+
+  // Check if any workspace file ends with this path (supports relative refs)
+  let found = false;
+  for (const wsFile of workspaceFiles) {
+    const wsNorm = wsFile.replace(/\\/g, "/");
+    if (wsNorm === normalized || wsNorm.endsWith(`/${normalized}`)) {
+      found = true;
+      break;
+    }
+  }
+  if (!found) return null;
+
+  return {
+    path: normalized,
+    line: m[2] ? parseInt(m[2], 10) : undefined,
+    endLine: m[3] ? parseInt(m[3], 10) : undefined,
+  };
+}
 
 // ─── Phase Labels ───────────────────────────────────────────────
 
@@ -337,6 +414,10 @@ export function MessageBubble({ message, isThinking = false, onCancel, onEdit }:
   // Check if this message uses the new sections model
   const hasSections = !isUser && (message.sections?.length ?? 0) > 0;
 
+  // Collect workspace file paths for file reference detection
+  const activeWs = useProjectStore((s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId));
+  const workspaceFiles = activeWs ? collectFilePaths(activeWs.files) : new Set<string>();
+
   // Skip rendering empty assistant bubbles (tool-only responses with no text)
   if (!isUser && !isThinking && !cleanContent.trim() && !hasSections) {
     // Still show reasoning/steps accordion if present (legacy path)
@@ -451,18 +532,31 @@ export function MessageBubble({ message, isThinking = false, onCancel, onEdit }:
                     const match = /language-(\w+)/.exec(className ?? "");
                     const code = String(children).replace(/\n$/, "");
 
-                    if (!match) {
+                    // Fenced code block → ApplyCodeBlock
+                    if (match) {
+                      return <ApplyCodeBlock code={code} language={match[1]} />;
+                    }
+
+                    // Inline code → check if it's a file reference
+                    const fileRef = parseFileRef(code, workspaceFiles);
+                    if (fileRef) {
                       return (
-                        <code
-                          className="rounded bg-black/40 px-1 text-aura-cyan"
-                          {...props}
-                        >
-                          {children}
-                        </code>
+                        <FileRefChip
+                          filePath={fileRef.path}
+                          line={fileRef.line}
+                          endLine={fileRef.endLine}
+                        />
                       );
                     }
 
-                    return <ApplyCodeBlock code={code} language={match[1]} />;
+                    return (
+                      <code
+                        className="rounded bg-black/40 px-1 text-aura-cyan"
+                        {...props}
+                      >
+                        {children}
+                      </code>
+                    );
                   },
                 }}
               >

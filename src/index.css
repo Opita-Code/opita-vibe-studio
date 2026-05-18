@@ -129,3 +129,29 @@ body.is-resizing iframe {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* ─── File Reference Highlight (Monaco Decoration) ────────────── */
+
+.vibe-file-ref-highlight {
+  background-color: rgba(250, 204, 21, 0.12) !important;
+  border-left: 3px solid rgba(250, 204, 21, 0.6) !important;
+  animation: vibe-highlight-fade 2.5s ease-out forwards;
+}
+
+.vibe-file-ref-glyph {
+  background-color: rgba(250, 204, 21, 0.4);
+  border-radius: 2px;
+  width: 4px !important;
+  margin-left: 2px;
+}
+
+@keyframes vibe-highlight-fade {
+  0%, 60% {
+    background-color: rgba(250, 204, 21, 0.12);
+    border-left-color: rgba(250, 204, 21, 0.6);
+  }
+  100% {
+    background-color: transparent;
+    border-left-color: transparent;
+  }
+}

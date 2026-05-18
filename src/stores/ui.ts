@@ -3,6 +3,8 @@ import { persist } from "zustand/middleware";
 import type { PreviewDevice } from "@/components/preview/DeviceFrame";
 import type { PersonaId } from "@/lib/types";
 
+export type FileRefClickMode = "hold" | "click" | "disabled";
+
 // ─── Types ─────────────────────────────────────────────────────
 
 export type ActiveView = "preview" | "editor" | "split";
@@ -65,6 +67,8 @@ interface UIState {
   persona: PersonaId;
   /** Prompt personalizado para persona "custom" (max 500 chars) */
   customPersonaPrompt: string;
+  /** Modo de activación de file refs en chat: hold (300ms), click directo, o deshabilitado */
+  fileRefClickMode: FileRefClickMode;
 }
 
 // ─── Actions ───────────────────────────────────────────────────
@@ -102,6 +106,7 @@ interface UIActions {
   setPreviewDevice: (device: PreviewDevice) => void;
   setPersona: (persona: PersonaId) => void;
   setCustomPersonaPrompt: (prompt: string) => void;
+  setFileRefClickMode: (mode: FileRefClickMode) => void;
 }
 
 // ─── Clamp helpers ─────────────────────────────────────────────
@@ -144,6 +149,7 @@ export const useUIStore = create<UIStore>()(
   previewDevice: "desktop",
   persona: "creator",
   customPersonaPrompt: "",
+  fileRefClickMode: "hold",
 
   setSidebarWidth: (width) => set({ sidebarWidth: Math.max(180, Math.min(400, width)) }),
 
@@ -212,6 +218,7 @@ export const useUIStore = create<UIStore>()(
   setPreviewDevice: (device) => set({ previewDevice: device }),
   setPersona: (persona) => set({ persona }),
   setCustomPersonaPrompt: (prompt) => set({ customPersonaPrompt: prompt.slice(0, 500) }),
+  setFileRefClickMode: (mode) => set({ fileRefClickMode: mode }),
 }),
     {
       name: "vibe-studio-ui",
@@ -230,6 +237,7 @@ export const useUIStore = create<UIStore>()(
         previewDevice: state.previewDevice,
         persona: state.persona,
         customPersonaPrompt: state.customPersonaPrompt,
+        fileRefClickMode: state.fileRefClickMode,
       }),
     },
   ),

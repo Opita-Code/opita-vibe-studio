@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useUIStore } from "@/stores/ui";
+import type { FileRefClickMode } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 import { ByokPanel } from "@/components/settings/ByokPanel";
 import { PrivacyPanel } from "@/components/settings/PrivacyPanel";
@@ -24,6 +25,8 @@ export function SettingsPanel() {
   const setChatWidth = useUIStore((s) => s.setChatWidth);
   const vibeLensEnabled = useUIStore((s) => s.vibeLensEnabled);
   const setVibeLensEnabled = useUIStore((s) => s.setVibeLensEnabled);
+  const fileRefClickMode = useUIStore((s) => s.fileRefClickMode);
+  const setFileRefClickMode = useUIStore((s) => s.setFileRefClickMode);
   
   const authMode = useAuthStore((s) => s.authMode);
   const plan = useAuthStore((s) => s.plan);
@@ -229,6 +232,34 @@ export function SettingsPanel() {
                             <p className="text-xs text-slate-400 leading-relaxed max-w-lg">
                               Permite a la IA aislar y previsualizar componentes individualmente usando Sandpack en un entorno virtual.
                             </p>
+                          </div>
+
+                          <div className="p-5 bg-white/[0.02] rounded-xl border border-white/5">
+                            <h3 className="text-sm font-semibold text-slate-200 mb-2">Referencias a Archivos en Chat</h3>
+                            <p className="text-xs text-slate-400 mb-4 leading-relaxed max-w-lg">
+                              Cuando Aura menciona archivos en el chat, puedes hacer clic para navegar al código. Elige cómo activar la navegación.
+                            </p>
+                            <div className="flex flex-col gap-2 max-w-md">
+                              {([
+                                { id: "hold" as FileRefClickMode, label: "Mantener presionado", desc: "300ms de presión o doble clic — evita accidentes" },
+                                { id: "click" as FileRefClickMode, label: "Clic directo", desc: "Un solo clic navega al archivo" },
+                                { id: "disabled" as FileRefClickMode, label: "Deshabilitado", desc: "Solo visual, sin navegación" },
+                              ]).map((opt) => (
+                                <button
+                                  key={opt.id}
+                                  onClick={() => setFileRefClickMode(opt.id)}
+                                  aria-pressed={fileRefClickMode === opt.id}
+                                  className={`text-left px-4 py-3 rounded-lg text-sm transition-all border ${
+                                    fileRefClickMode === opt.id
+                                      ? "bg-aura-purple/15 text-aura-purple border-aura-purple/30 shadow-[0_0_12px_rgba(168,85,247,0.1)]"
+                                      : "bg-obsidian-900/50 text-slate-400 hover:text-slate-200 hover:bg-obsidian-800 border-white/5"
+                                  }`}
+                                >
+                                  <div className="font-medium">{opt.label}</div>
+                                  <div className="text-[11px] mt-0.5 opacity-70">{opt.desc}</div>
+                                </button>
+                              ))}
+                            </div>
                           </div>
 
                           <div className="p-5 bg-white/[0.02] rounded-xl border border-white/5">
