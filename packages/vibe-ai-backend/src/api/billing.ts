@@ -66,8 +66,9 @@ export async function handler(event: any) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Producto inválido" }) };
     }
 
-    const publicKey = process.env.WOMPI_PUBLIC_KEY;
-    const integritySecret = process.env.WOMPI_INTEGRITY_SECRET;
+    // Strip BOM (U+FEFF) and whitespace — env vars from GitHub Secrets can carry invisible chars
+    const publicKey = (process.env.WOMPI_PUBLIC_KEY || "").replace(/^\uFEFF/, "").trim();
+    const integritySecret = (process.env.WOMPI_INTEGRITY_SECRET || "").replace(/^\uFEFF/, "").trim();
 
     if (!publicKey || !integritySecret) {
       console.error("Faltan WOMPI_PUBLIC_KEY o WOMPI_INTEGRITY_SECRET");
