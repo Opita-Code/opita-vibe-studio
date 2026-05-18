@@ -3,6 +3,7 @@ import { usePurchaseIntent } from "@/hooks/usePurchaseIntent";
 import { useAuthStore } from "@/stores/auth";
 import { X, Loader2, Zap } from "lucide-react";
 import { getPlan, getPlanName } from "@/lib/plan-registry";
+import { analytics } from "@/lib/analytics";
 
 export function WompiModal() {
   const { isModalOpen, closeModal, plan } = usePurchaseIntent();
@@ -22,19 +23,27 @@ export function WompiModal() {
   useEffect(() => {
     if (!isModalOpen || !scriptContainerRef.current) return;
 
+    // Analytics: track checkout intent
+    analytics.track("checkout_intent", { product: targetPlan, current_plan: plan });
+
     let isMounted = true;
     const fetchSignature = async () => {
       setLoading(true);
       setError(null);
       
       try {
-        const token = localStorage.getItem("auth-token") || "";
+        const token = useAuthStore.getState().session?.token;
         const backendHost = "https://api.opitacode.com/billing";
         
-        const res = await fetch(`${backendHost}/checkout-sign?product=${targetPlan}&userId=${user?.email || "anon"}`, {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
+        const headers: Record<string, string> = {};
+        // Only send Bearer when we have a real JWT (not the cookie placeholder)
+        if (token && token !== "opita_session") {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        
+        const res = await fetch(`${backendHost}/checkout-sign?product=${targetPlan}`, {
+          headers,
+          credentials: "include",  // Send HttpOnly cookie as fallback auth
         });
 
         if (!res.ok) throw new Error("Error obteniendo configuración de pago");

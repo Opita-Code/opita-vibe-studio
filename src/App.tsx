@@ -25,6 +25,8 @@ import { MissionPanel } from "@/components/gamification/MissionPanel";
 import { LevelUpCeremony } from "@/components/gamification/LevelUpCeremony";
 import { useGamificationStore } from "@/stores/gamification";
 import { XPParticleSystem } from "@/components/gamification/XPParticleSystem";
+import { analytics } from "@/lib/analytics";
+import { useConsentStore } from "@/stores/consent";
 
 function GlobalKeybindings() {
   useKeybindings();
@@ -137,6 +139,26 @@ export default function App() {
       return () => destroyTracker();
     }
   }, [authMode, initTracker, destroyTracker]);
+
+  // Initialize analytics tracker
+  useEffect(() => {
+    const richConsent = useConsentStore.getState().richConsent;
+    analytics.init({ richConsent });
+    analytics.track("session_start", {
+      auth_mode: authMode,
+      plan: useAuthStore.getState().user?.plan || "free",
+    });
+
+    // Sync consent changes to analytics
+    const unsub = useConsentStore.subscribe((state) => {
+      analytics.setRichConsent(state.richConsent);
+    });
+
+    return () => {
+      unsub();
+      analytics.destroy();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Only check URL intents AFTER session detection has completed

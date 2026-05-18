@@ -1,6 +1,6 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand, UpdateCommand, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { Resource as SSTResource } from "sst";
 import { z } from "zod";
 import * as jose from "jose";
@@ -341,6 +341,78 @@ function buildMagicLinkEmail(service: ServiceId, verifyUrl: string): string {
 </html>`;
 }
 
+function buildResetCodeEmail(cfg: typeof SERVICE_CONFIG[ServiceId], code: string): string {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { margin:0; padding:0; background:#f8fafc; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+    .container { max-width:480px; margin:40px auto; }
+    .header { text-align:center; padding:32px 0 24px; }
+    .header img { height:36px; }
+    .content { background:#fff; border-radius:16px; padding:40px 36px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+    .badge { display:inline-block; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:20px; padding:4px 14px; font-size:12px; color:#475569; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:20px; font-weight:500; }
+    h1 { font-size:26px; font-weight:700; color:#0f172a; margin:0 0 12px 0; }
+    p { font-size:15px; line-height:1.65; color:#475569; margin:0 0 24px 0; }
+    .code-box { text-align:center; margin:32px 0; }
+    .code { display:inline-block; font-size:36px; font-weight:700; letter-spacing:8px; color:#0f172a; background:#f1f5f9; padding:16px 32px; border-radius:12px; border:2px dashed #e2e8f0; font-family:'Courier New',monospace; }
+    .footer { font-size:12px; color:#94a3b8; text-align:center; margin-top:24px; margin-bottom:48px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><img src="${cfg.logoUrl}" alt="${cfg.name}"></div>
+    <div class="content">
+      <div style="text-align:center"><span class="badge">${cfg.name}</span></div>
+      <h1>Restablece tu contrase&ntilde;a</h1>
+      <p>Ingresa este c&oacute;digo en la aplicaci&oacute;n para crear una nueva contrase&ntilde;a. El c&oacute;digo expira en <strong>15 minutos</strong>.</p>
+      <div class="code-box"><span class="code">${code}</span></div>
+      <p style="font-size:13px;color:#64748b;margin:16px 0 0">Si no solicitaste este cambio, ignora este correo. Tu contrase&ntilde;a actual no se ver&aacute; afectada.</p>
+    </div>
+  </div>
+  <div class="footer">&copy; ${new Date().getFullYear()} Opita Code &mdash; El c&oacute;digo fluye.</div>
+</body>
+</html>`;
+}
+
+function buildVerifyEmailCodeEmail(cfg: typeof SERVICE_CONFIG[ServiceId], code: string): string {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { margin:0; padding:0; background:#f8fafc; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+    .container { max-width:480px; margin:40px auto; }
+    .header { text-align:center; padding:32px 0 24px; }
+    .header img { height:36px; }
+    .content { background:#fff; border-radius:16px; padding:40px 36px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+    .badge { display:inline-block; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:20px; padding:4px 14px; font-size:12px; color:#475569; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:20px; font-weight:500; }
+    h1 { font-size:26px; font-weight:700; color:#0f172a; margin:0 0 12px 0; }
+    p { font-size:15px; line-height:1.65; color:#475569; margin:0 0 24px 0; }
+    .code-box { text-align:center; margin:32px 0; }
+    .code { display:inline-block; font-size:36px; font-weight:700; letter-spacing:8px; color:#0f172a; background:#f1f5f9; padding:16px 32px; border-radius:12px; border:2px dashed ${cfg.brandColor}; font-family:'Courier New',monospace; }
+    .footer { font-size:12px; color:#94a3b8; text-align:center; margin-top:24px; margin-bottom:48px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><img src="${cfg.logoUrl}" alt="${cfg.name}"></div>
+    <div class="content">
+      <div style="text-align:center"><span class="badge">${cfg.name}</span></div>
+      <h1>&iexcl;Bienvenido! Verifica tu correo</h1>
+      <p>Ingresa este c&oacute;digo para confirmar tu direcci&oacute;n de correo electr&oacute;nico. El c&oacute;digo expira en <strong>30 minutos</strong>.</p>
+      <div class="code-box"><span class="code">${code}</span></div>
+      <p style="font-size:13px;color:#64748b;margin:16px 0 0">Si no creaste una cuenta, ignora este correo.</p>
+    </div>
+  </div>
+  <div class="footer">&copy; ${new Date().getFullYear()} Opita Code &mdash; El c&oacute;digo fluye.</div>
+</body>
+</html>`;
+}
+
 function getCorsHeaders(event: any) {
   const origin = event.headers?.origin || event.headers?.Origin || "";
   let allowedOrigin = "https://opitacode.com";
@@ -375,6 +447,63 @@ function isAllowedOnStaging(email: string): boolean {
   return whitelist.includes(email.trim().toLowerCase());
 }
 
+// ─── Auth Rate Limiting ───────────────────────────────────────────
+// Prevents brute-force, magic link spam, and mass registration.
+// Uses the existing TokenUsage table with TTL for automatic cleanup.
+
+const AUTH_RATE_LIMITS: Record<string, { maxAttempts: number; windowMinutes: number }> = {
+  "/auth/request": { maxAttempts: 5, windowMinutes: 15 },   // 5 magic links per 15 min
+  "/auth/login":   { maxAttempts: 10, windowMinutes: 15 },  // 10 login attempts per 15 min
+  "/auth/register": { maxAttempts: 3, windowMinutes: 60 },  // 3 registrations per hour
+};
+
+async function checkAuthRateLimit(
+  event: any,
+  path: string,
+  identifier: string,
+): Promise<{ allowed: boolean; retryAfterSeconds?: number }> {
+  const config = AUTH_RATE_LIMITS[path];
+  if (!config) return { allowed: true };
+
+  const sourceIp = event.requestContext?.http?.sourceIp || "unknown";
+  // Rate limit by BOTH IP and identifier (email) to prevent IP rotation bypass
+  const pk = `auth-rl#${sourceIp}#${identifier}`;
+  const now = new Date();
+  const windowKey = `window#${path}#${Math.floor(now.getTime() / (config.windowMinutes * 60 * 1000))}`;
+
+  try {
+    const result = await docClient.send(new GetCommand({
+      TableName: Resource.TokenUsage.name,
+      Key: { pk, sk: windowKey },
+    }));
+
+    const currentCount = (result.Item?.requestCount as number) || 0;
+
+    if (currentCount >= config.maxAttempts) {
+      const windowEnd = (Math.floor(now.getTime() / (config.windowMinutes * 60 * 1000)) + 1) * config.windowMinutes * 60 * 1000;
+      const retryAfterSeconds = Math.ceil((windowEnd - now.getTime()) / 1000);
+      return { allowed: false, retryAfterSeconds };
+    }
+
+    // Increment counter atomically
+    await docClient.send(new UpdateCommand({
+      TableName: Resource.TokenUsage.name,
+      Key: { pk, sk: windowKey },
+      UpdateExpression: "ADD requestCount :one SET expiresAt = if_not_exists(expiresAt, :ttl)",
+      ExpressionAttributeValues: {
+        ":one": 1,
+        ":ttl": Math.floor(now.getTime() / 1000) + (config.windowMinutes * 60) + 60, // TTL: window + 1 min buffer
+      },
+    }));
+
+    return { allowed: true };
+  } catch (err) {
+    console.error("[AUTH-RL] Error checking rate limit:", err);
+    // Fail open — don't block users on DynamoDB errors
+    return { allowed: true };
+  }
+}
+
 export const handler = async (event: any) => {
   if (event.requestContext?.http?.method === "OPTIONS") {
     return { statusCode: 200, headers: getCorsHeaders(event), body: "" };
@@ -396,6 +525,14 @@ export const handler = async (event: any) => {
       const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!email || !emailRegex.test(email)) {
         return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Invalid email" }) };
+      }
+
+      // Rate limiting: prevent magic link spam
+      const rl = await checkAuthRateLimit(event, path, email.toLowerCase());
+      if (!rl.allowed) {
+        // Return 200 to prevent email enumeration — same as staging guard
+        console.warn(`[auth-rl] Blocked magic link request for ${email} — rate limited`);
+        return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Magic link sent" }) };
       }
 
       // Staging whitelist: only allowed emails can request a magic link from dev
@@ -711,6 +848,12 @@ export const handler = async (event: any) => {
         return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "La contraseña debe tener mínimo 8 caracteres" }) };
       }
 
+      // Rate limiting: prevent mass registration
+      const rl = await checkAuthRateLimit(event, path, email);
+      if (!rl.allowed) {
+        return { statusCode: 429, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Demasiados intentos. Inténtalo más tarde." }) };
+      }
+
       // Check if user already has a password
       const existingUser = await docClient.send(new GetCommand({
         TableName: Resource.Users.name,
@@ -732,11 +875,42 @@ export const handler = async (event: any) => {
           name,
           password_hash: hash,
           password_salt: salt,
+          email_verified: existingUser.Item?.email_verified || false,
           plan: existingUser.Item?.plan || "free",
           created_at: existingUser.Item?.created_at || new Date().toISOString(),
           last_login: new Date().toISOString(),
         }
       }));
+
+      // Send email verification code (non-blocking — user can use app immediately)
+      const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const verifyExpiry = Math.floor(Date.now() / 1000) + 1800; // 30 minutes
+
+      await docClient.send(new PutCommand({
+        TableName: Resource.UserKeys.name,
+        Item: {
+          id: `verify-email#${email}`,
+          code: verifyCode,
+          attempts: 0,
+          expiresAt: verifyExpiry,
+        },
+      }));
+
+      const fromEmail = process.env.SES_FROM_EMAIL || "noreply@opitacode.com";
+      const serviceCfg = SERVICE_CONFIG["vibe-studio"];
+      try {
+        await sesClient.send(new SendEmailCommand({
+          Source: fromEmail,
+          Destination: { ToAddresses: [email] },
+          ReplyToAddresses: ["owner@opitacode.com"],
+          Message: {
+            Subject: { Data: `${verifyCode} — Verifica tu correo en ${serviceCfg.name}` },
+            Body: { Html: { Data: buildVerifyEmailCodeEmail(serviceCfg, verifyCode) } },
+          },
+        }));
+      } catch (e: any) {
+        console.error("SES Error (verify-email):", e.message || e);
+      }
 
       // Generate session (same as magic link flow)
       const sessionToken = signJWT(
@@ -758,7 +932,7 @@ export const handler = async (event: any) => {
           ...getCorsHeaders(event),
           "Set-Cookie": setCookie,
         },
-        body: JSON.stringify({ message: "Registro exitoso", user: { email, name, plan: existingUser.Item?.plan || "free" } }),
+        body: JSON.stringify({ message: "Registro exitoso", emailVerificationPending: true, user: { email, name, plan: existingUser.Item?.plan || "free" } }),
       };
     }
 
@@ -769,6 +943,12 @@ export const handler = async (event: any) => {
 
       if (!email || !password) {
         return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Email y contraseña son requeridos" }) };
+      }
+
+      // Rate limiting: prevent brute-force attacks
+      const rl = await checkAuthRateLimit(event, path, email);
+      if (!rl.allowed) {
+        return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Credenciales inválidas" }) };
       }
 
       // Staging whitelist: only allowed emails can log in from dev
@@ -827,7 +1007,329 @@ export const handler = async (event: any) => {
       };
     }
 
-    // ─── Token Usage Endpoint ────────────────────────────────────
+    // ─── Forgot Password ──────────────────────────────────────────
+    if (path === "/auth/forgot-password" && method === "POST") {
+      const body = JSON.parse(rawBody);
+      const email = body.email?.trim()?.toLowerCase();
+
+      if (!email) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Email requerido" }) };
+      }
+
+      // Rate limiting: prevent reset code spam (reuse /auth/request limits)
+      const rl = await checkAuthRateLimit(event, "/auth/request", email);
+      if (!rl.allowed) {
+        // Return 200 to prevent email enumeration
+        return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Si el correo existe, recibirás un código de verificación." }) };
+      }
+
+      // Check if user exists and has a password set
+      const userResult = await docClient.send(new GetCommand({
+        TableName: Resource.Users.name,
+        Key: { email },
+      }));
+
+      if (!userResult.Item?.password_hash) {
+        // User doesn't exist or has no password — return same message (prevent enumeration)
+        return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Si el correo existe, recibirás un código de verificación." }) };
+      }
+
+      // Generate 6-digit code
+      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const codeExpiry = Math.floor(Date.now() / 1000) + 900; // 15 minutes
+
+      // Store code in UserKeys table (auto-cleanup via TTL)
+      await docClient.send(new PutCommand({
+        TableName: Resource.UserKeys.name,
+        Item: {
+          id: `reset-code#${email}`,
+          code: resetCode,
+          attempts: 0,
+          expiresAt: codeExpiry,
+        },
+      }));
+
+      // Send email with the code
+      const fromEmail = process.env.SES_FROM_EMAIL || "noreply@opitacode.com";
+      const serviceCfg = SERVICE_CONFIG["vibe-studio"];
+
+      try {
+        await sesClient.send(new SendEmailCommand({
+          Source: fromEmail,
+          Destination: { ToAddresses: [email] },
+          ReplyToAddresses: ["owner@opitacode.com"],
+          Message: {
+            Subject: { Data: `${resetCode} — Código para restablecer tu contraseña` },
+            Body: {
+              Html: { Data: buildResetCodeEmail(serviceCfg, resetCode) },
+            },
+          },
+        }));
+      } catch (e: any) {
+        console.error("SES Error (forgot-password):", e.message || e);
+      }
+
+      return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Si el correo existe, recibirás un código de verificación." }) };
+    }
+
+    // ─── Reset Password ───────────────────────────────────────────
+    if (path === "/auth/reset-password" && method === "POST") {
+      const body = JSON.parse(rawBody);
+      const email = body.email?.trim()?.toLowerCase();
+      const code = body.code?.trim();
+      const newPassword = body.newPassword;
+
+      if (!email || !code || !newPassword) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Email, código y nueva contraseña son requeridos" }) };
+      }
+      if (newPassword.length < 8) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "La contraseña debe tener mínimo 8 caracteres" }) };
+      }
+
+      // Rate limiting on reset attempts
+      const rl = await checkAuthRateLimit(event, "/auth/login", email);
+      if (!rl.allowed) {
+        return { statusCode: 429, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Demasiados intentos. Inténtalo más tarde." }) };
+      }
+
+      // Retrieve stored code
+      const codeResult = await docClient.send(new GetCommand({
+        TableName: Resource.UserKeys.name,
+        Key: { id: `reset-code#${email}` },
+      }));
+
+      if (!codeResult.Item) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Código inválido o expirado. Solicita uno nuevo." }) };
+      }
+
+      const stored = codeResult.Item;
+      const now = Math.floor(Date.now() / 1000);
+
+      // Check expiry
+      if (stored.expiresAt && now > (stored.expiresAt as number)) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Código expirado. Solicita uno nuevo." }) };
+      }
+
+      // Check max attempts (5 tries per code)
+      if ((stored.attempts as number) >= 5) {
+        return { statusCode: 429, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Demasiados intentos con este código. Solicita uno nuevo." }) };
+      }
+
+      // Increment attempt counter
+      await docClient.send(new UpdateCommand({
+        TableName: Resource.UserKeys.name,
+        Key: { id: `reset-code#${email}` },
+        UpdateExpression: "ADD attempts :one",
+        ExpressionAttributeValues: { ":one": 1 },
+      }));
+
+      // Verify code (timing-safe comparison)
+      const codeMatch = timingSafeEqual(
+        Buffer.from(code.padEnd(6, "0")),
+        Buffer.from(String(stored.code).padEnd(6, "0"))
+      );
+
+      if (!codeMatch) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Código incorrecto" }) };
+      }
+
+      // Burn the code (delete it — one-use)
+      await docClient.send(new PutCommand({
+        TableName: Resource.UserKeys.name,
+        Item: { id: `reset-code#${email}`, burned: true, expiresAt: now },
+      }));
+
+      // Update password
+      const { hash, salt } = hashPassword(newPassword);
+      await docClient.send(new UpdateCommand({
+        TableName: Resource.Users.name,
+        Key: { email },
+        UpdateExpression: "SET password_hash = :hash, password_salt = :salt",
+        ExpressionAttributeValues: { ":hash": hash, ":salt": salt },
+      }));
+
+      return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Contraseña actualizada exitosamente" }) };
+    }
+
+    // ─── Verify Email ─────────────────────────────────────────────
+    if (path === "/auth/verify-email" && method === "POST") {
+      const body = JSON.parse(rawBody);
+      const email = body.email?.trim()?.toLowerCase();
+      const code = body.code?.trim();
+
+      if (!email || !code) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Email y código son requeridos" }) };
+      }
+
+      // Retrieve stored verification code
+      const codeResult = await docClient.send(new GetCommand({
+        TableName: Resource.UserKeys.name,
+        Key: { id: `verify-email#${email}` },
+      }));
+
+      if (!codeResult.Item) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Código inválido o expirado" }) };
+      }
+
+      const stored = codeResult.Item;
+      const now = Math.floor(Date.now() / 1000);
+
+      if (stored.expiresAt && now > (stored.expiresAt as number)) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Código expirado. Solicita uno nuevo." }) };
+      }
+
+      if ((stored.attempts as number) >= 5) {
+        return { statusCode: 429, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Demasiados intentos. Solicita un nuevo código." }) };
+      }
+
+      // Increment attempt counter
+      await docClient.send(new UpdateCommand({
+        TableName: Resource.UserKeys.name,
+        Key: { id: `verify-email#${email}` },
+        UpdateExpression: "ADD attempts :one",
+        ExpressionAttributeValues: { ":one": 1 },
+      }));
+
+      const codeMatch = timingSafeEqual(
+        Buffer.from(code.padEnd(6, "0")),
+        Buffer.from(String(stored.code).padEnd(6, "0"))
+      );
+
+      if (!codeMatch) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Código incorrecto" }) };
+      }
+
+      // Mark email as verified
+      await docClient.send(new UpdateCommand({
+        TableName: Resource.Users.name,
+        Key: { email },
+        UpdateExpression: "SET email_verified = :v, email_verified_at = :ts",
+        ExpressionAttributeValues: { ":v": true, ":ts": new Date().toISOString() },
+      }));
+
+      // Burn the code
+      await docClient.send(new PutCommand({
+        TableName: Resource.UserKeys.name,
+        Item: { id: `verify-email#${email}`, burned: true, expiresAt: now },
+      }));
+
+      return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Email verificado exitosamente" }) };
+    }
+
+    // ─── Analytics Events Ingestion ───────────────────────────────
+    // Receives batched events from landing page and web app.
+    // Stores in AnalyticsEvents DynamoDB table for Opita Sync consumption.
+    if (path === "/events/ingest" && method === "POST") {
+      const VALID_EVENT_TYPES = new Set([
+        "page_view", "cta_click", "download_click", "checkout_intent",
+        "session_start", "chat_message_sent", "project_created", "project_saved",
+        "upgrade_prompt_shown", "checkout_completed", "login_method",
+        "feature_used", "error_encountered", "onboarding_step",
+      ]);
+      const VALID_SOURCES = new Set(["landing", "app"]);
+      const MAX_EVENTS_PER_BATCH = 25; // DynamoDB BatchWrite limit
+      const TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
+
+      // Rate limit: 10 batch ingestions per minute per IP
+      const sourceIp = event.requestContext?.http?.sourceIp || "unknown";
+      const rlKey = `events-rl#${sourceIp}`;
+      const rlWindow = `minute#${Math.floor(Date.now() / 60000)}`;
+      try {
+        const rlResult = await docClient.send(new GetCommand({
+          TableName: Resource.TokenUsage.name,
+          Key: { pk: rlKey, sk: rlWindow },
+        }));
+        if ((rlResult.Item?.requestCount as number || 0) >= 10) {
+          return { statusCode: 429, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Too many requests" }) };
+        }
+        await docClient.send(new UpdateCommand({
+          TableName: Resource.TokenUsage.name,
+          Key: { pk: rlKey, sk: rlWindow },
+          UpdateExpression: "ADD requestCount :one SET expiresAt = if_not_exists(expiresAt, :ttl)",
+          ExpressionAttributeValues: { ":one": 1, ":ttl": Math.floor(Date.now() / 1000) + 120 },
+        }));
+      } catch (err) {
+        console.error("[events-rl] Error:", err);
+      }
+
+      let body: any;
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Invalid JSON" }) };
+      }
+
+      const events = body.events;
+      if (!Array.isArray(events) || events.length === 0) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "events array required" }) };
+      }
+      if (events.length > MAX_EVENTS_PER_BATCH) {
+        return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: `Max ${MAX_EVENTS_PER_BATCH} events per batch` }) };
+      }
+
+      // Try to identify the user (optional — landing is anonymous)
+      let userId: string | null = null;
+      try {
+        userId = await extractAuthEmail(event);
+      } catch { /* anonymous is fine */ }
+
+      const sessionId = body.sessionId || `anon-${sourceIp.replace(/\./g, "-")}`;
+      const pk = userId ? `events#${userId}` : `events#${sessionId}`;
+      const now = new Date();
+      const expiresAt = Math.floor(now.getTime() / 1000) + TTL_SECONDS;
+
+      // Validate and build batch items
+      const writeRequests: any[] = [];
+      let skippedCount = 0;
+
+      for (const evt of events) {
+        if (!evt.type || !VALID_EVENT_TYPES.has(evt.type)) { skippedCount++; continue; }
+        if (evt.source && !VALID_SOURCES.has(evt.source)) { skippedCount++; continue; }
+
+        const eventId = `${evt.timestamp || now.toISOString()}#${randomUUID().slice(0, 8)}`;
+
+        writeRequests.push({
+          PutRequest: {
+            Item: {
+              pk,
+              sk: eventId,
+              type: evt.type,
+              source: evt.source || "app",
+              data: evt.data || {},
+              consent: evt.consent || "basic",
+              userId: userId || null,
+              sessionId,
+              ip: sourceIp,
+              userAgent: (event.headers?.["user-agent"] || "").slice(0, 256),
+              expiresAt,
+            },
+          },
+        });
+      }
+
+      if (writeRequests.length === 0) {
+        return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ accepted: 0, skipped: skippedCount }) };
+      }
+
+      try {
+        await docClient.send(new BatchWriteCommand({
+          RequestItems: {
+            [Resource.AnalyticsEvents.name]: writeRequests,
+          },
+        }));
+      } catch (err) {
+        console.error("[events-ingest] BatchWrite error:", err);
+        return { statusCode: 500, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Failed to store events" }) };
+      }
+
+      return {
+        statusCode: 200,
+        headers: getCorsHeaders(event),
+        body: JSON.stringify({ accepted: writeRequests.length, skipped: skippedCount }),
+      };
+    }
+
+    // ─── Token Usage Endpoint ────────────────────────────────────────
     if (path === "/usage" && method === "GET") {
       // Unified auth: Bearer token, Cognito cookie, or legacy session cookie
       const email = await extractAuthEmail(event);

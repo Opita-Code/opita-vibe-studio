@@ -1,9 +1,76 @@
 import { Resource as SSTResource } from "sst";
-import crypto from "crypto";
+import * as crypto from "crypto";
+import { createHmac } from "crypto";
+import * as jose from "jose";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 
 const Resource = SSTResource as any;
+
+// ─── Auth Helper (mirrors core.ts pattern) ──────────────────────
+
+const COGNITO_ISSUER = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_LItAcj2Aa";
+const JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
+
+function base64url(buf: Buffer) {
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function verifyLegacyJWT(token: string, secret: string) {
+  const [h, b, sig] = token.split(".");
+  const expectedSig = base64url(createHmac("sha256", secret).update(`${h}.${b}`).digest());
+  if (sig !== expectedSig) throw new Error("Invalid signature");
+  const payload = JSON.parse(Buffer.from(b, 'base64').toString('utf8'));
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp && now > payload.exp) throw new Error("Token expired");
+  return payload;
+}
+
+/**
+ * Extract authenticated email from the request.
+ * Checks: Bearer token → opita_id_token cookie → opita_session cookie.
+ */
+async function extractAuthEmail(event: any): Promise<string | null> {
+  async function verifyCognitoToken(token: string): Promise<string | null> {
+    try {
+      const decoded = await jose.jwtVerify(token, JWKS, { issuer: COGNITO_ISSUER });
+      return (decoded.payload.email || decoded.payload.sub) as string | null;
+    } catch { return null; }
+  }
+
+  // 1. Bearer token
+  const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (bearerToken) {
+    const email = await verifyCognitoToken(bearerToken);
+    if (email) return email;
+    // Fallback: try legacy HMAC
+    try {
+      const payload = verifyLegacyJWT(bearerToken, process.env.JWT_SECRET || "");
+      if (payload.email) return payload.email;
+    } catch { /* not a valid legacy token */ }
+  }
+
+  const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
+
+  // 2. Cognito cookie
+  const cognitoMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
+  if (cognitoMatch) {
+    const email = await verifyCognitoToken(cognitoMatch[1]);
+    if (email) return email;
+  }
+
+  // 3. Legacy session cookie
+  const sessionMatch = cookieHeader.match(/opita_session=([^;]+)/);
+  if (sessionMatch) {
+    try {
+      const payload = verifyLegacyJWT(sessionMatch[1], process.env.JWT_SECRET || "");
+      return payload.email as string;
+    } catch { /* invalid */ }
+  }
+
+  return null;
+}
 
 const awsConfig = process.env.LOCALSTACK_ENDPOINT ? {
   endpoint: process.env.LOCALSTACK_ENDPOINT,
@@ -50,16 +117,23 @@ export async function handler(event: any) {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Methods": "OPTIONS, GET, POST",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, Cookie",
+    "Access-Control-Allow-Credentials": "true",
   };
 
   // ── GET /checkout-sign ──────────────────────────────────────────
   if (method === "GET") {
     const headers = corsHeaders;
 
+    // ── AUTH GUARD ── userId MUST come from verified JWT, never from query string
+    const authenticatedEmail = await extractAuthEmail(event);
+    if (!authenticatedEmail) {
+      return { statusCode: 401, headers, body: JSON.stringify({ error: "Autenticación requerida para generar checkout" }) };
+    }
+
     const params = event.queryStringParameters || {};
     const productKey = params.product;
-    const userId = params.userId || "anon";
+    const userId = authenticatedEmail; // ← Verified, not from query string
 
     const product = PRODUCTS[productKey];
     if (!product) {

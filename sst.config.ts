@@ -72,6 +72,18 @@ export default $config({
       ttl: "expiresAt",
     });
 
+    // 1.2g Analytics Events — product telemetry for Opita Sync
+    // pk: "events#{userId|anon-sessionId}", sk: "{ISO-timestamp}#{event-id}"
+    // TTL: 90 days auto-cleanup
+    const analyticsTable = new sst.aws.Dynamo("AnalyticsEvents", {
+      fields: {
+        pk: "string",
+        sk: "string",
+      },
+      primaryIndex: { hashKey: "pk", rangeKey: "sk" },
+      ttl: "expiresAt",
+    });
+
     // 1.3 Endpoint Dummy Streaming
     const api = new sst.aws.Function("ChatStreamAPI", {
       url: {
@@ -129,6 +141,7 @@ export default $config({
         WOMPI_WEBHOOK_SECRET: process.env.WOMPI_WEBHOOK_SECRET || "",
         WOMPI_PUBLIC_KEY: process.env.WOMPI_PUBLIC_KEY || "",
         WOMPI_INTEGRITY_SECRET: process.env.WOMPI_INTEGRITY_SECRET || "",
+        JWT_SECRET: process.env.JWT_SECRET || "",
       },
     });
 
@@ -136,7 +149,7 @@ export default $config({
     const coreApi = new sst.aws.Function("CoreAPI", {
       url: { cors: false },
       handler: "packages/vibe-ai-backend/src/api/core.handler",
-      link: [usersTable, projectsTable, tokenUsageTable, keysTable],
+      link: [usersTable, projectsTable, tokenUsageTable, keysTable, analyticsTable],
       permissions: [
         {
           actions: ["ses:SendEmail", "ses:SendRawEmail"],
@@ -176,7 +189,7 @@ export default $config({
         },
       },
       handler: "packages/vibe-ai-backend/src/api/admin.handler",
-      link: [usersTable, transactionsTable, tokenUsageTable, keysTable, projectsTable, table],
+      link: [usersTable, transactionsTable, tokenUsageTable, keysTable, projectsTable, table, analyticsTable],
       environment: {
         JWT_SECRET: process.env.JWT_SECRET || "",
         API_GOOGLE_CLOUD: process.env.API_GOOGLE_CLOUD || "",

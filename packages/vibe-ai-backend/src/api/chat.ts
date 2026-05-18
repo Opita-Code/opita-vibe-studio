@@ -3,7 +3,7 @@ import { streamText, jsonSchema } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { getEffectiveQuota } from "./gamification.js";
-import crypto from "crypto";
+import * as crypto from "crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { Resource as SSTResource } from "sst";
@@ -51,7 +51,12 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 // ─── Encryption Helpers ────────────────────────────────────────
 
-const ENCRYPTION_KEY = process.env.JWT_SECRET || "";
+// BYOK Encryption: prefer dedicated key, fallback to JWT_SECRET for backward compat.
+// WARNING: If BYOK_ENCRYPTION_KEY is not set, BYOK keys share the same secret as JWTs.
+const ENCRYPTION_KEY = process.env.BYOK_ENCRYPTION_KEY || process.env.JWT_SECRET || "";
+if (!process.env.BYOK_ENCRYPTION_KEY) {
+  console.warn("[SECURITY] BYOK_ENCRYPTION_KEY not set — falling back to JWT_SECRET for BYOK encryption. Set a dedicated key in production.");
+}
 const getEncryptionKey = () => crypto.createHash("sha256").update(ENCRYPTION_KEY).digest();
 
 function encrypt(text: string) {

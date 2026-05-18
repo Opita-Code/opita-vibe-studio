@@ -489,5 +489,72 @@
     </div>
   </footer>
 
+  <!-- Analytics: Lightweight product telemetry for Opita Sync -->
+  <script>
+    (function() {
+      const API = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+        ? "http://localhost:3000/core/events/ingest"
+        : "https://api.opitacode.com/core/events/ingest";
+
+      // Random session ID per visit — no fingerprinting
+      let sid = sessionStorage.getItem("vibe-landing-sid");
+      if (!sid) { sid = "ls-" + Date.now() + "-" + Math.random().toString(36).slice(2,10); sessionStorage.setItem("vibe-landing-sid", sid); }
+
+      const queue = [];
+      function track(type, data) {
+        queue.push({ type, source: "landing", consent: "basic", data: data || {}, timestamp: new Date().toISOString() });
+        if (queue.length >= 10) flush();
+      }
+      function flush() {
+        if (!queue.length) return;
+        const payload = JSON.stringify({ events: queue.splice(0), sessionId: sid });
+        if (navigator.sendBeacon) { navigator.sendBeacon(API, payload); }
+        else { fetch(API, { method: "POST", headers: {"Content-Type":"application/json"}, body: payload, keepalive: true }).catch(function(){}); }
+      }
+
+      // Track page view
+      var params = new URLSearchParams(window.location.search);
+      track("page_view", {
+        url: window.location.pathname,
+        referrer: document.referrer || null,
+        utm_source: params.get("utm_source"),
+        utm_medium: params.get("utm_medium"),
+        utm_campaign: params.get("utm_campaign"),
+      });
+
+      // Track CTA clicks
+      document.addEventListener("click", function(e) {
+        var el = e.target.closest("a, button");
+        if (!el) return;
+        var href = el.getAttribute("href") || "";
+        var text = (el.textContent || "").trim().slice(0, 80);
+
+        if (href === "/app/" || href.includes("Abrir Studio") || text.includes("Comenzar")) {
+          track("cta_click", { button: "open_studio", text: text });
+        } else if (href.includes("releases")) {
+          track("download_click", { platform: text.includes("macOS") ? "macos" : text.includes("Linux") ? "linux" : "windows" });
+        } else if (el.onclick && text.includes("Plan")) {
+          track("checkout_intent", { product: text, source_section: "pricing" });
+        }
+      });
+
+      // Track pricing section visibility (Intersection Observer)
+      var pricingEl = document.getElementById("pricing");
+      if (pricingEl && window.IntersectionObserver) {
+        var obs = new IntersectionObserver(function(entries) {
+          if (entries[0].isIntersecting) {
+            track("cta_click", { button: "pricing_viewed", source_section: "scroll" });
+            obs.disconnect();
+          }
+        }, { threshold: 0.3 });
+        obs.observe(pricingEl);
+      }
+
+      // Flush on unload
+      document.addEventListener("visibilitychange", function() { if (document.visibilityState === "hidden") flush(); });
+      window.addEventListener("pagehide", flush);
+    })();
+  </script>
+
 </body>
 </html>

@@ -7,6 +7,7 @@ import { listProviders } from "@/providers/registry";
 import { ChevronDown, CheckCircle2, Zap, Lock } from "lucide-react";
 import { ModeButtons } from "./ModeButtons";
 import { getPlan, getPlanName } from "@/lib/plan-registry";
+import { analytics } from "@/lib/analytics";
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -189,6 +190,15 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
     if (!trimmed && attachments.length === 0) return;
     if (!isStreaming && disabled) return;
     setUploadError(null);
+
+    // Analytics: track message sent
+    analytics.track("chat_message_sent", {
+      model_id: useChatStore.getState().activeModelId,
+      has_byok: (localStorage.getItem("vibe-byok-configured") || "[]") !== "[]",
+      message_length: trimmed.length,
+      has_attachments: attachments.length > 0,
+    });
+
     onSend(trimmed, attachments.length > 0 ? attachments : undefined);
     setText("");
     setAttachments([]);
