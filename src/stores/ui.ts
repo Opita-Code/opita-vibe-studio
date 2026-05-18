@@ -126,7 +126,7 @@ export const useUIStore = create<UIStore>()(
   chatWidth: 320,
   chatPosition: "right",
   chatFullscreen: false,
-  chatHistoryVisible: true,
+  chatHistoryVisible: false,
   previewTarget: null,
   vibeLensEnabled: true,
   activeSidebar: "chat",
