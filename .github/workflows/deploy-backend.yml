@@ -38,6 +38,7 @@ jobs:
         run: npx sst deploy --stage prod
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          DEEP_SEEK_KEY: ${{ secrets.DEEP_SEEK_KEY }}
           API_GOOGLE_CLOUD: ${{ secrets.API_GOOGLE_CLOUD }}
           AI_STUDIO_GOOGLE: ${{ secrets.AI_STUDIO_GOOGLE }}
           GEMINI_API_KEY: ${{ secrets.API_GOOGLE_CLOUD }}

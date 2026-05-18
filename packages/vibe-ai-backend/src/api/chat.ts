@@ -791,10 +791,38 @@ export const handler = awslambda.streamifyResponse(
           };
         }
 
+        // AI SDK v6: system messages MUST go in the `system` param, not in messages[].
+        // Filter them out to prevent InvalidPromptError and double-system conflicts.
+        // Also filter empty assistant messages from stale conversation history.
+        const cleanMessages = messages.filter(
+          (m: { role: string; content: unknown }) =>
+            m.role !== "system" &&
+            !(m.role === "assistant" && (!m.content || m.content === ""))
+        );
+
+        // Diagnostic: log message stats for debugging production issues
+        console.info(JSON.stringify({
+          type: "VIBE_DEBUG",
+          rawCount: messages.length,
+          cleanCount: cleanMessages.length,
+          roles: cleanMessages.map((m: { role: string }) => m.role),
+          providerId,
+          modelId,
+          systemPromptLen: selectedSystemPrompt.length,
+        }));
+
+        if (cleanMessages.length === 0) {
+          responseStream.write(`data: ${JSON.stringify({ content: "⚠️ No hay mensajes válidos para procesar. Intenta enviar un mensaje nuevo." })}\n\n`);
+          responseStream.write(`data: [DONE]\n\n`);
+          responseStream.end();
+          return;
+        }
+
         const result = streamText({
           model: getModel(providerId, activeKey, modelId),
           system: selectedSystemPrompt,
-          messages: messages,
+          messages: cleanMessages,
+          allowSystemInMessages: false,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           tools: tools as any,
         });
