@@ -192,7 +192,7 @@ export async function* streamAwsSse(
     if (err instanceof Error && err.name === "AbortError") {
       yield { type: "error", errorType: "abort", content: "\n\n⛔ Generación cancelada por el usuario." };
     } else if (err instanceof TypeError && err.message === "Failed to fetch") {
-      yield { type: "error", errorType: "network", content: "Error de red. Verifica tu conexión a internet e intenta de nuevo." };
+      yield { type: "error", errorType: "network", content: "No se pudo conectar con el servidor de IA. Esto puede ser temporal — intenta de nuevo. Si el problema persiste, recarga la página (Ctrl+Shift+R)." };
     } else {
       yield { type: "error", errorType: "server", content: `Error inesperado: ${String(err)}` };
     }

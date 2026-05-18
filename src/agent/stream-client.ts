@@ -237,7 +237,7 @@ export async function* streamSSE(
       yield {
         type: "error",
         content:
-          "Error de red. Verifica tu conexión a internet e intenta de nuevo.",
+          "No se pudo conectar con el servidor de IA. Esto puede ser temporal — intenta de nuevo. Si el problema persiste, recarga la página (Ctrl+Shift+R).",
       };
     } else {
       yield {
