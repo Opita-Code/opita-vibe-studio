@@ -2,9 +2,7 @@ name: Deploy Landing
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'landing/**'
+    tags: ['landing/v*']
   workflow_dispatch:
 
 jobs:
@@ -14,6 +12,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Show Deploy Info
+        run: |
+          echo "🚀 Landing Deploy"
+          echo "   Tag: ${{ github.ref_name }}"
+          echo "   SHA: ${{ github.sha }}"
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -21,8 +25,25 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Deploy Landing to S3
+      # CRITICAL: --exclude "app/*" protects the web app assets.
+      # The landing lives at the S3 bucket root. The web app lives at /app/.
+      # --delete removes old landing files but NEVER touches /app/*.
+      - name: Deploy Landing to S3 (exclude /app/)
         run: aws s3 sync landing/ s3://vibe-landing-728741135483/ --delete --exclude "app/*"
 
       - name: Invalidate CloudFront Cache (Landing)
-        run: aws cloudfront create-invalidation --distribution-id EONGVOV3BDAVI --paths "/" "/index.html" "/assets/*" "/vibe-logo.svg" "/install.html"
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id EONGVOV3BDAVI \
+            --paths "/" "/index.html" "/install.html" "/assets/*" "/vibe-logo.svg"
+
+      - name: Verify Deployment
+        run: |
+          sleep 5
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://vibe.opitacode.com/)
+          echo "  Landing returned: $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Landing deployed and reachable"
+          else
+            echo "⚠️ Landing returned $HTTP_CODE"
+          fi

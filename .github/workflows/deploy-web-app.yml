@@ -2,13 +2,7 @@ name: Deploy Web App
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'index.html'
-      - 'vite.config.*'
-      - 'package.json'
-      - 'tsconfig*.json'
+    tags: ['web/v*']
   workflow_dispatch:
 
 jobs:
@@ -17,6 +11,12 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Show Deploy Info
+        run: |
+          echo "🚀 Web App Deploy"
+          echo "   Tag: ${{ github.ref_name }}"
+          echo "   SHA: ${{ github.sha }}"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -30,6 +30,14 @@ jobs:
       - name: Build Frontend
         run: npm run build
 
+      - name: Verify Build Output
+        run: |
+          if [ ! -f "dist/index.html" ]; then
+            echo "❌ dist/index.html not found — build failed silently"
+            exit 1
+          fi
+          echo "✅ dist/index.html exists ($(wc -c < dist/index.html) bytes)"
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -37,8 +45,23 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Deploy App to S3
+      # CRITICAL: Sync ONLY to /app/ — NEVER to bucket root.
+      # The landing page lives at the bucket root. --delete only removes
+      # old files within /app/, not the landing.
+      - name: Deploy App to S3 (/app/ only)
         run: aws s3 sync dist/ s3://vibe-landing-728741135483/app/ --delete
 
       - name: Invalidate CloudFront Cache (App)
         run: aws cloudfront create-invalidation --distribution-id EONGVOV3BDAVI --paths "/app/*"
+
+      - name: Verify Deployment
+        run: |
+          echo "Waiting 5s for CDN propagation..."
+          sleep 5
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://vibe.opitacode.com/app/)
+          echo "  /app/ returned: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "⚠️ Web app returned $HTTP_CODE (may need more CDN propagation time)"
+          else
+            echo "✅ Web app deployed and reachable"
+          fi

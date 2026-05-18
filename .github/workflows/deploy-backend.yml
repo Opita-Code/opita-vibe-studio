@@ -2,10 +2,7 @@ name: Deploy Backend (SST)
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'sst.config.ts'
-      - 'packages/**'
+    tags: ['backend/v*']
   workflow_dispatch:
 
 jobs:
@@ -14,6 +11,12 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Show Deploy Info
+        run: |
+          echo "🚀 Backend Deploy"
+          echo "   Tag: ${{ github.ref_name }}"
+          echo "   SHA: ${{ github.sha }}"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -44,3 +47,14 @@ jobs:
           OPITA_LINKS_API_KEY: ${{ secrets.OPITA_LINKS_API_KEY }}
           SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
           ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+
+      - name: Verify API Health
+        run: |
+          echo "Verifying API is reachable..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://api.opitacode.com/core/auth/me)
+          echo "  /auth/me returned: $HTTP_CODE"
+          if [ "$HTTP_CODE" = "000" ]; then
+            echo "❌ API unreachable after deploy"
+            exit 1
+          fi
+          echo "✅ Backend deployed and reachable"
