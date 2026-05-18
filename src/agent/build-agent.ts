@@ -340,10 +340,11 @@ async function* handleToolRequest(
     : `Error: ${result.error}`;
 
   // Tool call message (what the LLM requested)
+  // Uses XML-style tags so the LLM treats this as metadata, never echoing it back.
   toolMessages.push({
     id: `tool-call-${chunk.toolCallId}`,
     role: "assistant",
-    content: `[tool_call: ${toolCall.name}] toolCallId=${chunk.toolCallId}`,
+    content: `<tool_use name="${toolCall.name}" id="${chunk.toolCallId}" />`,
     timestamp: Date.now(),
   });
 
@@ -351,7 +352,7 @@ async function* handleToolRequest(
   toolMessages.push({
     id: `tool-result-${chunk.toolCallId}`,
     role: "user",
-    content: `[tool_result: ${toolCall.name}] toolCallId=${chunk.toolCallId}\n${resultContent}`,
+    content: `<tool_result name="${toolCall.name}" id="${chunk.toolCallId}">\n${resultContent}\n</tool_result>`,
     timestamp: Date.now(),
   });
 
@@ -361,7 +362,7 @@ async function* handleToolRequest(
     const removed = toolMessages.splice(0, toolMessages.length - MAX_TOOL_MESSAGES);
     // Summarize removed messages so the LLM doesn't lose all context
     const summary = removed.map(m => {
-      const match = m.content.match(/\[tool_(?:call|result): (\w+)\]/);
+      const match = m.content.match(/(?:tool_use|tool_result)\s+name="(\w+)"/) || m.content.match(/\[tool_(?:call|result): (\w+)\]/);
       return match ? match[1] : 'unknown';
     }).filter((v, i, a) => a.indexOf(v) === i).join(', ');
     toolMessages.unshift({
