@@ -2,112 +2,140 @@
 
 ## Purpose
 
-Sistema de gamificación que recompensa el uso activo del IDE con XP, niveles, misiones diarias, rachas, y bonus de quota de tokens. Diseñado para incentivar aprendizaje progresivo sin ser intrusivo.
+Sistema de gamificación que recompensa el uso activo del IDE con XP, niveles, misiones diarias/semanales, rachas, milestones, y bonus de quota de tokens. Diseñado para incentivar aprendizaje progresivo sin ser intrusivo. Backend engine separado con generación de misiones por IA.
 
 ## Architecture
 
-- **Engine**: `packages/vibe-ai-backend/src/api/chat.ts` — calcula XP, procesa misiones, actualiza perfil
-- **Store**: `src/stores/gamification.ts` — Zustand store con `GamificationProfile`, misiones, y queue de toasts
-- **UI**: `src/components/gamification/` — XPBar, MissionPanel, MilestoneToast
-- **API**: `GET /usage` retorna perfil de gamificación junto con token usage
+- **Backend Engine**: `packages/vibe-ai-backend/src/api/gamification.ts` — XP tracking, missions, streaks, milestones, quota decay.
+- **Store**: `src/stores/gamification.ts` — Zustand store con `GamificationProfile`, misiones, y queue de toasts.
+- **UI**: `src/components/gamification/` — XPBar, MissionPanel, MilestoneToast.
+- **Data Storage**: DynamoDB `TokenUsage` table with sort key patterns:
+  - `sk: "xp#profile"` → XP profile
+  - `sk: "mission#YYYY-MM-DD"` → Daily missions
+  - `sk: "mission#weekly#YYYY-WNN"` → Weekly missions
+  - `sk: "milestone#{level}"` → Unlocked milestones
 
 ## Data Model
 
-### GamificationProfile
+### XPProfile
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
-| `level` | number | Nivel actual (1+) |
-| `totalXP` | number | XP acumulado total |
-| `currentLevelXP` | number | XP en el nivel actual |
-| `nextLevelXP` | number | XP necesario para subir |
-| `streak` | number | Días consecutivos activo |
-| `earnedQuota` | number | Tokens diarios extra ganados |
-| `dailyQuotaCap` | number | Máximo quota ganable (300K free, 400K est) |
+| `totalXp` | number | XP acumulado total |
+| `level` | number | Nivel actual (`floor(sqrt(totalXp/100))`) |
+| `streakDays` | number | Días consecutivos activo |
+| `lastActiveDate` | string | Última fecha activa (YYYY-MM-DD) |
+| `earnedQuota` | number | Tokens extra ganados (con decay) |
+| `effectiveDailyQuota` | number | Calculado: `min(basePlan + earnedQuota, cap)` |
+| `achievements` | array | Milestones desbloqueados |
 
-### Mission
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `id` | string | Identificador único |
-| `title` | string | Nombre en español |
-| `description` | string | Instrucciones |
-| `xpReward` | number | XP al completar |
-| `quotaReward` | number | Tokens extra al completar |
-| `type` | "daily" \| "milestone" | Tipo de misión |
-| `completed` | boolean | Estado |
-| `progress` | number | Progreso actual |
-| `target` | number | Meta |
+### XP Actions
+| Acción | XP Base | Descripción |
+|--------|---------|-------------|
+| `chat_message` | 5 | Mensaje enviado al AI |
+| `template_use` | 25 | Uso de plantilla |
+| `project_create` | 50 | Creación de proyecto |
+| `feature_explore` | 10 | Exploración de feature |
+| `daily_login` | 15 | Login diario |
+
+### Plan Multipliers
+| Plan | Multiplicador |
+|------|--------------|
+| Free | 1x |
+| Estudiante | 1.5x |
+| Pro | 2x |
+
+### Milestones
+| Nivel | Badge | Label | Quota Boost |
+|-------|-------|-------|-------------|
+| 3 | 🌱 | Semilla | +20K |
+| 5 | 🔍 | Explorador | +30K |
+| 10 | 🔨 | Constructor | +50K |
+| 15 | ⚡ | Veloz | +40K |
+| 25 | 🏗️ | Arquitecto | +60K |
+| 50 | 👑 | Maestro | +100K |
 
 ## Requirements
 
-### Requirement: Passive XP
+### Requirement: XP Award System
 
-El sistema MUST otorgar XP pasivo por interacciones naturales del usuario.
+The backend MUST award XP for defined actions, applying plan-based multipliers. Level is calculated as `floor(sqrt(totalXp / 100))`.
 
 #### Scenario: XP por mensaje de chat
 - GIVEN el usuario envía un mensaje al AI
-- WHEN el AI responde exitosamente (no es retry)
-- THEN se llama `awardPassiveXP("chat_message")`
-- AND el sistema aplica debounce de 30 segundos para evitar spam
+- WHEN `awardXP(email, "chat_message", plan)` es llamado
+- THEN el sistema MUST calcular `5 * planMultiplier` XP
+- AND actualizar `totalXp` y `level` en DynamoDB
+- AND retornar `AwardResult` con `xpAwarded`, `leveledUp`, y `newMilestone`.
 
-### Requirement: Daily Missions
+### Requirement: AI-Generated Daily Missions
 
-El sistema MUST ofrecer misiones diarias que otorgan XP y bonus de quota.
+El sistema MUST generar 3 misiones diarias (una de cada tipo: aprender, construir, explorar) usando IA (Gemini 2.5 Flash). Si la generación falla, MUST usar el pool estático de fallback.
+
+#### Scenario: Misiones generadas por IA
+- GIVEN un usuario solicita sus misiones diarias
+- WHEN `getMissions(email, plan)` es llamado y no existen misiones para hoy
+- THEN el sistema MUST llamar `generateObject()` con schema de 3 misiones
+- AND guardarlas en DynamoDB con TTL de 3 días
+- AND la dificultad MUST basarse en el nivel: `< 5` → novato, `< 15` → intermedio, `≥ 15` → avanzado.
+
+### Requirement: Weekly Missions
+
+El sistema MUST generar 1 misión semanal extrema con recompensas 5-10x mayores (500 XP, 50K quota).
+
+#### Scenario: Misión semanal generada
+- GIVEN no existe misión semanal para la semana ISO actual
+- WHEN `getMissions()` es llamado
+- THEN el sistema MUST generar una misión con `type: "semanal"`, `period: "weekly"`
+- AND guardarla con TTL de 14 días.
+
+### Requirement: Mission Completion
 
 #### Scenario: Completar misión
-- GIVEN una misión con `progress >= target`
-- WHEN el usuario presiona "Completar" en el MissionPanel
-- THEN `POST /usage/complete-mission` se ejecuta
-- AND el backend actualiza XP, quota, y marca la misión como completada
-- AND se muestra un MilestoneToast con la recompensa
-- AND se previenen doble-clicks con `completingMissionId` guard
+- GIVEN una misión con `completed === false`
+- WHEN `completeMission(email, missionId, plan)` es llamado
+- THEN el sistema MUST marcar la misión como completada
+- AND llamar `awardXP()` con la acción correspondiente
+- AND sumar `quotaReward` a `earnedQuota` (atómico con `UpdateCommand`)
+- AND verificar streak bonuses (3, 7, 14, 30 días).
 
-### Requirement: Earned Quota
+### Requirement: Quota Decay
 
-El sistema MUST mostrar tokens ganados como bonus de la quota base.
+El sistema MUST aplicar decay de 10% por día de inactividad a `earnedQuota`, con floor en la quota base del plan.
 
-#### Scenario: Quota efectiva
-- GIVEN un usuario free con 150K base y 50K ganados
-- WHEN se calcula `effectiveDailyQuota`
-- THEN el resultado es `min(150K + 50K, dailyQuotaCap)` = 200K
-- AND el PlanCard muestra "+50K ganados con misiones"
-- AND el endpoint `/usage` retorna la quota efectiva
+#### Scenario: Decay por inactividad
+- GIVEN un usuario free con 200K `earnedQuota` y 3 días inactivo
+- WHEN `getProfile()` es llamado
+- THEN `earnedQuota` MUST ser `max(150K, 200K * 0.9^3)` = `max(150K, 145.8K)` = 150K
+- AND el decay MUST persistirse en DynamoDB.
 
 ### Requirement: Streak Tracking
 
-El sistema MUST rastrear días consecutivos de actividad.
+El sistema MUST rastrear días consecutivos de actividad. Si el usuario no fue activo ayer, el streak se resetea a 1.
 
 #### Scenario: Streak incrementa
-- GIVEN el usuario usó el IDE ayer
-- WHEN el usuario usa el IDE hoy
-- THEN `streak` incrementa en 1
-- AND se muestra en el Profile Popover del ActivityBar
+- GIVEN `lastActiveDate` es ayer
+- WHEN `awardXP()` es llamado hoy
+- THEN `streakDays` MUST incrementar en 1.
 
-### Requirement: XP Bar Interaction
+#### Scenario: Streak bonus quota
+- GIVEN `streakDays` alcanza 7
+- WHEN una misión es completada
+- THEN el sistema MUST sumar `QUOTA_REWARDS["streak_7"]` (25K) a `earnedQuota`.
 
-El XPBar MUST ser clickable para abrir el MissionPanel.
+### Requirement: Effective Quota for Chat System
 
-#### Scenario: Click en XPBar
-- GIVEN la XPBar es visible en el layout
-- WHEN el usuario hace click
-- THEN el MissionPanel se abre
-- AND el tooltip muestra nivel, XP actual/siguiente, y racha
+`getEffectiveQuota(email, plan)` MUST retornar la quota efectiva (`basePlan + earnedQuota`, capped) para que `chat.ts` ajuste los límites de tokens dinámicamente.
 
-### Requirement: Mission Panel UX
+### Requirement: XPBar Interaction
 
-El MissionPanel MUST soportar cierre por Escape y prevenir clicks dobles.
-
-#### Scenario: Escape cierra panel
-- GIVEN el MissionPanel está abierto
-- WHEN el usuario presiona Escape
-- THEN el panel se cierra
+El XPBar MUST ser clickable para abrir el MissionPanel. El tooltip MUST mostrar nivel, XP actual/siguiente, y racha.
 
 ## Files
 
-- `src/stores/gamification.ts` — GamificationStore (profile, missions, toasts, XP engine)
-- `src/components/gamification/XPBar.tsx` — Barra de XP interactiva
-- `src/components/gamification/MissionPanel.tsx` — Panel lateral de misiones
-- `src/components/gamification/MilestoneToast.tsx` — Toast de recompensas
-- `src/components/gamification/index.ts` — Barrel exports
-- `src/agent/useAgentHandler.ts` — Hook de passive XP (chat_message)
-- `src/components/layout/ActivityBar.tsx` — Profile popover con stats de gamificación
-- `packages/vibe-ai-backend/src/api/chat.ts` — Backend XP/mission engine
+- `packages/vibe-ai-backend/src/api/gamification.ts` — Backend engine (XP, missions, streaks, milestones, quota decay).
+- `src/stores/gamification.ts` — GamificationStore (profile, missions, toasts).
+- `src/components/gamification/XPBar.tsx` — Barra de XP interactiva.
+- `src/components/gamification/MissionPanel.tsx` — Panel lateral de misiones.
+- `src/components/gamification/MilestoneToast.tsx` — Toast de recompensas.
+- `src/agent/useAgentHandler.ts` — Hook de passive XP (chat_message).
+- `packages/vibe-ai-backend/src/api/chat.ts` — Calls `getEffectiveQuota()` for dynamic limits.
