@@ -17,6 +17,7 @@ import { isLimitReached } from "@/lib/tokens";
 import { handleMessage, classifyIntent, type OrchestratorConfig } from "@/agent/orchestrator";
 import { detectIdea, createIdea, saveIdea, matchCompletedWork, updateIdeaStatus } from "@/agent/idea-backlog";
 import type { Attachment } from "@/lib/types";
+import type { MessageSectionType } from "@/lib/types";
 import type { AgentEvent, AgentStep, RoadmapGoal, FileSummary, IntentClass } from "@/agent/types";
 import { useGamificationStore } from "@/stores/gamification";
 import { useAgentStore } from "@/stores/agent";
@@ -188,6 +189,7 @@ export function useAgentHandler() {
       chatStore.setAbortController(ac);
 
       let accumulatedContent = "";
+      resetSectionTracking();
 
       try {
         // Get conversation context
@@ -366,7 +368,53 @@ export function useAgentHandler() {
   return { send, cancel, editPending, setRestoreInputCallback };
 }
 
-// ─── Event Processor ───────────────────────────────────────────
+/**
+ * Section accumulation state — tracks the current section being built
+ * so streaming chunks of the same type get appended to the same section.
+ */
+let currentSectionId: string | null = null;
+let currentSectionType: MessageSectionType | null = null;
+let currentAssistantMsgId: string | null = null;
+
+function ensureSection(
+  msgId: string,
+  type: MessageSectionType,
+  opts?: { label?: string; collapsed?: boolean }
+): string {
+  const chatStore = useChatStore.getState();
+
+  // Reset tracking if we switched to a different message
+  if (currentAssistantMsgId !== msgId) {
+    currentSectionId = null;
+    currentSectionType = null;
+    currentAssistantMsgId = msgId;
+  }
+
+  // Same type → reuse current section
+  if (currentSectionType === type && currentSectionId) {
+    return currentSectionId;
+  }
+
+  // Different type → create new section
+  const id = `sec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  chatStore.appendSection(msgId, {
+    id,
+    type,
+    content: "",
+    collapsed: opts?.collapsed,
+    label: opts?.label,
+  });
+  currentSectionId = id;
+  currentSectionType = type;
+  return id;
+}
+
+/** Resets section tracking state (call when a new message starts) */
+export function resetSectionTracking(): void {
+  currentSectionId = null;
+  currentSectionType = null;
+  currentAssistantMsgId = null;
+}
 
 /**
  * Maps an AgentEvent to the appropriate store mutation.
@@ -374,7 +422,7 @@ export function useAgentHandler() {
  */
 function processEvent(
   event: AgentEvent,
-  _assistantMsgId: string,
+  assistantMsgId: string,
   accumulatedContent: string,
   setAccumulated: (content: string) => void
 ): void {
@@ -382,21 +430,39 @@ function processEvent(
   const agentStore = useAgentStore.getState();
 
   switch (event.type) {
-    case "text":
+    case "text": {
       accumulatedContent += event.content;
       setAccumulated(accumulatedContent);
       chatStore.replaceLastMessageContent(accumulatedContent);
+
+      // Section accumulation — detect notice prefix for fallback messages
+      const isNotice = event.content.startsWith("> ℹ️") || event.content.startsWith("ℹ️");
+      if (isNotice) {
+        const noticeId = ensureSection(assistantMsgId, "notice");
+        chatStore.appendToSection(assistantMsgId, noticeId, event.content);
+        // Reset so next text chunk creates a new text section
+        currentSectionId = null;
+        currentSectionType = null;
+      } else {
+        const secId = ensureSection(assistantMsgId, "text");
+        chatStore.appendToSection(assistantMsgId, secId, event.content);
+      }
       break;
+    }
 
     case "thinking":
       // Internal thinking — update agent phase
       agentStore.setPhase("thinking");
       break;
 
-    case "thinking_visible":
+    case "thinking_visible": {
       // Reasoning tokens — accumulate separately from content for proper UI rendering
       chatStore.appendReasoningToLastMessage(event.content);
+      // Also create a thinking section
+      const thinkId = ensureSection(assistantMsgId, "thinking", { collapsed: true });
+      chatStore.appendToSection(assistantMsgId, thinkId, event.content);
       break;
+    }
 
     case "step":
       agentStore.addStep(event.step);
