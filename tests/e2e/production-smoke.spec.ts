@@ -394,6 +394,25 @@ test.describe('👑 Pro User (Authenticated)', () => {
     expect(body.signature).toBeTruthy();
     expect(body.reference).toContain('VIBE_STUDENT');
   });
+
+  test('Chat API responde con Bearer token inyectado', async ({ request }) => {
+    const res = await request.post(`${PROD_API}/chat/`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        action: 'chat',
+        providerId: 'deepseek',
+        modelId: 'deepseek-chat',
+        messages: [{ role: 'user', content: 'Responde SOLO con la palabra FUNCIONA' }],
+      },
+    });
+    expect(res.status()).toBe(200);
+
+    const body = await res.text();
+    // Should contain SSE stream data, not an auth error
+    expect(body).toContain('data:');
+    expect(body).not.toContain('Falta token Bearer');
+    expect(body).not.toContain('Unauthorized');
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════
