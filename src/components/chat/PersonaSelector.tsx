@@ -73,7 +73,7 @@ export function PersonaSelector() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute bottom-full left-0 mb-2 w-64 bg-obsidian-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50"
+            className="absolute bottom-full right-0 mb-2 w-64 bg-obsidian-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50"
           >
             <div className="px-3 py-2 border-b border-white/5">
               <span className="text-[10px] uppercase tracking-wider text-white/30 font-semibold">
