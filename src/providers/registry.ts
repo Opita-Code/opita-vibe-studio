@@ -58,7 +58,7 @@ const DEEPSEEK_MODELS: ModelConfig[] = [
 
 const GEMINI_MODELS: ModelConfig[] = [
   {
-    id: "gemini-2.0-flash",
+    id: "gemini-2.5-flash",
     name: "Gemini Flash",
     providerId: "gemini",
     maxTokens: 8192,
