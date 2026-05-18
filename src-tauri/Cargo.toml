@@ -1,6 +1,6 @@
 [package]
 name = "vibe-studio"
-version = "0.2.1"
+version = "0.3.1"
 description = "Vibe Studio — Vibecodea en español. Aprende sin darte cuenta."
 authors = ["Opita Code"]
 edition = "2021"
