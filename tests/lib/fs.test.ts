@@ -35,7 +35,7 @@ describe("fs helpers", () => {
     expect(detectLanguage("styles.css")).toBe("css");
     expect(detectLanguage("app.js")).toBe("javascript");
     expect(detectLanguage("app.ts")).toBe("typescript");
-    expect(detectLanguage("app.tsx")).toBe("typescript");
+    expect(detectLanguage("app.tsx")).toBe("typescriptreact");
     expect(detectLanguage("data.json")).toBe("json");
     expect(detectLanguage("readme.md")).toBe("markdown");
     expect(detectLanguage("script.py")).toBe("python");

@@ -47,7 +47,11 @@ export function MonacoEditor({ path, value, onChange, isDiff, originalValue, mod
       base: 'vs-dark',
       inherit: true,
       rules: [
-        { background: '0A0B0E' }
+        { background: '0A0B0E' },
+        // JSX/TSX component tags — distinct color
+        { token: 'tag', foreground: '7dd3fc' },           // sky-300
+        { token: 'tag.delimiter.jsx', foreground: '94a3b8' },
+        { token: 'tag.attribute.name', foreground: 'c4b5fd' }, // violet-300
       ],
       colors: {
         'editor.background': '#0B0D13', // Deep Vibe background
@@ -58,6 +62,57 @@ export function MonacoEditor({ path, value, onChange, isDiff, originalValue, mod
         'editor.selectionBackground': '#00f0ff33', // vibe-cyan with transparency
       }
     });
+
+    // ─── TypeScript/JavaScript JSX Configuration ──────────
+    // This enables proper JSX syntax coloring and IntelliSense
+
+    const tsDefaults = monaco.languages.typescript.typescriptDefaults;
+    const jsDefaults = monaco.languages.typescript.javascriptDefaults;
+
+    const sharedCompilerOptions = {
+      jsx: monaco.languages.typescript.JsxEmit.React,
+      jsxFactory: "React.createElement",
+      jsxFragmentFactory: "React.Fragment",
+      target: monaco.languages.typescript.ScriptTarget.ESNext,
+      module: monaco.languages.typescript.ModuleKind.ESNext,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      allowNonTsExtensions: true,
+      allowJs: true,
+      esModuleInterop: true,
+      allowSyntheticDefaultImports: true,
+      strict: false,
+      noEmit: true,
+    };
+
+    tsDefaults.setCompilerOptions(sharedCompilerOptions);
+    jsDefaults.setCompilerOptions(sharedCompilerOptions);
+
+    // Disable built-in diagnostics (we're an editor, not a type checker)
+    tsDefaults.setDiagnosticsOptions({
+      noSemanticValidation: true,
+      noSyntaxValidation: false,
+    });
+    jsDefaults.setDiagnosticsOptions({
+      noSemanticValidation: true,
+      noSyntaxValidation: false,
+    });
+
+    // Add React type stubs so JSX doesn't show "Cannot find module 'react'" errors
+    tsDefaults.addExtraLib(
+      `declare module 'react' {
+        export function createElement(type: any, props?: any, ...children: any[]): any;
+        export function useState<T>(initialState: T | (() => T)): [T, (s: T | ((prev: T) => T)) => void];
+        export function useEffect(effect: () => void | (() => void), deps?: any[]): void;
+        export function useRef<T>(initialValue: T): { current: T };
+        export function useCallback<T extends (...args: any[]) => any>(callback: T, deps: any[]): T;
+        export function useMemo<T>(factory: () => T, deps: any[]): T;
+        export function useContext<T>(context: any): T;
+        export function useReducer<S, A>(reducer: (state: S, action: A) => S, initialState: S): [S, (action: A) => void];
+        export const Fragment: any;
+        export default { createElement, Fragment };
+      }`,
+      "file:///node_modules/@types/react/index.d.ts"
+    );
   }, []);
 
   // ─── Editor Mount ───────────────────────────────────────────
@@ -165,6 +220,7 @@ export function MonacoEditor({ path, value, onChange, isDiff, originalValue, mod
       beforeMount={handleEditorWillMount}
       onMount={handleEditorDidMount}
       language={language}
+      path={path}
       value={value}
       onChange={(v) => onChange?.(v ?? "")}
       options={{
