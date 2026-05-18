@@ -209,10 +209,28 @@ export default $config({
         "/core/*": coreApi.url,
         "/storage/*": storageApi.url,
       },
-      // CRITICAL: CloudFront strips Set-Cookie by default (CookieBehavior: none).
-      // Without this, magic link verify cannot set the opita_session cookie.
-      // Also, headerBehavior MUST forward Authorization — otherwise Bearer tokens
-      // are stripped and Lambda never receives auth credentials.
+      // ═══════════════════════════════════════════════════════════════
+      // ⚠️  CLOUDFRONT CACHE POLICY — READ BEFORE CHANGING  ⚠️
+      // ═══════════════════════════════════════════════════════════════
+      //
+      // headerBehavior: "whitelist" + ["Authorization"]
+      //   ✅ Auth tokens reach Lambda → chat, billing, storage work
+      //   ⚠️  Disables CloudFront response caching (correct for API)
+      //
+      // headerBehavior: "none"
+      //   ❌ BREAKS ALL AUTH — Authorization header is stripped by
+      //      CloudFront before reaching Lambda. Chat returns
+      //      "Falta token Bearer o cookie" for every request.
+      //      Billing, storage, and any JWT-protected endpoint fail.
+      //   ✅ Enables CloudFront caching (irrelevant for Lambda APIs)
+      //
+      // cookieBehavior: "all"
+      //   Required for magic link sessions (opita_session HttpOnly
+      //   cookie) and Set-Cookie responses from /auth/verify-magic.
+      //
+      // DO NOT set headerBehavior to "none". If you need caching,
+      // use a separate CloudFront behavior for static assets only.
+      // ═══════════════════════════════════════════════════════════════
       transform: {
         cachePolicy: {
           parametersInCacheKeyAndForwardedToOrigin: {
@@ -220,6 +238,8 @@ export default $config({
               cookieBehavior: "all",
             },
             headersConfig: {
+              // ⚠️ Changing this to "none" BREAKS chat, billing, and
+              // all authenticated endpoints. See warning block above.
               headerBehavior: "whitelist",
               headers: {
                 items: ["Authorization"],
