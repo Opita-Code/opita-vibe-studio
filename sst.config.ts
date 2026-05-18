@@ -76,7 +76,7 @@ export default $config({
     const api = new sst.aws.Function("ChatStreamAPI", {
       url: {
         cors: {
-          allowOrigins: ["https://vibe.opitacode.com", "https://dev.opitacode.com", "https://opitacode.com", "https://cuenta.opitacode.com", "http://localhost:1420"],
+          allowOrigins: ["https://vibe.opitacode.com", "https://opitacode.com", "https://cuenta.opitacode.com", "http://localhost:1420"],
           allowMethods: ["POST"],
           allowHeaders: ["Content-Type", "Authorization", "Cookie"],
           allowCredentials: true,
@@ -134,14 +134,7 @@ export default $config({
 
     // 1.7 Endpoint de Autenticación y Proyectos (CoreAPI)
     const coreApi = new sst.aws.Function("CoreAPI", {
-      url: {
-        cors: {
-          allowOrigins: ["https://vibe.opitacode.com", "https://dev.opitacode.com", "https://opitacode.com", "https://cuenta.opitacode.com", "http://localhost:1420"],
-          allowMethods: ["GET", "POST"],
-          allowHeaders: ["Content-Type", "Authorization", "Cookie"],
-          allowCredentials: true,
-        },
-      },
+      url: { cors: false },
       handler: "packages/vibe-ai-backend/src/api/core.handler",
       link: [usersTable, projectsTable, tokenUsageTable, keysTable],
       permissions: [
