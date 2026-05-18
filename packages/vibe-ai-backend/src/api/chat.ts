@@ -921,13 +921,23 @@ export const handler = awslambda.streamifyResponse(
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : "Error desconocido";
         
-        // ─── AUTOMATIC FALLBACK ───
-        // If Gemini fails (blocked, quota, etc.), retry with DeepSeek
-        if (providerId === "gemini" && HAS_DEEPSEEK) {
-          console.warn(`[FALLBACK] Gemini failed: ${errorMsg}. Retrying with DeepSeek.`);
+        // ─── GRACEFUL PROVIDER FALLBACK ───
+        // When the primary provider fails, transparently switch to the
+        // best available alternative. The user sees a brief notice, then
+        // gets their answer — the chat NEVER goes blank.
+        if (providerId !== "deepseek" && HAS_DEEPSEEK) {
+          const providerLabel = providerId === "gemini" ? "Gemini" : providerId;
+          console.warn(`[FALLBACK] ${providerLabel} failed: ${errorMsg}. Switching to Opita Flash.`);
+          
+          // Send a brief, friendly notice — not an error
+          const notice = JSON.stringify({ 
+            content: `> ℹ️ *${providerLabel} no disponible temporalmente. Respondiendo con Opita Flash.*\n\n` 
+          });
+          responseStream.write(`data: ${notice}\n\n`);
+
           try {
             const fallbackResult = streamText({
-              model: getModel("deepseek", activeKey, "deepseek-chat"),
+              model: getModel("deepseek", undefined, "deepseek-chat"),
               system: selectedSystemPrompt,
               messages: cleanMessages,
               allowSystemInMessages: false,
@@ -950,7 +960,7 @@ export const handler = awslambda.streamifyResponse(
                 if (totalTokens > 0) {
                   try { await recordUsage(userId, totalTokens); } catch (e) { console.error("Error registrando uso:", e); }
                 }
-                console.info(JSON.stringify({ type: "VIBE_METRICS", action, providerId: "deepseek", modelId: "deepseek-chat", userId, plan, totalTokens, fallback: true }));
+                console.info(JSON.stringify({ type: "VIBE_METRICS", action, providerId: "deepseek", modelId: "deepseek-chat", userId, plan, totalTokens, fallback: true, originalProvider: providerId }));
               }
             }
             responseStream.write(`data: [DONE]\n\n`);
@@ -959,7 +969,7 @@ export const handler = awslambda.streamifyResponse(
           } catch (fallbackErr) {
             const fbMsg = fallbackErr instanceof Error ? fallbackErr.message : "Error desconocido";
             console.error(`[FALLBACK] DeepSeek also failed: ${fbMsg}`);
-            const payload = JSON.stringify({ content: `\n\n⛔ **Error del servidor AI:** Ambos proveedores fallaron. ${fbMsg}` });
+            const payload = JSON.stringify({ content: `\n\n⚠️ **Todos los proveedores de IA están temporalmente fuera de servicio.** Por favor intenta de nuevo en unos minutos. Si el problema persiste, puedes usar tu propia API key en Configuración > Proveedores.` });
             responseStream.write(`data: ${payload}\n\n`);
             responseStream.write(`data: [DONE]\n\n`);
             responseStream.end();
@@ -967,7 +977,8 @@ export const handler = awslambda.streamifyResponse(
           }
         }
 
-        const payload = JSON.stringify({ content: `\n\n⛔ **Error del servidor AI:** ${errorMsg}` });
+        // No fallback available — give a helpful error, never blank
+        const payload = JSON.stringify({ content: `\n\n⚠️ **El servicio de IA no pudo procesar tu mensaje.** ${errorMsg.includes("quota") || errorMsg.includes("rate") ? "Se alcanzó el límite temporal del proveedor. Intenta de nuevo en unos segundos." : "Por favor intenta de nuevo. Si persiste, usa tu propia API key en Configuración > Proveedores."}` });
         responseStream.write(`data: ${payload}\n\n`);
         responseStream.write(`data: [DONE]\n\n`);
         responseStream.end();
