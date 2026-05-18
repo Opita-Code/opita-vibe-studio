@@ -920,6 +920,53 @@ export const handler = awslambda.streamifyResponse(
         responseStream.end();
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : "Error desconocido";
+        
+        // ─── AUTOMATIC FALLBACK ───
+        // If Gemini fails (blocked, quota, etc.), retry with DeepSeek
+        if (providerId === "gemini" && HAS_DEEPSEEK) {
+          console.warn(`[FALLBACK] Gemini failed: ${errorMsg}. Retrying with DeepSeek.`);
+          try {
+            const fallbackResult = streamText({
+              model: getModel("deepseek", activeKey, "deepseek-chat"),
+              system: selectedSystemPrompt,
+              messages: cleanMessages,
+              allowSystemInMessages: false,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              tools: tools as any,
+            });
+
+            for await (const rawChunk of fallbackResult.fullStream) {
+              const chunk = rawChunk as unknown as StreamChunk;
+              if (chunk.type === 'text-delta') {
+                responseStream.write(`data: ${JSON.stringify({ content: chunk.textDelta || chunk.text || "" })}\n\n`);
+              } else if (chunk.type === 'reasoning') {
+                responseStream.write(`data: ${JSON.stringify({ type: "reasoning", content: chunk.textDelta || chunk.text || chunk.reasoning || "" })}\n\n`);
+              } else if (chunk.type === 'tool-call') {
+                const tcChunk = chunk as unknown as { toolCallId?: string; toolName?: string; input?: unknown };
+                responseStream.write(`data: ${JSON.stringify({ type: "mcp_tool_request", tool: tcChunk.toolName, toolCallId: tcChunk.toolCallId || `call-${Date.now()}`, args: tcChunk.input })}\n\n`);
+              } else if (chunk.type === 'finish') {
+                const usage = (chunk.totalUsage || chunk.usage) as { totalTokens?: number; promptTokens?: number; completionTokens?: number } | undefined;
+                const totalTokens = usage?.totalTokens || ((usage?.promptTokens || 0) + (usage?.completionTokens || 0));
+                if (totalTokens > 0) {
+                  try { await recordUsage(userId, totalTokens); } catch (e) { console.error("Error registrando uso:", e); }
+                }
+                console.info(JSON.stringify({ type: "VIBE_METRICS", action, providerId: "deepseek", modelId: "deepseek-chat", userId, plan, totalTokens, fallback: true }));
+              }
+            }
+            responseStream.write(`data: [DONE]\n\n`);
+            responseStream.end();
+            return;
+          } catch (fallbackErr) {
+            const fbMsg = fallbackErr instanceof Error ? fallbackErr.message : "Error desconocido";
+            console.error(`[FALLBACK] DeepSeek also failed: ${fbMsg}`);
+            const payload = JSON.stringify({ content: `\n\n⛔ **Error del servidor AI:** Ambos proveedores fallaron. ${fbMsg}` });
+            responseStream.write(`data: ${payload}\n\n`);
+            responseStream.write(`data: [DONE]\n\n`);
+            responseStream.end();
+            return;
+          }
+        }
+
         const payload = JSON.stringify({ content: `\n\n⛔ **Error del servidor AI:** ${errorMsg}` });
         responseStream.write(`data: ${payload}\n\n`);
         responseStream.write(`data: [DONE]\n\n`);
