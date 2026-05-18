@@ -48,6 +48,7 @@ jobs:
           OPITA_LINKS_API_KEY: ${{ secrets.OPITA_LINKS_API_KEY }}
           SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
           ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+          STAGING_WHITELIST: ${{ secrets.STAGING_WHITELIST }}
 
       - name: Verify API Health
         run: |

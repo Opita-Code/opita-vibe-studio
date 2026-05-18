@@ -154,6 +154,9 @@ export default $config({
         // Always use production Router because auth is shared infrastructure
         // (same JWT_SECRET, same Cognito, same DynamoDB Users table).
         STABLE_API_DOMAIN: "api.opitacode.com",
+        // Comma-separated list of emails allowed to authenticate from dev.opitacode.com.
+        // Empty string = whitelist disabled (blocks nobody). Set via GitHub Secret: STAGING_WHITELIST.
+        STAGING_WHITELIST: process.env.STAGING_WHITELIST || "",
       },
     });
 

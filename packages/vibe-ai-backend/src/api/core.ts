@@ -357,6 +357,24 @@ function getCorsHeaders(event: any) {
   };
 }
 
+// ─── Staging Whitelist Guard ─────────────────────────────────────
+// When requests originate from the staging domain, only whitelisted
+// emails can authenticate. This prevents production users from
+// accidentally (or intentionally) hitting unstable staging code.
+const STAGING_ORIGINS = new Set(["https://dev.opitacode.com"]);
+
+function isStagingRequest(event: any): boolean {
+  const origin = event.headers?.origin || event.headers?.Origin || "";
+  return STAGING_ORIGINS.has(origin);
+}
+
+function isAllowedOnStaging(email: string): boolean {
+  const raw = process.env.STAGING_WHITELIST || "";
+  if (!raw) return true; // Whitelist not configured — allow all (failsafe for local dev)
+  const whitelist = raw.split(",").map(e => e.trim().toLowerCase());
+  return whitelist.includes(email.trim().toLowerCase());
+}
+
 export const handler = async (event: any) => {
   if (event.requestContext?.http?.method === "OPTIONS") {
     return { statusCode: 200, headers: getCorsHeaders(event), body: "" };
@@ -378,6 +396,13 @@ export const handler = async (event: any) => {
       const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!email || !emailRegex.test(email)) {
         return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Invalid email" }) };
+      }
+
+      // Staging whitelist: only allowed emails can request a magic link from dev
+      if (isStagingRequest(event) && !isAllowedOnStaging(email)) {
+        console.warn(`[staging-guard] Blocked magic link request for ${email} from staging origin`);
+        // Return 200 to avoid email enumeration — attacker can't distinguish blocked vs sent
+        return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Magic link sent" }) };
       }
 
       // Resolve which service is requesting auth — drives email template and redirect fallback
@@ -744,6 +769,12 @@ export const handler = async (event: any) => {
 
       if (!email || !password) {
         return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Email y contraseña son requeridos" }) };
+      }
+
+      // Staging whitelist: only allowed emails can log in from dev
+      if (isStagingRequest(event) && !isAllowedOnStaging(email)) {
+        console.warn(`[staging-guard] Blocked password login for ${email} from staging origin`);
+        return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Credenciales inválidas" }) };
       }
 
       const userResult = await docClient.send(new GetCommand({
