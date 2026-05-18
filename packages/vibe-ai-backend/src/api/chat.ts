@@ -637,14 +637,15 @@ export const handler = awslambda.streamifyResponse(
         // We only use a fallback if no system message is present in the conversation.
         let selectedSystemPrompt = FALLBACK_SYSTEM_PROMPT;
         
-        // Check if frontend already sent a system message
-        const hasSystemMessage = messages.some(
+        // AI SDK v6: system messages MUST go in the `system` param, not messages[].
+        // Extract the frontend-composed system message and promote it to the system param.
+        const systemMsg = messages.find(
           (m: { role: string }) => m.role === "system"
         );
         
-        if (hasSystemMessage) {
-          // Frontend-composed prompt is already in the messages array — no need to override
-          selectedSystemPrompt = "";
+        if (systemMsg && systemMsg.content) {
+          // Frontend-composed prompt — extract it for the system param
+          selectedSystemPrompt = typeof systemMsg.content === "string" ? systemMsg.content : FALLBACK_SYSTEM_PROMPT;
         }
 
         // Enviar warning de degradación si aplica
