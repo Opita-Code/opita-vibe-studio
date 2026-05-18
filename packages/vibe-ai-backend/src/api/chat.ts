@@ -355,6 +355,32 @@ interface StreamChunk {
 
 export const handler = awslambda.streamifyResponse(
   async (event: { headers?: Record<string, string>; body?: string }, responseStream: NodeJS.WritableStream & { setContentType: (type: string) => void; write: (data: string | Uint8Array) => void; end: () => void }, _context: unknown) => {
+    // ─── HEALTH CHECK (no auth required) ───
+    // Allows monitoring and E2E tests to verify the chat Lambda is alive
+    // and providers are configured. Call with { "action": "health_check" }.
+    try {
+      const preBody = JSON.parse(event.body || "{}");
+      if (preBody.action === "health_check") {
+        responseStream.setContentType("application/json");
+        responseStream.write(JSON.stringify({
+          status: "ok",
+          timestamp: new Date().toISOString(),
+          providers: {
+            deepseek: HAS_DEEPSEEK,
+            gemini: HAS_GOOGLE_AI,
+            openai: !!(process.env.OPENAI_API_KEY),
+            openrouter: !!(process.env.OPENROUTER_API_KEY),
+          },
+          auth: {
+            hasJwtSecret: !!(process.env.JWT_SECRET),
+            hasByokKey: !!(process.env.BYOK_ENCRYPTION_KEY),
+          },
+        }));
+        responseStream.end();
+        return;
+      }
+    } catch { /* not valid JSON — continue to normal flow */ }
+
     // 1. JWT Validation — Multi-source token extraction
     // Bearer token has priority, but if it fails verification, fall back to cookie.
     const authHeader = event.headers?.authorization || event.headers?.Authorization || "";

@@ -211,6 +211,8 @@ export default $config({
       },
       // CRITICAL: CloudFront strips Set-Cookie by default (CookieBehavior: none).
       // Without this, magic link verify cannot set the opita_session cookie.
+      // Also, headerBehavior MUST forward Authorization — otherwise Bearer tokens
+      // are stripped and Lambda never receives auth credentials.
       transform: {
         cachePolicy: {
           parametersInCacheKeyAndForwardedToOrigin: {
@@ -218,7 +220,10 @@ export default $config({
               cookieBehavior: "all",
             },
             headersConfig: {
-              headerBehavior: "none",
+              headerBehavior: "whitelist",
+              headers: {
+                items: ["Authorization"],
+              },
             },
             queryStringsConfig: {
               queryStringBehavior: "all",

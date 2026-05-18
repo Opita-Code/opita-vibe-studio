@@ -34,8 +34,17 @@ export default defineConfig({
       },
       timeout: 120 * 1000, // Agent needs time to think and generate
     },
+    {
+      name: 'production',
+      testMatch: 'production-smoke.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: 'https://vibe.opitacode.com',
+      },
+      timeout: 60 * 1000,
+    },
   ],
-  webServer: {
+  webServer: process.env.PW_PROJECT === 'production' ? undefined : {
     command: 'npm run dev',
     port: 1420,
     reuseExistingServer: true,
