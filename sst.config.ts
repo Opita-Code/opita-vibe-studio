@@ -192,7 +192,24 @@ export default $config({
         "/chat/*": api.url,
         "/core/*": coreApi.url,
         "/storage/*": storageApi.url,
-      }
+      },
+      // CRITICAL: CloudFront strips Set-Cookie by default (CookieBehavior: none).
+      // Without this, magic link verify cannot set the opita_session cookie.
+      transform: {
+        cachePolicy: {
+          parametersInCacheKeyAndForwardedToOrigin: {
+            cookiesConfig: {
+              cookieBehavior: "all",
+            },
+            headersConfig: {
+              headerBehavior: "none",
+            },
+            queryStringsConfig: {
+              queryStringBehavior: "all",
+            },
+          },
+        },
+      },
     });
 
     return {
