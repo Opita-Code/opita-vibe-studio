@@ -137,7 +137,7 @@ export default $config({
       url: {
         cors: {
           allowOrigins: ["https://vibe.opitacode.com", "https://dev.opitacode.com", "https://opitacode.com", "https://cuenta.opitacode.com", "http://localhost:1420"],
-          allowMethods: ["GET", "POST", "OPTIONS"],
+          allowMethods: ["GET", "POST"],
           allowHeaders: ["Content-Type", "Authorization", "Cookie"],
           allowCredentials: true,
         },
