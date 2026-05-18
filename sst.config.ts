@@ -13,6 +13,14 @@ export default $config({
   async run() {
     const dotenv = await import("dotenv");
     dotenv.config();
+    // Strip UTF-8 BOM (U+FEFF) from ALL env vars — GitHub Secrets can carry invisible
+    // BOM chars from copy-paste that silently break API keys and credentials.
+    for (const key of Object.keys(process.env)) {
+      const val = process.env[key];
+      if (val && val.charCodeAt(0) === 0xFEFF) {
+        process.env[key] = val.slice(1).trim();
+      }
+    }
     // 1.2 Crear tabla DynamoDB (Conversations)
     const table = new sst.aws.Dynamo("Conversations", {
       fields: {
