@@ -8,6 +8,8 @@
  * The caller passes availability flags.
  */
 
+import { canAccess, requiresTier } from "@/lib/plan-registry";
+
 // ─── Types ─────────────────────────────────────────────────────
 
 export interface ModelRouterInput {
@@ -86,7 +88,7 @@ export function selectModel(input: ModelRouterInput): ModelSelection {
   }
 
   // ─── Plan restriction: Free cannot use subagent (without BYOK) ──
-  if (action === "subagent" && plan === "free") {
+  if (action === "subagent" && !requiresTier(plan, 1)) {
     return {
       ...FALLBACK,
       byok: false,
@@ -116,7 +118,7 @@ export function selectModel(input: ModelRouterInput): ModelSelection {
   if (action === "subagent" && subagentId) {
     const isHighCognitive = HIGH_COGNITIVE_PHASES.has(subagentId);
 
-    if (plan === "pro" && isHighCognitive) {
+    if (canAccess(plan, "advanced_models") && isHighCognitive) {
       // Pro + high cognitive → premium model
       return {
         providerId: "deepseek",

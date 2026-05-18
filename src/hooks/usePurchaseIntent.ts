@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { useAuthStore } from "@/stores/auth";
 import { isLimitReached, getUsagePercent } from "@/lib/tokens";
+import { getPlan, getPlanName } from "@/lib/plan-registry";
+import type { UserPlan } from "@/lib/types";
 
 export type IntentType = "token_warning" | "token_limit" | "pro_model" | "large_file" | "storage_limit" | null;
 
@@ -31,7 +33,7 @@ export function usePurchaseIntent() {
 
   if (forcedIntent) {
     activeIntent = forcedIntent;
-  } else if (plan === "free" || plan === "estudiante") {
+  } else if (getPlan(plan).tier < 2) {
     // Verificar uso de tokens para mostrar advertencias automáticas
     if (tokenUsage && isLimitReached(tokenUsage)) {
       activeIntent = "token_limit";
@@ -53,10 +55,10 @@ export function usePurchaseIntent() {
   };
 }
 
-export function getNudgeForIntent(intent: IntentType, plan: string) {
+export function getNudgeForIntent(intent: IntentType, plan: UserPlan) {
   if (!intent) return null;
   
-  const targetPlan = plan === "free" ? "Estudiante" : "Vibe Pro";
+  const targetPlan = getPlan(plan).tier === 0 ? getPlanName("estudiante") : getPlanName("pro");
   
   switch (intent) {
     case "token_warning":

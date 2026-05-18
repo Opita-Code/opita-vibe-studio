@@ -11,6 +11,7 @@
  */
 
 import type { Harness, HarnessContext, HarnessResult } from "../types";
+import { requiresTier } from "@/lib/plan-registry";
 
 export const verifyHarness: Harness = {
   id: "verify",
@@ -68,7 +69,7 @@ export function shouldRequireVerification(ctx: Readonly<HarnessContext>): boolea
   if (styleOnly.some((s) => lower.includes(s))) return false;
 
   // Default: require for paid plans
-  return ctx.plan !== "free";
+  return requiresTier(ctx.plan, 1);
 }
 
 /**

@@ -4,6 +4,7 @@ import { useGamificationStore } from "@/stores/gamification";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
 import { useState, useRef, useEffect } from "react";
 import { XPBar } from "@/components/gamification/XPBar";
+import { requiresTier, getPlanName } from "@/lib/plan-registry";
 
 export function ActivityBar() {
   const { 
@@ -240,11 +241,11 @@ export function ActivityBar() {
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-white/50">Plan:</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium tracking-wide ${
-                        user?.plan === 'pro' || user?.plan === 'estudiante' 
+                        requiresTier(user?.plan ?? 'free', 1) 
                           ? 'bg-gradient-to-r from-aura-cyan to-aura-purple text-white' 
                           : 'bg-white/10 text-white/70'
                       }`}>
-                        {user?.plan === 'pro' ? 'Vibe Pro' : user?.plan === 'estudiante' ? 'Estudiante' : 'Básico'}
+                        {getPlanName(user?.plan ?? 'free')}
                       </span>
                     </div>
                   </div>

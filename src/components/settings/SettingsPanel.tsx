@@ -9,6 +9,7 @@ import { TokenBar } from "@/components/usage/TokenBar";
 import { ContextPanel } from "@/components/settings/ContextPanel";
 import { motion, AnimatePresence } from "framer-motion";
 import { Blocks, Palette, CreditCard, Bot, ShieldCheck, X } from "lucide-react";
+import { canAccess } from "@/lib/plan-registry";
 
 type SettingsCategory = "conexiones" | "apariencia" | "uso" | "agentes" | "privacidad";
 
@@ -76,7 +77,7 @@ export function SettingsPanel() {
     { id: "conexiones", label: "Conexiones IA", icon: Blocks },
     { id: "apariencia", label: "Apariencia", icon: Palette },
     { id: "uso", label: "Suscripción y Uso", icon: CreditCard },
-    ...(plan === "pro" || plan === "estudiante" ? [{ id: "agentes", label: "Agentes SDD", icon: Bot }] : []),
+    ...(canAccess(plan, "sdd") ? [{ id: "agentes", label: "Agentes SDD", icon: Bot }] : []),
     ...(isAuthenticated ? [{ id: "privacidad", label: "Privacidad", icon: ShieldCheck }] : []),
   ] as const;
 
@@ -187,7 +188,7 @@ export function SettingsPanel() {
                       </div>
                     )}
 
-                    {activeTab === "agentes" && (plan === "pro" || plan === "estudiante") && (
+                    {activeTab === "agentes" && canAccess(plan, "sdd") && (
                       <div className="space-y-8">
                         <div>
                           <h3 className="text-lg font-semibold text-slate-200 mb-1">Agentes Pro</h3>

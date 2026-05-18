@@ -21,13 +21,16 @@ export const XP_ACTIONS = {
   streak_30_bonus: 500,
 } as const;
 
-// ─── Plan Multipliers ───────────────────────────────────────────
+// ─── Plan Multipliers (source: plan-registry) ──────────────────
 
-export const PLAN_MULTIPLIERS = {
-  free: 1,
-  estudiante: 1.5,
-  pro: 2,
-} as const;
+import { getXpMultiplier, getQuotaDecayFloor, getAllPlanIds } from "./plan-registry";
+import type { UserPlan } from "./types";
+
+function _buildRecord<T>(fn: (p: UserPlan) => T) {
+  return Object.fromEntries(getAllPlanIds().map((id) => [id, fn(id)])) as Record<UserPlan, T>;
+}
+
+export const PLAN_MULTIPLIERS = _buildRecord(getXpMultiplier) as Readonly<Record<UserPlan, number>>;
 
 // ─── Quota Rewards (permanent daily quota increase) ─────────────
 // Completing missions permanently raises the user's daily token limit.
@@ -66,11 +69,7 @@ export const QUOTA_DECAY_RATE = 0.10;
  * Minimum quota floor — earned quota never decays below base plan limit.
  * Even after prolonged inactivity, you keep your plan's base quota.
  */
-export const QUOTA_DECAY_FLOOR = {
-  free: 150_000,
-  estudiante: 250_000,
-  pro: 1_000_000,
-} as const;
+export const QUOTA_DECAY_FLOOR = _buildRecord(getQuotaDecayFloor) as Readonly<Record<UserPlan, number>>;
 
 // ─── Leveling ───────────────────────────────────────────────────
 

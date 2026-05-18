@@ -21,6 +21,7 @@
  */
 
 import type { Harness, HarnessContext, HarnessResult } from "../types";
+import { canAccess } from "@/lib/plan-registry";
 
 /** Patterns that indicate a complex, multi-step task → delegate */
 const DELEGATION_PATTERNS = [
@@ -100,8 +101,8 @@ export function decideDelegation(
   }
 
   // Free plan cannot use subagents
-  if (plan === "free") {
-    return { shouldDelegate: false, reason: "Free plan — inline execution only" };
+  if (!canAccess(plan, "sub_agents") && !canAccess(plan, "sdd")) {
+    return { shouldDelegate: false, reason: "Plan does not support delegation" };
   }
 
   // Check for inline patterns (higher priority — don't over-delegate)
@@ -123,7 +124,7 @@ export function decideDelegation(
 
   // Default: delegate for paid plans (better results)
   return {
-    shouldDelegate: plan === "pro",
-    reason: plan === "pro" ? "Pro plan default — delegate for best results" : "Student plan — inline by default",
+    shouldDelegate: canAccess(plan, "sub_agents"),
+    reason: canAccess(plan, "sub_agents") ? "Pro plan default — delegate for best results" : "Student plan — inline by default",
   };
 }

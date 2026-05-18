@@ -11,6 +11,7 @@
  */
 
 import type { Harness, HarnessContext, HarnessResult, ModelSelection } from "../types";
+import { canAccess, requiresTier } from "@/lib/plan-registry";
 
 /** SDD phases that require deeper reasoning */
 const HIGH_COGNITIVE_PHASES = new Set([
@@ -58,7 +59,7 @@ export function selectModel(ctx: Readonly<HarnessContext>): ModelSelection {
   }
 
   // Free plan cannot use subagent without BYOK
-  if (ctx.shouldDelegate && plan === "free") {
+  if (ctx.shouldDelegate && !requiresTier(plan, 1)) {
     return {
       providerId: "gemini",
       modelId: "gemini-2.5-flash",
@@ -78,7 +79,7 @@ export function selectModel(ctx: Readonly<HarnessContext>): ModelSelection {
   }
 
   // Pro + high cognitive phase → premium model
-  if (plan === "pro" && currentPhase && HIGH_COGNITIVE_PHASES.has(currentPhase)) {
+  if (canAccess(plan, "advanced_models") && currentPhase && HIGH_COGNITIVE_PHASES.has(currentPhase)) {
     return {
       providerId: "deepseek",
       modelId: "deepseek-v4-pro",

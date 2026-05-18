@@ -12,6 +12,7 @@
  */
 
 import type { Harness, HarnessContext, HarnessResult, ArtifactStoreMode } from "../types";
+import { requiresTier } from "@/lib/plan-registry";
 
 export const artifactStoreHarness: Harness = {
   id: "artifact-store",
@@ -48,7 +49,7 @@ export function decideArtifactStore(
   if (currentMode !== "none") return currentMode;
 
   // Free plan → no persistence
-  if (plan === "free") return "none";
+  if (!requiresTier(plan, 1)) return "none";
 
   // Project has OpenSpec → hybrid (engram + files)
   if (conventions.includes("openspec")) return "hybrid";

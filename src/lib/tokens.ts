@@ -1,47 +1,27 @@
 import type { TokenUsage, UserPlan } from "./types";
+import {
+  getPlanLimits,
+  getStorageLimit,
+  getPlanName,
+  getPlanFeatures,
+  getAllPlanIds,
+} from "./plan-registry";
 
-// ─── Plan Limits (tokens por ventana temporal) ──────────────────
+// ─── Backward-compat re-exports (source: plan-registry) ────────
+// These build the same Record shapes that consumers expect.
+// New code should import from plan-registry directly.
 
-export const PLAN_LIMITS: Record<UserPlan, { daily: number; hourly: number }> = {
-  free:       { daily: 150_000,   hourly: 30_000 },
-  estudiante: { daily: 250_000,   hourly: 60_000 },
-  pro:        { daily: 1_000_000, hourly: 200_000 },
-};
+function buildRecord<T>(fn: (plan: UserPlan) => T): Record<UserPlan, T> {
+  return Object.fromEntries(
+    getAllPlanIds().map((id) => [id, fn(id)]),
+  ) as Record<UserPlan, T>;
+}
 
-// ─── Storage Limits (Bytes) ──────────────────────────────────────
+export const PLAN_LIMITS = buildRecord(getPlanLimits);
+export const STORAGE_LIMITS = buildRecord(getStorageLimit);
+export const PLAN_NAMES = buildRecord(getPlanName);
+export const PLAN_FEATURES = buildRecord((p) => [...getPlanFeatures(p)]);
 
-export const STORAGE_LIMITS: Record<UserPlan, number> = {
-  free:        5 * 1024 * 1024,   // 5MB
-  estudiante: 50 * 1024 * 1024,   // 50MB
-  pro:       500 * 1024 * 1024,   // 500MB
-};
-
-export const PLAN_NAMES: Record<UserPlan, string> = {
-  free: "Gratis",
-  estudiante: "Estudiante",
-  pro: "Vibe Pro",
-};
-
-export const PLAN_FEATURES: Record<UserPlan, string[]> = {
-  free: [
-    "150K tokens base (gana hasta 300K con misiones)",
-    "Misiones diarias para ganar quota",
-    "Vista previa en vivo",
-    "Editor de código + BYOK",
-  ],
-  estudiante: [
-    "250K tokens base (gana hasta 400K con misiones)",
-    "XP ×1.5 y misiones avanzadas",
-    "Orquestación SDD (V4-Flash)",
-    "Sincronización Cloud",
-  ],
-  pro: [
-    "1M tokens diarios",
-    "XP ×2 y todas las misiones",
-    "Subagentes Autónomos (Edición de código)",
-    "Modo degradado (nunca se bloquea)",
-  ],
-};
 
 // ─── Token Formatting ───────────────────────────────────────────
 

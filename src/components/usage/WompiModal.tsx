@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePurchaseIntent } from "@/hooks/usePurchaseIntent";
 import { useAuthStore } from "@/stores/auth";
 import { X, Loader2, Zap } from "lucide-react";
+import { getPlan, getPlanName } from "@/lib/plan-registry";
 
 export function WompiModal() {
   const { isModalOpen, closeModal, plan } = usePurchaseIntent();
@@ -10,10 +11,11 @@ export function WompiModal() {
   const [error, setError] = useState<string | null>(null);
   const scriptContainerRef = useRef<HTMLDivElement>(null);
 
-  // El plan destino depende del plan actual
-  const targetPlan = plan === "free" ? "VIBE_STUDENT" : "VIBE_PRO";
-  const targetPlanName = plan === "free" ? "Estudiante" : "Vibe Pro";
-  const targetPlanFeatures = plan === "free" 
+  // El plan destino depende del plan actual (next tier up)
+  const currentTier = getPlan(plan).tier;
+  const targetPlan = currentTier === 0 ? "VIBE_STUDENT" : "VIBE_PRO";
+  const targetPlanName = currentTier === 0 ? getPlanName("estudiante") : getPlanName("pro");
+  const targetPlanFeatures = currentTier === 0 
     ? ["250K tokens diarios", "Orquestación SDD", "Sincronización Cloud", "Misiones XP x1.5"]
     : ["1M tokens diarios", "Subagentes Autónomos", "Edición In-Line", "Misiones XP x2"];
 

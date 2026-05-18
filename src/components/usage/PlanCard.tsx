@@ -10,6 +10,7 @@ import {
   getHoursUntilDailyReset,
   formatTokenCount,
 } from "@/lib/tokens";
+import { getPlan } from "@/lib/plan-registry";
 
 // ─── Props ──────────────────────────────────────────────────────
 
@@ -42,8 +43,8 @@ export function PlanCard({ className = "" }: PlanCardProps) {
   const limit = PLAN_LIMITS[plan];
   const hoursUntilReset = getHoursUntilDailyReset(tokenUsage.resetDailyAt);
   const features = PLAN_FEATURES[plan] ?? [];
-  const isFree = plan === "free";
-  const canUpgrade = plan !== "pro";
+  const isFree = getPlan(plan).tier === 0;
+  const canUpgrade = getPlan(plan).tier < 2;
 
   // Earned quota from gamification
   const earnedQuota = profile?.earnedQuota ?? 0;
@@ -68,7 +69,7 @@ export function PlanCard({ className = "" }: PlanCardProps) {
               : "bg-gradient-to-r from-aura-cyan/20 to-aura-purple/20 text-aura-cyan border border-aura-cyan/20"
           }`}
         >
-          {plan === "pro" ? "PRO" : plan === "estudiante" ? "EST" : "FREE"}
+          {getPlan(plan).tier >= 2 ? "PRO" : getPlan(plan).tier >= 1 ? "EST" : "FREE"}
         </span>
       </div>
 

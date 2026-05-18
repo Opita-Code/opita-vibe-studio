@@ -7,6 +7,7 @@
  */
 
 import type { Harness, HarnessContext, HarnessResult, DeliveryStrategy } from "../types";
+import { requiresTier } from "@/lib/plan-registry";
 
 /** Patterns indicating large scope → feature branch or PR */
 const LARGE_SCOPE_PATTERNS = [
@@ -58,7 +59,7 @@ export function decideDeliveryStrategy(
   if (!hasGit) return "direct";
 
   // Free plan → always direct (no branch management)
-  if (plan === "free") return "direct";
+  if (!requiresTier(plan, 1)) return "direct";
 
   const lower = userText.toLowerCase();
 
