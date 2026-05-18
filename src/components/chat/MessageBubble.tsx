@@ -1,10 +1,26 @@
 import { useState, useCallback, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { motion, AnimatePresence } from "framer-motion";
 import type { Message } from "@/lib/types";
 import { ApplyCodeBlock } from "@/components/chat/ApplyCodeBlock";
-import { Copy, Check, Terminal, FileEdit, HardDrive, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
+import { InlineRoadmap } from "@/components/chat/InlineRoadmap";
+import { InlineSteps } from "@/components/chat/InlineSteps";
+import { FileChangeSummary } from "@/components/chat/FileChangeSummary";
+import { ConfirmationCard } from "@/components/chat/ConfirmationCard";
+import { Copy, Check, Terminal, FileEdit, HardDrive, BookOpen, ChevronDown, ChevronRight, X, Pencil } from "lucide-react";
 import { useProjectStore } from "@/stores/project";
+import { GRACE_WINDOW_MS } from "@/agent/useAgentHandler";
+
+// ─── Phase Labels ───────────────────────────────────────────────
+
+const PHASE_LABELS: Record<string, string> = {
+  thinking: "Analizando",
+  planning: "Planificando",
+  building: "Construyendo",
+  verifying: "Verificando",
+  chatting: "Respondiendo",
+};
 
 // ─── Thinking Phrases ───────────────────────────────────────────
 
@@ -33,6 +49,67 @@ interface MessageBubbleProps {
   message: Message;
   /** True cuando el asistente está "pensando" (streaming activo, contenido vacío) */
   isThinking?: boolean;
+  /** Callback para cancelar el mensaje pendiente */
+  onCancel?: (messageId: string) => void;
+  /** Callback para editar el mensaje pendiente */
+  onEdit?: (messageId: string) => void;
+}
+
+// ─── Pending Message Actions ──────────────────────────────────
+
+/**
+ * Barra de gracia: se muestra en mensajes de usuario con deliveryStatus === "pending".
+ * Incluye barra de cuenta regresiva animada + botones Cancel/Editar.
+ */
+function PendingMessageActions({
+  messageId,
+  onCancel,
+  onEdit,
+}: {
+  messageId: string;
+  onCancel: (id: string) => void;
+  onEdit: (id: string) => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.15 }}
+      className="mt-2 flex flex-col gap-1.5"
+    >
+      {/* Barra de cuenta regresiva */}
+      <div className="w-full h-0.5 rounded-full bg-white/10 overflow-hidden">
+        <motion.div
+          className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full"
+          initial={{ width: "100%" }}
+          animate={{ width: "0%" }}
+          transition={{ duration: GRACE_WINDOW_MS / 1000, ease: "linear" }}
+        />
+      </div>
+      {/* Botones */}
+      <div className="flex items-center gap-2 pt-0.5">
+        <button
+          id={`cancel-msg-${messageId}`}
+          onClick={() => onCancel(messageId)}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium text-red-400/80 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+          aria-label="Cancelar mensaje"
+        >
+          <X size={11} />
+          Cancelar
+        </button>
+        <button
+          id={`edit-msg-${messageId}`}
+          onClick={() => onEdit(messageId)}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium text-sky-400/80 hover:text-sky-400 hover:bg-sky-500/10 border border-transparent hover:border-sky-500/20 transition-all"
+          aria-label="Editar mensaje"
+        >
+          <Pencil size={11} />
+          Editar
+        </button>
+      </div>
+    </motion.div>
+  );
 }
 
 // ─── Inline Thinking ────────────────────────────────────────────
@@ -64,7 +141,7 @@ function ThinkingContent() {
   );
 }
 
-// ─── Step Item ──────────────────────────────────────────────────
+// ─── Step Item (legacy — used when no agentExecution) ────────────
 
 function StepItem({ step }: { step: import("@/lib/types").SubagentStep }) {
   const isModifying = step.tool === "write_local_file" || step.tool === "apply_diff" || step.tool === "delete_file";
@@ -100,7 +177,7 @@ function StepItem({ step }: { step: import("@/lib/types").SubagentStep }) {
   );
 }
 
-// ─── Reasoning Accordion ────────────────────────────────────────
+// ─── Reasoning Accordion (legacy — used when no agentExecution) ─
 
 function ReasoningAccordion({ steps, thinkContent, isStreaming }: { steps?: import("@/lib/types").SubagentStep[], thinkContent?: string | null, isStreaming?: boolean }) {
   const [isOpen, setIsOpen] = useState(false); // Collapsed by default
@@ -151,19 +228,74 @@ function ReasoningAccordion({ steps, thinkContent, isStreaming }: { steps?: impo
   );
 }
 
+// ─── Agent Execution Header ─────────────────────────────────────
+
+function AgentExecutionHeader({ phase, progress, status }: { phase: string; progress: number; status: string }) {
+  const label = PHASE_LABELS[phase] ?? phase;
+  const isRunning = status === "running";
+  const isDone = status === "done";
+  const isError = status === "error";
+
+  return (
+    <div className="flex items-center gap-2.5 mb-2">
+      {/* Status indicator */}
+      {isRunning ? (
+        <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+      ) : isDone ? (
+        <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+      ) : isError ? (
+        <div className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+      ) : (
+        <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+      )}
+
+      <span className={`text-[11px] font-semibold tracking-wide uppercase ${
+        isRunning ? "text-cyan-300" :
+        isDone ? "text-emerald-400/70" :
+        isError ? "text-red-400" :
+        "text-amber-400"
+      }`}>
+        {label}
+        {isRunning && "..."}
+      </span>
+
+      {isRunning && (
+        <span className="text-[10px] font-mono text-white/30 ml-auto">
+          {progress}%
+        </span>
+      )}
+
+      {isDone && (
+        <span className="text-[10px] font-mono text-emerald-400/50 ml-auto">
+          ✓ completo
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─── Component ─────────────────────────────────────────────────
 
 /**
- * Burbuja de mensaje individual.
- * - Usuario: alineada a la derecha, fondo azul.
- * - Asistente: alineada a la izquierda, fondo gris, renderiza Markdown.
- * - Sistema: centrada, texto itálico.
- * - Thinking: cuando isThinking=true, muestra frases rotativas de "pensando".
+ * Burbuja de mensaje individual — Agent-Aware.
+ *
+ * Cuando el mensaje tiene `agentExecution`, la burbuja se transforma
+ * en un mini-dashboard con:
+ * - Header de fase + progreso
+ * - Inline Roadmap
+ * - Inline Steps
+ * - File Change Summary
+ * - Confirmation Card (si awaiting-confirmation)
+ *
+ * Mensajes sin agentExecution se renderizan como antes.
  */
-export function MessageBubble({ message, isThinking = false }: MessageBubbleProps) {
+export function MessageBubble({ message, isThinking = false, onCancel, onEdit }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   const [copied, setCopied] = useState(false);
+
+  const hasAgentExecution = !!message.agentExecution;
+  const execution = message.agentExecution;
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(message.content).then(() => {
@@ -203,10 +335,39 @@ export function MessageBubble({ message, isThinking = false }: MessageBubbleProp
 
   // Skip rendering empty assistant bubbles (tool-only responses with no text)
   if (!isUser && !isThinking && !cleanContent.trim()) {
-    // Still show reasoning/steps accordion if present
-    if (message.subagentSteps?.length || thinkContent) {
+    // Still show reasoning/steps accordion if present (legacy path)
+    if (!hasAgentExecution && (message.subagentSteps?.length || thinkContent)) {
       return (
         <ReasoningAccordion steps={message.subagentSteps} thinkContent={thinkContent} isStreaming={false} />
+      );
+    }
+    // Agent-aware path: show execution dashboard even without text
+    if (hasAgentExecution) {
+      return (
+        <div className="mb-4 flex justify-start pr-12 animate-fade-in">
+          <div className="rounded-2xl rounded-tl-sm bg-obsidian-900/60 border border-white/5 text-white/80 backdrop-blur-3xl px-4 py-3 shadow-xl relative overflow-hidden w-full max-w-full">
+            <div className="absolute inset-0 bg-aura-purple/5 animate-pulse mix-blend-screen pointer-events-none" />
+            <div className="relative z-10">
+              <AgentExecutionHeader
+                phase={execution!.phase}
+                progress={execution!.progress}
+                status={execution!.status}
+              />
+              {execution!.roadmap.length > 0 && (
+                <InlineRoadmap goals={execution!.roadmap} progress={execution!.progress} />
+              )}
+              {execution!.steps.length > 0 && (
+                <InlineSteps steps={execution!.steps} isLive={execution!.status === "running"} />
+              )}
+              {execution!.status === "done" && execution!.filesChanged.length > 0 && (
+                <FileChangeSummary files={execution!.filesChanged} />
+              )}
+              {execution!.status === "awaiting-confirmation" && (
+                <ConfirmationCard execution={execution!} messageId={message.id} />
+              )}
+            </div>
+          </div>
+        </div>
       );
     }
     return null;
@@ -214,8 +375,8 @@ export function MessageBubble({ message, isThinking = false }: MessageBubbleProp
 
   return (
     <>
-      {/* Reasoning Accordion (Outside the bubble, only for assistant) */}
-      {!isUser && (message.subagentSteps?.length || thinkContent) ? (
+      {/* Legacy Reasoning Accordion (only for non-agent messages) */}
+      {!isUser && !hasAgentExecution && (message.subagentSteps?.length || thinkContent) ? (
         <ReasoningAccordion steps={message.subagentSteps} thinkContent={thinkContent} isStreaming={reasoningIsLive} />
       ) : null}
 
@@ -244,8 +405,30 @@ export function MessageBubble({ message, isThinking = false }: MessageBubbleProp
           <div className="absolute inset-0 bg-aura-purple/5 animate-pulse mix-blend-screen pointer-events-none" />
         )}
         <div className="relative z-10">
+          {/* ── Agent Execution Header (inside the bubble) ──
+               Solo se muestra mientras la ejecución está activa.
+               Si status=done y hay texto, el contenido es suficiente. */}
+          {!isUser && hasAgentExecution && execution!.status !== "done" && (
+            <AgentExecutionHeader
+              phase={execution!.phase}
+              progress={execution!.progress}
+              status={execution!.status}
+            />
+          )}
+
           {isUser ? (
-            <p className="whitespace-pre-wrap text-sm">{cleanContent}</p>
+            <>
+              <p className="whitespace-pre-wrap text-sm">{cleanContent}</p>
+              <AnimatePresence>
+                {message.deliveryStatus === "pending" && onCancel && onEdit && (
+                  <PendingMessageActions
+                    messageId={message.id}
+                    onCancel={onCancel}
+                    onEdit={onEdit}
+                  />
+                )}
+              </AnimatePresence>
+            </>
           ) : isThinking ? (
             <ThinkingContent />
           ) : (
@@ -275,6 +458,29 @@ export function MessageBubble({ message, isThinking = false }: MessageBubbleProp
                 {cleanContent || ""}
               </ReactMarkdown>
             </div>
+          )}
+
+          {/* ── Agent Execution Widgets (inside the bubble) ── */}
+          {!isUser && hasAgentExecution && (
+            <>
+              {execution!.roadmap.length > 0 && (
+                <InlineRoadmap goals={execution!.roadmap} progress={execution!.progress} />
+              )}
+              {execution!.steps.length > 0 && (
+                <InlineSteps steps={execution!.steps} isLive={execution!.status === "running"} />
+              )}
+              {execution!.status === "done" && execution!.filesChanged.length > 0 && (
+                <FileChangeSummary files={execution!.filesChanged} />
+              )}
+              {execution!.status === "awaiting-confirmation" && (
+                <ConfirmationCard execution={execution!} messageId={message.id} />
+              )}
+              {execution!.status === "error" && execution!.error && (
+                <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/15 text-[11px] text-red-400/80">
+                  ⚠️ {execution!.error}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

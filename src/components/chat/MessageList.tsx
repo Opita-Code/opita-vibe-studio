@@ -12,6 +12,8 @@ interface MessageListProps {
   hasPipelinePhase?: boolean;
   onSuggestionClick?: (text: string) => void;
   onNewChat?: () => void;
+  onCancelMessage?: (messageId: string) => void;
+  onEditMessage?: (messageId: string) => void;
 }
 
 // ─── Component ─────────────────────────────────────────────────
@@ -20,7 +22,7 @@ interface MessageListProps {
  * Lista desplazable de mensajes con auto-scroll al último contenido.
  * Muestra un indicador de contexto ("X/20 mensajes") en el encabezado.
  */
-export function MessageList({ messages, isStreaming, onSuggestionClick, onNewChat }: MessageListProps) {
+export function MessageList({ messages, isStreaming, onSuggestionClick, onNewChat, onCancelMessage, onEditMessage }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contextCount = getContextCount(messages);
 
@@ -112,6 +114,8 @@ export function MessageList({ messages, isStreaming, onSuggestionClick, onNewCha
                 idx === messages.length - 1 &&
                 !msg.content
               }
+              onCancel={onCancelMessage}
+              onEdit={onEditMessage}
             />
           ))}
         </div>

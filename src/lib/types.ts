@@ -28,6 +28,72 @@ export interface SubagentStep {
   timestamp: number;
 }
 
+// ─── Agent Execution (embedded in Message) ─────────────────────
+
+export type AgentExecutionStatus =
+  | "running"
+  | "done"
+  | "error"
+  | "awaiting-confirmation";
+
+export interface AgentExecutionGoal {
+  id: string;
+  label: string;
+  status: "pending" | "active" | "done" | "error";
+  progress?: number;
+  /** Texto opcional para mostrar en el estado done (colapsable) */
+  detail?: string;
+}
+
+export interface AgentExecutionStep {
+  id: string;
+  icon: string;
+  label: string;
+  detail?: string;
+  status: "running" | "done" | "error";
+  timestamp: number;
+}
+
+export interface AgentFileChange {
+  path: string;
+  action: "created" | "modified" | "deleted";
+  linesChanged?: number;
+}
+
+/**
+ * Embeds agent execution state inside a message.
+ * Each assistant message with active agent work becomes a mini-dashboard.
+ */
+export interface AgentExecution {
+  /** Current agent phase (user-facing label) */
+  phase: string;
+  /** Overall progress 0-100 */
+  progress: number;
+  /** Inline roadmap goals */
+  roadmap: AgentExecutionGoal[];
+  /** Tool execution steps */
+  steps: AgentExecutionStep[];
+  /** Files modified during this execution */
+  filesChanged: AgentFileChange[];
+  /** Execution lifecycle status */
+  status: AgentExecutionStatus;
+  /** When execution started */
+  startedAt: number;
+  /** When execution completed (if done) */
+  completedAt?: number;
+  /** Error message (if status === "error") */
+  error?: string;
+  /** Confirmation context (if status === "awaiting-confirmation") */
+  confirmation?: {
+    /** What completed */
+    completedPhase: string;
+    /** What comes next */
+    nextPhase: string;
+    /** User-facing summary */
+    summary: string;
+  };
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant" | "system";
@@ -39,6 +105,15 @@ export interface Message {
   subagentSteps?: SubagentStep[];
   /** Accumulated reasoning/thinking tokens from the model */
   reasoning?: string;
+  /** Embedded agent execution state — makes this bubble a mini-dashboard */
+  agentExecution?: AgentExecution;
+  /**
+   * Delivery status for user messages.
+   * "pending" = agent has not started reading the message yet (Cancel/Edit available).
+   * "sent"    = agent started processing — no more cancellation from the message itself.
+   * undefined = historical messages without tracked status.
+   */
+  deliveryStatus?: "pending" | "sent";
 }
 
 export interface ChatChunk {

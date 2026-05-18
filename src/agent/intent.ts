@@ -60,6 +60,8 @@ const CODE_SIGNALS = [
   "crear", "hacer", "generar", "implementar",
   "nuevo", "nueva", "componente", "página", "pagina",
   "construir", "desarrollar", "armar", "montar", "añadir", "agregar",
+  // Modify (previously in detectCodeRequest but missing here)
+  "modificar", "cambiar", "diseñar",
   // Fix
   "bug", "error", "falla", "no funciona", "no sirve", "se rompe",
   "arreglar", "corregir", "fix", "depurar", "debug", "rompe",

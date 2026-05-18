@@ -40,6 +40,7 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
   const sessions = useChatStore(s => s.sessions);
 
   const plan = useAuthStore(s => s.plan);
+  const isStreaming = useChatStore(s => s.isStreaming);
   const { setIntent } = usePurchaseIntent();
   const [isUploading, setIsUploading] = useState(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
@@ -183,12 +184,14 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
 
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
-    if ((!trimmed && attachments.length === 0) || disabled) return;
+    // During streaming, nudges are always allowed (no disabled check)
+    if (!trimmed && attachments.length === 0) return;
+    if (!isStreaming && disabled) return;
     setUploadError(null);
     onSend(trimmed, attachments.length > 0 ? attachments : undefined);
     setText("");
     setAttachments([]);
-  }, [text, attachments, disabled, onSend]);
+  }, [text, attachments, disabled, isStreaming, onSend]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -304,19 +307,24 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
           }}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="Escribe, pega imágenes o arrastra archivos aquí..."
-          aria-label="Mensaje para Vibe AI"
-          disabled={disabled}
+          placeholder={isStreaming
+            ? "Orientar al agente en tiempo real..."
+            : "Escribe, pega imágenes o arrastra archivos aquí..."
+          }
+          aria-label={isStreaming ? "Enviar orientación al agente" : "Mensaje para Vibe AI"}
+          disabled={!isStreaming && disabled}
           rows={Math.min(text.split('\n').length || 1, 10)}
           className="flex-1 resize-none bg-transparent px-2 py-2 text-base md:text-sm text-white/90 placeholder-white/40 outline-none disabled:opacity-50 min-h-[44px] md:min-h-[40px] max-h-[250px] overflow-y-auto"
         />
         <button
           onClick={handleSend}
-          disabled={disabled || (!text.trim() && attachments.length === 0)}
-          aria-label="Enviar mensaje"
+          disabled={!isStreaming && (disabled || (!text.trim() && attachments.length === 0))}
+          aria-label={isStreaming ? "Enviar orientación al agente" : "Enviar mensaje"}
           className={`flex h-11 w-11 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-lg text-white shadow-lg transition-all duration-300 ${
-            (text.trim() || attachments.length > 0) && !disabled
-              ? "bg-gradient-to-br from-aura-cyan to-aura-purple hover:scale-105 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] active:scale-95"
+            (text.trim() || attachments.length > 0) && (!disabled || isStreaming)
+              ? isStreaming
+                ? "bg-gradient-to-br from-amber-400 to-amber-500 hover:scale-105 hover:shadow-[0_0_15px_rgba(251,191,36,0.4)] active:scale-95"
+                : "bg-gradient-to-br from-aura-cyan to-aura-purple hover:scale-105 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] active:scale-95"
               : "bg-obsidian-800/50 text-white/30 opacity-60"
           }`}
         >

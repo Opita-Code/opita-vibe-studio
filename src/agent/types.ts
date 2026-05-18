@@ -75,7 +75,12 @@ export type AgentEvent =
     }
 
   // Pause — wait for user confirmation (interactive mode only)
-  | { type: "await_confirmation" }
+  | {
+      type: "await_confirmation";
+      completedPhase: string;
+      nextPhase: string;
+      summary?: string;
+    }
 
   // File was created/modified/deleted
   | { type: "file_changed"; path: string; action: FileAction }

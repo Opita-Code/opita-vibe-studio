@@ -146,6 +146,51 @@ export const useAgentStore = create<AgentStore>()((set) => ({
     set({ activityBarExpanded: expanded }),
 }));
 
+// ─── Event Bus ──────────────────────────────────────────────────
+
+/**
+ * Simple typed event bus for agent → chat synchronization.
+ * Message bubbles subscribe to execution changes without polling.
+ */
+
+export type AgentBusEvent =
+  | { type: "phase"; phase: AgentPhase }
+  | { type: "progress"; percent: number }
+  | { type: "roadmap"; goals: RoadmapGoal[] }
+  | { type: "step"; step: AgentStep }
+  | { type: "file-changed"; path: string; action: FileSummary["action"] }
+  | { type: "done"; filesChanged: FileSummary[] }
+  | { type: "error"; message: string }
+  | { type: "awaiting-confirmation"; completedPhase: string; nextPhase: string; summary: string };
+
+type AgentBusListener = (event: AgentBusEvent) => void;
+
+const listeners = new Set<AgentBusListener>();
+
+export const agentBus = {
+  /** Subscribe to agent events. Returns unsubscribe function. */
+  subscribe(listener: AgentBusListener): () => void {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  },
+
+  /** Emit an event to all subscribers */
+  emit(event: AgentBusEvent): void {
+    for (const listener of listeners) {
+      try {
+        listener(event);
+      } catch {
+        // Swallow — listeners must not break the bus
+      }
+    }
+  },
+
+  /** Clear all subscribers (for cleanup/testing) */
+  clear(): void {
+    listeners.clear();
+  },
+};
+
 // ─── Expose initial state for tests ────────────────────────────
 
 useAgentStore.getInitialState = () => ({ ...initialState } as AgentStore);

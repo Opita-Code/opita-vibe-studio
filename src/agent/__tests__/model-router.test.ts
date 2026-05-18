@@ -38,10 +38,23 @@ describe("selectModel — Free tier", () => {
     expect(result.providerId).toBe("deepseek");
   });
 
-  it("blocks subagent action for free plan", () => {
+  it("blocks subagent (SDD) action for free plan", () => {
     const result = selectModel(input({ plan: "free", action: "subagent" }));
     expect(result.blocked).toBe(true);
     expect(result.blockReason).toContain("upgrade");
+  });
+
+  it("allows build action for free plan", () => {
+    const result = selectModel(input({ plan: "free", action: "build" }));
+    expect(result.blocked).toBeFalsy();
+    expect(result.providerId).toBe("gemini");
+    expect(result.modelId).toBe("gemini-2.5-flash");
+  });
+
+  it("routes free build to deepseek when no Google AI", () => {
+    const result = selectModel(input({ plan: "free", action: "build", hasGoogleAI: false }));
+    expect(result.blocked).toBeFalsy();
+    expect(result.providerId).toBe("deepseek");
   });
 });
 

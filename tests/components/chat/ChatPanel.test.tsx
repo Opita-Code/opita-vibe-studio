@@ -107,7 +107,7 @@ describe("ChatPanel — voseo compliance", () => {
     mockChatState.isStreaming = false;
   });
 
-  it("should show 'Puedes' instead of 'Puedes' when limit is reached", () => {
+  it("should use 'Puedes' (neutral) instead of 'Podés' (voseo) when limit is reached", () => {
     // Get the current addMessage mock and capture the message it receives
     const addMessage = mockChatState.addMessage;
 
@@ -123,8 +123,8 @@ describe("ChatPanel — voseo compliance", () => {
     const lastCall = addMessage.mock.calls[0][0] as { content: string };
     const content = lastCall.content;
 
-    // Verify the limit message uses Colombian-neutral Spanish
-    expect(content).not.toContain("Puedes");
+    // Verify the limit message uses Colombian-neutral Spanish (not voseo)
+    expect(content).not.toContain("Podés");
     expect(content).toContain("Puedes");
   });
 

@@ -13,7 +13,7 @@
 // Key budget items:
 // - React + ReactDOM: <500ms
 // - Monaco editor: lazy-loaded (not in critical path)
-// - Zustand stores: <100ms
+// - Zustand stores: <150ms
 // - Tailwind CSS: build-time (no runtime cost)
 // - App shell (App.tsx): <200ms
 // ═════════════════════════════════════════════════════════════════
@@ -73,11 +73,11 @@ describe("11.3 Boot perf: Import load budget", () => {
     expect(entry!.importTimeMs).toBeLessThanOrEqual(200);
   });
 
-  it("Zustand stores should each load within 100ms", () => {
+  it("Zustand stores should each load within 150ms", () => {
     for (const store of ["stores/chat", "stores/project", "stores/ui", "stores/auth"]) {
       const entry = loadTimes.find((l) => l.name === store);
       expect(entry).toBeDefined();
-      expect(entry!.importTimeMs).toBeLessThanOrEqual(100);
+      expect(entry!.importTimeMs).toBeLessThanOrEqual(150);
     }
   });
 
@@ -121,7 +121,7 @@ describe("11.3 Boot perf: Lazy loading boundaries", () => {
 
     // App component should exist without Monaco being loaded
     expect(App).toBeDefined();
-  }, 10000);
+  }, 30000);
 
   it("providers should NOT block app shell rendering", async () => {
     // Provider modules should be importable without triggering

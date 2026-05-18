@@ -82,11 +82,13 @@ export async function* handleMessage(
   const intent = classifyIntent(userText, config.hasProjectOpen);
 
   // 2. Intelligent model selection based on plan tier
-  const action = intent === "code" ? "subagent" : "chat";
+  // "build" = basic code generation (FREE allowed)
+  // "subagent" = SDD orchestration phases (requires Estudiante+)
+  const action = intent === "code" ? "build" : "chat";
   const routing = selectModel({
     plan: config.plan,
     action,
-    subagentId: intent === "code" ? "sdd-apply" : undefined,
+    subagentId: undefined, // build-agent doesn't use SDD phases
     modelId: config.modelId,
     customApiKey: config.customApiKey,
     degraded: config.degraded ?? false,

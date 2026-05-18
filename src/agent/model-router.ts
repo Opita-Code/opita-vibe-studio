@@ -14,7 +14,8 @@ export interface ModelRouterInput {
   /** User plan tier */
   plan: "free" | "estudiante" | "pro";
   /** Request action */
-  action: "chat" | "subagent" | "save_key";
+  /** Request action: chat, build (basic code), subagent (SDD phases), save_key */
+  action: "chat" | "build" | "subagent" | "save_key";
   /** SDD subagent phase (when action === "subagent") */
   subagentId?: string;
   /** Explicit model ID from client */
@@ -62,15 +63,15 @@ const FALLBACK: Pick<ModelSelection, "providerId" | "modelId"> = {
  * Selects the optimal AI provider and model for a request.
  *
  * Routing table:
- * ┌─────────────┬───────────────────────┬────────────────────────┐
- * │ Plan        │ Chat / Mechanical SDD │ High-Cognitive SDD     │
- * ├─────────────┼───────────────────────┼────────────────────────┤
- * │ Free        │ gemini-2.5-flash      │ BLOCKED                │
- * │ Estudiante  │ gemini-2.5-flash      │ gemini-2.5-flash       │
- * │ Pro         │ gemini-2.5-flash      │ deepseek-v4-pro        │
- * │ Pro degraded│ gemini-2.5-flash      │ gemini-2.5-flash       │
- * │ BYOK (any)  │ user's choice         │ user's choice          │
- * └─────────────┴───────────────────────┴────────────────────────┘
+ * ┌─────────────┬──────────────────────────┬────────────────────────┐
+ * │ Plan        │ Chat / Build / Mech. SDD │ High-Cognitive SDD     │
+ * ├─────────────┼──────────────────────────┼────────────────────────┤
+ * │ Free        │ gemini-2.5-flash         │ BLOCKED (subagent only)│
+ * │ Estudiante  │ gemini-2.5-flash         │ gemini-2.5-flash       │
+ * │ Pro         │ gemini-2.5-flash         │ deepseek-v4-pro        │
+ * │ Pro degraded│ gemini-2.5-flash         │ gemini-2.5-flash       │
+ * │ BYOK (any)  │ user's choice            │ user's choice          │
+ * └─────────────┴──────────────────────────┴────────────────────────┘
  */
 export function selectModel(input: ModelRouterInput): ModelSelection {
   const { plan, action, subagentId, modelId, customApiKey, degraded, hasGoogleAI, hasDeepSeek } = input;

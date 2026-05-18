@@ -44,8 +44,8 @@ describe("TIP_DICTIONARY", () => {
   it("should use Colombian-neutral Spanish in 'css-grid' tip explanation", () => {
     const gridTip = TIP_DICTIONARY.find((t) => t.id === "css-grid");
     expect(gridTip).toBeDefined();
-    expect(gridTip!.explanation).not.toContain("Definis");
-    expect(gridTip!.explanation).not.toContain("Puedes");
+    expect(gridTip!.explanation).not.toContain("Definís");
+    expect(gridTip!.explanation).not.toContain("Podés");
     expect(gridTip!.explanation).toContain("Defines");
     expect(gridTip!.explanation).toContain("Puedes");
   });

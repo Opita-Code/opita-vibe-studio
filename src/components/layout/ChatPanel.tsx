@@ -1,12 +1,11 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useMemo, useEffect } from "react";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
-import { PhaseConfirmationBar } from "@/components/chat/ModeButtons";
 import { AuraNudgeBar } from "@/components/chat/AuraNudgeBar";
-import { AgentActivityBar } from "@/components/chat/AgentActivityBar";
+import { useAgentSync } from "@/hooks/useAgentSync";
 
 import { useAgentHandler } from "@/agent";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
@@ -36,8 +35,28 @@ export function ChatPanel({ width }: ChatPanelProps) {
   const chatHistoryVisible = useUIStore((s) => s.chatHistoryVisible);
   const toggleChatHistory = useUIStore((s) => s.toggleChatHistory);
 
-  // ─── Agent Hook (replaces the 345-line sendMessage function) ───
-  const { send, abort } = useAgentHandler();
+  // ─── Agent Hook ─────────────────────────────────────────
+  const { send, cancel, editPending, setRestoreInputCallback } = useAgentHandler();
+
+  // Inyectar el callback de restore al hook para que editPending pueda
+  // devolver el texto al input sin prop-drilling
+  useEffect(() => {
+    setRestoreInputCallback((text, _attachments) => {
+      setInputText(text);
+    });
+  }, [setRestoreInputCallback]);
+
+  // ─── Agent Sync ─ bridges agentStore → message bubbles ───
+  const activeAssistantId = useMemo(() => {
+    if (!isStreaming) return null;
+    // Find the last assistant message — that's the one being actively streamed
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return messages[i].id;
+    }
+    return null;
+  }, [isStreaming, messages]);
+
+  useAgentSync(activeAssistantId);
 
   const handleSend = useCallback(
     (text: string, attachments?: Attachment[]) => {
@@ -49,13 +68,9 @@ export function ChatPanel({ width }: ChatPanelProps) {
   const handleRetryLast = useCallback(() => {
     if (messages.length === 0) return;
     const lastMsg = messages[messages.length - 1];
-
-    // Find the last user message to resend
     const userMessages = messages.filter((m) => m.role === "user");
     if (userMessages.length === 0) return;
     const lastUserMsg = userMessages[userMessages.length - 1];
-
-    // Clean up the error message
     if (
       lastMsg.role === "assistant" &&
       lastMsg.content.includes("<!--RETRY_NETWORK-->")
@@ -63,9 +78,26 @@ export function ChatPanel({ width }: ChatPanelProps) {
       useChatStore.getState().editMessage(lastMsg.id, "");
       useChatStore.getState().editMessage(lastUserMsg.id, lastUserMsg.content);
     }
-
     send(lastUserMsg.content, lastUserMsg.attachments, true);
   }, [messages, send]);
+
+  const handleCancel = useCallback(
+    (messageId?: string) => {
+      if (messageId) {
+        editPending(messageId);
+      } else {
+        cancel();
+      }
+    },
+    [cancel, editPending]
+  );
+
+  const handleEdit = useCallback(
+    (messageId: string) => {
+      editPending(messageId);
+    },
+    [editPending]
+  );
 
   // If the last message is an error with the retry tag, show the retry button
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
@@ -132,13 +164,11 @@ export function ChatPanel({ width }: ChatPanelProps) {
         </div>
       </div>
 
-      {/* Agent Activity Bar — Real-time transparency panel */}
-      <AgentActivityBar />
 
       {isStreaming && (
         <div className="absolute bottom-24 left-0 right-0 flex justify-center z-20">
           <button
-            onClick={() => abort()}
+            onClick={() => cancel()}
             className="flex items-center gap-2 bg-obsidian-800 hover:bg-red-500/10 border border-white/10 hover:border-red-500/50 text-slate-300 hover:text-red-400 px-4 py-1.5 rounded-full text-xs font-medium shadow-md transition-all"
             aria-label="Detener generación de la respuesta"
           >
@@ -150,11 +180,18 @@ export function ChatPanel({ width }: ChatPanelProps) {
         </div>
       )}
 
-      <MessageList messages={messages} isStreaming={isStreaming} hasPipelinePhase={pipelinePhase !== null} onSuggestionClick={handleSend} onNewChat={createNewSession} />
+        <MessageList
+          messages={messages}
+          isStreaming={isStreaming}
+          hasPipelinePhase={pipelinePhase !== null}
+          onSuggestionClick={handleSend}
+          onNewChat={createNewSession}
+          onCancelMessage={handleCancel}
+          onEditMessage={handleEdit}
+        />
       
 
 
-      <PhaseConfirmationBar />
 
       {canRetry && (
         <div className="flex justify-center -mt-2 mb-2 relative z-10">

@@ -101,4 +101,78 @@ describe("classifyIntent", () => {
       expect(_testOnly.EXPLORE_SIGNALS.length).toBeGreaterThan(5);
     });
   });
+
+  // ─── Legacy Coverage (migrado de pipeline/engine.test.ts) ──
+  // Estos casos validaban detectCodeRequest() — ahora cubiertos por classifyIntent()
+
+  describe("legacy: action+object combinations activate code intent", () => {
+    const activateCases: [string, string][] = [
+      ["Crear un componente de login con formulario", "action(crear) + object(componente)"],
+      ["Hacer una página de contacto completa", "action(hacer) + object(página)"],
+      ["Construir un formulario de registro con validación", "action(construir) + object(formulario)"],
+      ["Modificar el header del sitio web", "action(modificar) + object(header)"],
+      ["Agregar un botón de envío al formulario", "action(agregar) + object(botón)"],
+      ["Diseñar un modal de confirmación de pago", "action(diseñar) + object(modal)"],
+      ["Implementar la navegación del sidebar lateral", "action(implementar) + object(sidebar)"],
+      ["Generar un componente para la tabla de datos", "action(generar) + object(componente+tabla)"],
+      ["Cambiar el estilo del footer del sitio", "action(cambiar) + object(estilo+footer)"],
+      ["Desarrollar la landing page del producto", "action(desarrollar) + object(landing)"],
+    ];
+
+    it.each(activateCases)(
+      '"%s" debe clasificarse como code (%s)',
+      (input, _reason) => {
+        expect(classifyIntent(input, true)).toBe("code");
+      },
+    );
+  });
+
+  describe("legacy: pure questions classify as chat or explore (not code)", () => {
+    const noCasesWithProject: [string, string][] = [
+      ["¿Qué es una función en JavaScript y cómo se usa?", "pregunta sobre conceptos"],
+      ["Cómo funciona el event loop en Node.js?", "pregunta explicativa"],
+      ["Explica qué hace este hook de React", "pregunta con 'explica'"],
+      ["¿Por qué falla este código de TypeScript?", "pregunta con 'por qué'"],
+      ["¿Cuál es la diferencia entre let y const?", "pregunta comparativa"],
+    ];
+
+    it.each(noCasesWithProject)(
+      '"%s" no debe clasificarse como code (%s)',
+      (input, _reason) => {
+        expect(classifyIntent(input, true)).not.toBe("code");
+      },
+    );
+  });
+
+  describe("legacy: conversational intent bypasses code classification", () => {
+    const conversationalCases: [string, string][] = [
+      ["Escríbeme un componente de login en el chat", "dice 'en el chat'"],
+      ["Muéstrame cómo crear una página bonita en React", "dice 'muéstrame'"],
+      ["Dame un ejemplo de un componente de React con hooks", "dice 'ejemplo de'"],
+      ["Enséñame cómo hacer un modal con animación", "dice 'enséñame'"],
+      ["Escríbeme un header con navegación responsiva", "dice 'escríbeme'"],
+      ["Cómo sería un componente de sidebar colapsable?", "dice 'cómo sería'"],
+      ["Cómo se hace una página de landing con hero?", "dice 'cómo se hace'"],
+    ];
+
+    it.each(conversationalCases)(
+      '"%s" NO debe ser code (intención conversacional: %s)',
+      (input, _reason) => {
+        expect(classifyIntent(input, true)).toBe("chat");
+      },
+    );
+  });
+
+  describe("legacy: no project open → always chat", () => {
+    it("should return chat regardless of code signals when no project open", () => {
+      expect(classifyIntent("Crear un componente de login con formulario", false)).toBe("chat");
+    });
+  });
+
+  describe("legacy: case insensitive", () => {
+    it("should handle uppercase input", () => {
+      expect(classifyIntent("CREAR UN COMPONENTE NUEVO Y GRANDE", true)).toBe("code");
+      expect(classifyIntent("Crear un Componente de Login completo", true)).toBe("code");
+    });
+  });
 });

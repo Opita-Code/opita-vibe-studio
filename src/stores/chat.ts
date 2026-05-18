@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage, StateStorage } from "zustand/middleware";
 import * as idb from "idb-keyval";
-import type { Message } from "@/lib/types";
+import type { Message, AgentExecution, AgentExecutionStatus } from "@/lib/types";
+import { sanitizeAllSessions } from "./chat-sanitize";
 
 // ─── IndexedDB Storage Adapter ─────────────────────────────────
 const idbStorage: StateStorage = {
@@ -99,6 +100,17 @@ interface ChatActions {
   incrementChainingStep: () => void;
   incrementChainingErrors: () => void;
   clearMessages: () => void;
+
+  /** Update agent execution state embedded in a message */
+  updateMessageExecution: (messageId: string, update: Partial<AgentExecution>) => void;
+  /** Set the execution status of a message's agent execution */
+  setMessageStatus: (messageId: string, status: AgentExecutionStatus) => void;
+  /** Initialize agent execution on the last assistant message */
+  initMessageExecution: (messageId: string) => void;
+  /** Set delivery status on a user message (pending → sent) */
+  setUserMessageStatus: (messageId: string, status: "pending" | "sent") => void;
+  /** Delete a message by ID from the active session (used by cancel flow) */
+  deleteMessage: (messageId: string) => void;
 }
 
 // ─── Selectors ─────────────────────────────────────────────────
@@ -375,6 +387,120 @@ export const useChatStore = create<ChatStore>()(
             }
           };
         }),
+
+      // ─── Agent Execution Sync ────────────────────────────────
+
+      initMessageExecution: (messageId) =>
+        set((state) => {
+          const session = state.sessions[state.activeSessionId];
+          if (!session) return state;
+
+          const updatedMessages = session.messages.map((msg) => {
+            if (msg.id !== messageId) return msg;
+            return {
+              ...msg,
+              agentExecution: msg.agentExecution ?? {
+                phase: "thinking",
+                progress: 0,
+                roadmap: [],
+                steps: [],
+                filesChanged: [],
+                status: "running" as const,
+                startedAt: Date.now(),
+              },
+            };
+          });
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [session.id]: { ...session, messages: updatedMessages, updatedAt: Date.now() },
+            },
+          };
+        }),
+
+      updateMessageExecution: (messageId, update) =>
+        set((state) => {
+          const session = state.sessions[state.activeSessionId];
+          if (!session) return state;
+
+          const updatedMessages = session.messages.map((msg) => {
+            if (msg.id !== messageId || !msg.agentExecution) return msg;
+            return {
+              ...msg,
+              agentExecution: { ...msg.agentExecution, ...update },
+            };
+          });
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [session.id]: { ...session, messages: updatedMessages, updatedAt: Date.now() },
+            },
+          };
+        }),
+
+      setMessageStatus: (messageId, status) =>
+        set((state) => {
+          const session = state.sessions[state.activeSessionId];
+          if (!session) return state;
+
+          const updatedMessages = session.messages.map((msg) => {
+            if (msg.id !== messageId || !msg.agentExecution) return msg;
+            return {
+              ...msg,
+              agentExecution: {
+                ...msg.agentExecution,
+                status,
+                ...(status === "done" || status === "error"
+                  ? { completedAt: Date.now() }
+                  : {}),
+              },
+            };
+          });
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [session.id]: { ...session, messages: updatedMessages, updatedAt: Date.now() },
+            },
+          };
+        }),
+
+      // ─── Delivery Status ──────────────────────────────────
+
+      setUserMessageStatus: (messageId, status) =>
+        set((state) => {
+          const session = state.sessions[state.activeSessionId];
+          if (!session) return state;
+
+          const updatedMessages = session.messages.map((msg) => {
+            if (msg.id !== messageId) return msg;
+            return { ...msg, deliveryStatus: status };
+          });
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [session.id]: { ...session, messages: updatedMessages, updatedAt: Date.now() },
+            },
+          };
+        }),
+
+      deleteMessage: (messageId) =>
+        set((state) => {
+          const session = state.sessions[state.activeSessionId];
+          if (!session) return state;
+
+          const updatedMessages = session.messages.filter((msg) => msg.id !== messageId);
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [session.id]: { ...session, messages: updatedMessages, updatedAt: Date.now() },
+            },
+          };
+        }),
     }),
     {
       name: "vibe-studio-chat",
@@ -387,6 +513,13 @@ export const useChatStore = create<ChatStore>()(
         useSubagent: state.useSubagent,
         subagentInstructions: state.subagentInstructions,
       }),
+      // Sanitizar mensajes pending al rehidratar:
+      // Si el browser se cerró durante la grace window, el mensaje
+      // nunca llegó al agente — se elimina para evitar UI rota.
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        state.sessions = sanitizeAllSessions(state.sessions);
+      },
     }
   )
 );
