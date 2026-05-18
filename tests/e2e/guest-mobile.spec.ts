@@ -11,17 +11,15 @@ test.describe('Guest Mobile — Viewport 375x812', () => {
   test('Guest en mobile ve onboarding o workspace (no bloqueo)', async ({ page }) => {
     await page.goto('/app/');
 
-    // Should NOT show "Optimizado para Escritorio" anymore
+    // Should NOT show the old device gate
     const gateText = page.locator('text=Optimizado para Escritorio');
     await expect(gateText).not.toBeVisible({ timeout: 10000 });
 
-    // Should show either onboarding or workspace (depending on onboarding state)
-    // Guest users who haven't completed onboarding see the onboarding flow
-    // Guest users who have completed it see the mobile layout
-    const mobileLayout = page.locator('nav[aria-label="Navegación principal"]');
-    const onboarding = page.locator('text=Vibe Studio').first();
-    
-    // One of these should be visible
-    await expect(onboarding).toBeVisible({ timeout: 15000 });
+    // Guest without completed onboarding sees OnboardingFlow which shows "Vibecodea en español"
+    // Guest who completed onboarding sees the mobile layout
+    // Either way: the page renders (no device gate)
+    const onboarding = page.locator('h1:has-text("Vibecodea en español")');
+    const mobileNav = page.locator('nav[aria-label="Navegación principal"]');
+    await expect(onboarding.or(mobileNav)).toBeVisible({ timeout: 15000 });
   });
 });

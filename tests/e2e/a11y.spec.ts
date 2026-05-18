@@ -224,19 +224,27 @@ test.describe('A11y — CommandPalette', () => {
   });
 });
 
-test.describe('A11y — Pro Engine Toggle', () => {
+test.describe('A11y — Pro Chat Controls', () => {
   test.beforeEach(async ({ page }) => {
     await mockProAuth(page);
     await mockChatResponse(page);
   });
 
-  test('Vibe Pro Engine toggle has aria-label', async ({ page }) => {
+  test('Pro user tiene textarea con aria-label y sin CTA de login', async ({ page }) => {
     await page.goto('/app/');
     await waitForWorkspace(page);
     await ensureChatOpen(page);
 
-    // The toggle is an input[type=checkbox] with sr-only class, not a button
-    const toggle = page.locator('input[aria-label="Activar Vibe Pro Engine"]');
-    await expect(toggle).toBeAttached({ timeout: 15000 });
+    // Pro users have the chat textarea (not the guest CTA)
+    const textarea = page.locator('textarea[placeholder*="Escribe"]');
+    await expect(textarea).toBeVisible({ timeout: 15000 });
+
+    // The textarea must be accessible (no aria-hidden, has placeholder)
+    await expect(textarea).not.toHaveAttribute('aria-hidden', 'true');
+
+    // The guest CTA must NOT be visible for Pro
+    await expect(
+      page.locator('text="Despierta a Vibe AI para potenciar tu código"')
+    ).toBeHidden();
   });
 });
