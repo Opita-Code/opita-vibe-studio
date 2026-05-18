@@ -6,6 +6,7 @@ import type { Attachment } from "@/lib/types";
 import { listProviders } from "@/providers/registry";
 import { ChevronDown, CheckCircle2, Zap, Lock } from "lucide-react";
 import { ModeButtons } from "./ModeButtons";
+import { PersonaSelector } from "./PersonaSelector";
 import { getPlan, getPlanName } from "@/lib/plan-registry";
 import { analytics } from "@/lib/analytics";
 
@@ -434,6 +435,9 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
               </div>
             )}
           </div>
+
+          {/* Persona Selector */}
+          <PersonaSelector />
         </div>
         <span className={`text-[10px] font-medium tracking-wide uppercase ${isOverLimit ? "text-red-400" : "text-white/40"}`}>
           {isOverLimit ? "Límite alcanzado" : `~${Math.round(text.length / 4)} tokens`}
