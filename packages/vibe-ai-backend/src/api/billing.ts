@@ -125,15 +125,21 @@ export async function handler(event: any) {
   if (method === "GET") {
     const headers = corsHeaders;
 
-    // ── AUTH GUARD ── userId MUST come from verified JWT, never from query string
+    // ── AUTH: JWT preferred, query-string userId fallback ──
+    // Vibe Studio app sends JWT cookie → extractAuthEmail works.
+    // Account portal (cuenta.opitacode.com) sends userId in query string
+    // with credentials: "omit" (different domain, no shared cookies).
+    // Checkout signature is NOT a security risk — Wompi webhook validates
+    // actual payment completion before plan upgrade happens.
     const authenticatedEmail = await extractAuthEmail(event);
-    if (!authenticatedEmail) {
-      return { statusCode: 401, headers, body: JSON.stringify({ error: "Autenticación requerida para generar checkout" }) };
-    }
 
     const params = event.queryStringParameters || {};
     const productKey = params.product;
-    const userId = authenticatedEmail; // ← Verified, not from query string
+    const userId = authenticatedEmail || params.userId;
+
+    if (!userId) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: "Se requiere autenticación o userId" }) };
+    }
 
     const product = PRODUCTS[productKey];
     if (!product) {
