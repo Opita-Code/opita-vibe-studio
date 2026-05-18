@@ -224,7 +224,7 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
     [handleSend, text, sessions, activeSessionId],
   );
 
-  const isOverLimit = text.length >= CHAR_LIMIT;
+  const isOverLimit = text.length >= CHAR_LIMIT; // used only for send-button disable
   const activeModelId = useChatStore(s => s.activeModelId);
   const setActiveModelId = useChatStore(s => s.setActiveModelId);
   const setActiveProvider = useChatStore(s => s.setActiveProvider);
@@ -439,9 +439,6 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
           {/* Persona Selector */}
           <PersonaSelector />
         </div>
-        <span className={`text-[10px] font-medium tracking-wide uppercase ${isOverLimit ? "text-red-400" : "text-white/40"}`}>
-          {isOverLimit ? "Límite alcanzado" : `~${Math.round(text.length / 4)} tokens`}
-        </span>
       </div>
     </div>
   );
