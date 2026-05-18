@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, interactive-widget=resizes-content" />
 
+    <!-- Security Headers (first-layer defense; CloudFront Response Headers Policy is definitive) -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.wompi.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://api.opitacode.com https://*.opitacode.com https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://openrouter.ai https://api.together.xyz https://api.groq.com https://api.deepseek.com https://api.mistral.ai https://api.cohere.ai https://api.perplexity.ai https://cognito-idp.us-east-1.amazonaws.com; frame-src https://checkout.wompi.co; worker-src 'self' blob:;" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
     <!-- SEO Core -->
     <title>Vibe Studio — Vibecodea en español | IDE con IA para crear apps</title>
     <meta name="description" content="Vibe Studio es el IDE con inteligencia artificial para crear aplicaciones web y móviles en español. Escribe código con Aura AI, vista previa en tiempo real y templates listos para usar. Por Opita Code." />

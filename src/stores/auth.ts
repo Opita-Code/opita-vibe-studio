@@ -72,7 +72,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   authMode: "unauthenticated",
   sessionDetected: false,
   isLoading: false,
-  guestEmail: "test@example.com",
+  guestEmail: null,
   needsMigration: false,
   hasCompletedOnboarding: localStorage.getItem("vibe-onboarding-done") === "true",
   loginModalOpen: false,
