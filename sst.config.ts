@@ -213,23 +213,21 @@ export default $config({
       // ⚠️  CLOUDFRONT CACHE POLICY — READ BEFORE CHANGING  ⚠️
       // ═══════════════════════════════════════════════════════════════
       //
-      // headerBehavior: "whitelist" + ["Authorization"]
+      // headerBehavior: "whitelist" + ["Authorization", "Origin"]
       //   ✅ Auth tokens reach Lambda → chat, billing, storage work
+      //   ✅ Origin reaches Lambda → CORS headers returned correctly
       //   ⚠️  Disables CloudFront response caching (correct for API)
       //
       // headerBehavior: "none"
-      //   ❌ BREAKS ALL AUTH — Authorization header is stripped by
-      //      CloudFront before reaching Lambda. Chat returns
-      //      "Falta token Bearer o cookie" for every request.
-      //      Billing, storage, and any JWT-protected endpoint fail.
-      //   ✅ Enables CloudFront caching (irrelevant for Lambda APIs)
+      //   ❌ BREAKS AUTH — Authorization header stripped → "Falta token"
+      //   ✅ CORS works (Origin forwarded implicitly)
       //
-      // cookieBehavior: "all"
-      //   Required for magic link sessions (opita_session HttpOnly
-      //   cookie) and Set-Cookie responses from /auth/verify-magic.
+      // headerBehavior: "whitelist" + ["Authorization"] (without Origin)
+      //   ✅ Auth works
+      //   ❌ BREAKS CORS — Origin stripped → no Access-Control-Allow-Origin
       //
-      // DO NOT set headerBehavior to "none". If you need caching,
-      // use a separate CloudFront behavior for static assets only.
+      // BOTH Authorization AND Origin MUST be whitelisted.
+      // Removing either one breaks production. See git blame for history.
       // ═══════════════════════════════════════════════════════════════
       transform: {
         cachePolicy: {
@@ -238,11 +236,13 @@ export default $config({
               cookieBehavior: "all",
             },
             headersConfig: {
-              // ⚠️ Changing this to "none" BREAKS chat, billing, and
-              // all authenticated endpoints. See warning block above.
+              // ⚠️ BOTH headers are required:
+              // - Authorization → auth tokens reach Lambda
+              // - Origin → Lambda returns CORS headers
+              // Removing either breaks production.
               headerBehavior: "whitelist",
               headers: {
-                items: ["Authorization"],
+                items: ["Authorization", "Origin"],
               },
             },
             queryStringsConfig: {
