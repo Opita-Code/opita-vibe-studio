@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { PreviewDevice } from "@/components/preview/DeviceFrame";
+import type { PersonaId } from "@/lib/types";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -60,6 +61,10 @@ interface UIState {
   omnibarQuery: string;
   /** Dispositivo de previsualización activo (VibeLens) */
   previewDevice: PreviewDevice;
+  /** Persona de comunicación activa de Aura */
+  persona: PersonaId;
+  /** Prompt personalizado para persona "custom" (max 500 chars) */
+  customPersonaPrompt: string;
 }
 
 // ─── Actions ───────────────────────────────────────────────────
@@ -95,6 +100,8 @@ interface UIActions {
   setOmnibarOpen: (open: boolean) => void;
   setOmnibarQuery: (query: string) => void;
   setPreviewDevice: (device: PreviewDevice) => void;
+  setPersona: (persona: PersonaId) => void;
+  setCustomPersonaPrompt: (prompt: string) => void;
 }
 
 // ─── Clamp helpers ─────────────────────────────────────────────
@@ -135,6 +142,8 @@ export const useUIStore = create<UIStore>()(
   omnibarOpen: false,
   omnibarQuery: "",
   previewDevice: "desktop",
+  persona: "creator",
+  customPersonaPrompt: "",
 
   setSidebarWidth: (width) => set({ sidebarWidth: Math.max(180, Math.min(400, width)) }),
 
@@ -201,6 +210,8 @@ export const useUIStore = create<UIStore>()(
   setOmnibarOpen: (open) => set({ omnibarOpen: open }),
   setOmnibarQuery: (query) => set({ omnibarQuery: query }),
   setPreviewDevice: (device) => set({ previewDevice: device }),
+  setPersona: (persona) => set({ persona }),
+  setCustomPersonaPrompt: (prompt) => set({ customPersonaPrompt: prompt.slice(0, 500) }),
 }),
     {
       name: "vibe-studio-ui",
@@ -217,6 +228,8 @@ export const useUIStore = create<UIStore>()(
         activeSidebar: state.activeSidebar,
         activityBarVisible: state.activityBarVisible,
         previewDevice: state.previewDevice,
+        persona: state.persona,
+        customPersonaPrompt: state.customPersonaPrompt,
       }),
     },
   ),

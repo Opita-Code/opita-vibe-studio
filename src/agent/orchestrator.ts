@@ -13,7 +13,7 @@
  */
 
 import type { AgentEvent, ExecutionMode, IntentClass, AgentPhase } from "./types";
-import type { Message } from "@/lib/types";
+import type { Message, PersonaId } from "@/lib/types";
 import { classifyIntent } from "./intent";
 import { runChatAgent, type ChatAgentConfig } from "./chat-agent";
 import { runExploreAgent, type ExploreAgentConfig } from "./explore-agent";
@@ -51,6 +51,10 @@ export interface OrchestratorConfig {
   projectFiles?: string[];
   /** Whether git is initialized in the project */
   hasGit?: boolean;
+  /** Active persona ID for Aura's communication tone */
+  persona?: PersonaId;
+  /** Custom persona prompt (only used when persona === "custom") */
+  customPersonaPrompt?: string;
 }
 
 // ─── Orchestrator ──────────────────────────────────────────────
@@ -124,6 +128,8 @@ export async function* handleMessage(
         signal: config.signal,
         customInstructions: config.customInstructions,
         projectSummary,
+        persona: config.persona,
+        customPersonaPrompt: config.customPersonaPrompt,
       } satisfies ChatAgentConfig);
       break;
 
@@ -135,6 +141,8 @@ export async function* handleMessage(
         signal: config.signal,
         customInstructions: config.customInstructions,
         projectSummary,
+        persona: config.persona,
+        customPersonaPrompt: config.customPersonaPrompt,
       } satisfies ExploreAgentConfig);
       break;
 
@@ -161,6 +169,8 @@ export async function* handleMessage(
         signal: config.signal,
         customInstructions: config.customInstructions,
         projectSummary,
+        persona: config.persona,
+        customPersonaPrompt: config.customPersonaPrompt,
         testRunner: config.testRunner,
         executionMode: config.executionMode,
         useTDD,

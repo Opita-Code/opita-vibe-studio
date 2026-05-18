@@ -11,7 +11,7 @@
  */
 
 import type { AgentEvent, SSEChunk } from "./types";
-import type { Message } from "@/lib/types";
+import type { Message, PersonaId } from "@/lib/types";
 import { streamSSE, type StreamOptions } from "./stream-client";
 import { getSystemPrompt } from "./prompts";
 import type { IntentClass } from "./types";
@@ -27,6 +27,10 @@ export interface ChatAgentConfig {
   customInstructions?: string;
   /** Optional project summary to inject as context */
   projectSummary?: string;
+  /** Active persona ID */
+  persona?: PersonaId;
+  /** Custom persona prompt */
+  customPersonaPrompt?: string;
 }
 
 // ─── Agent ─────────────────────────────────────────────────────
@@ -48,6 +52,8 @@ export async function* runChatAgent(
     testRunner: null,
     customInstructions: config.customInstructions,
     projectSummary: config.projectSummary,
+    persona: config.persona,
+    customPersonaPrompt: config.customPersonaPrompt,
   });
 
   // Prepend system message

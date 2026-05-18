@@ -18,7 +18,7 @@
  */
 
 import type { AgentEvent, AgentStep, SSEChunk } from "./types";
-import type { Message } from "@/lib/types";
+import type { Message, PersonaId } from "@/lib/types";
 import { streamSSE, type StreamOptions } from "./stream-client";
 import { getSystemPrompt, getToolLabel } from "./prompts";
 import { executeTool } from "@/tools/executor";
@@ -38,6 +38,10 @@ export interface ExploreAgentConfig {
   signal?: AbortSignal;
   customInstructions?: string;
   projectSummary?: string;
+  /** Active persona ID */
+  persona?: PersonaId;
+  /** Custom persona prompt */
+  customPersonaPrompt?: string;
 }
 
 // ─── Agent ─────────────────────────────────────────────────────
@@ -63,6 +67,8 @@ export async function* runExploreAgent(
     testRunner: null,
     customInstructions: config.customInstructions,
     projectSummary: config.projectSummary,
+    persona: config.persona,
+    customPersonaPrompt: config.customPersonaPrompt,
   });
 
   // Research-specific addon (explore-agent only)

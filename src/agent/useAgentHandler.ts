@@ -13,6 +13,7 @@ import { useCallback, useRef } from "react";
 import { useChatStore, getContextMessages } from "@/stores/chat";
 import { useProjectStore } from "@/stores/project";
 import { useAuthStore } from "@/stores/auth";
+import { useUIStore } from "@/stores/ui";
 import { isLimitReached } from "@/lib/tokens";
 import { handleMessage, classifyIntent, type OrchestratorConfig } from "@/agent/orchestrator";
 import { detectIdea, createIdea, saveIdea, matchCompletedWork, updateIdeaStatus } from "@/agent/idea-backlog";
@@ -226,6 +227,8 @@ export function useAgentHandler() {
           hasProjectOpen,
           testRunner: null, // TODO: from context-loader
           hasGit: false, // TODO: detect git
+          persona: useUIStore.getState().persona,
+          customPersonaPrompt: useUIStore.getState().customPersonaPrompt || undefined,
         };
 
         // ─── Iterate Agent Events ─────────────────────────────

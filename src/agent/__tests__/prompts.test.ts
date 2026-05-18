@@ -108,3 +108,57 @@ describe("getSystemPrompt — Project context", () => {
     expect(prompt).not.toContain("Contexto del proyecto");
   });
 });
+
+// ─── Persona Addons ────────────────────────────────────────────
+
+describe("getSystemPrompt — Personas", () => {
+  it("uses creator persona by default (no extra addon)", () => {
+    const prompt = getSystemPrompt(config());
+    expect(prompt).not.toContain("Tu audiencia:");
+    expect(prompt).not.toContain("Tu estilo:");
+  });
+
+  it("injects student persona addon", () => {
+    const prompt = getSystemPrompt(config({ persona: "student" }));
+    expect(prompt).toContain("Tu audiencia: Estudiante");
+    expect(prompt).toContain("analogías del mundo real");
+  });
+
+  it("injects senior persona addon", () => {
+    const prompt = getSystemPrompt(config({ persona: "senior" }));
+    expect(prompt).toContain("Tu audiencia: Ingeniero de Software");
+    expect(prompt).toContain("SOLID");
+  });
+
+  it("injects neutral persona addon", () => {
+    const prompt = getSystemPrompt(config({ persona: "neutral" }));
+    expect(prompt).toContain("Tu estilo: Neutral");
+    expect(prompt).toContain("sin personalidad");
+  });
+
+  it("injects custom persona prompt", () => {
+    const prompt = getSystemPrompt(config({
+      persona: "custom",
+      customPersonaPrompt: "Habla como pirata caribeño",
+    }));
+    expect(prompt).toContain("Habla como pirata caribeño");
+    expect(prompt).toContain("Estilo personalizado");
+  });
+
+  it("persona is injected BEFORE intent addon", () => {
+    const prompt = getSystemPrompt(config({
+      intent: "chat",
+      persona: "student",
+    }));
+    const personaIdx = prompt.indexOf("Tu audiencia: Estudiante");
+    const modeIdx = prompt.indexOf("Tu modo actual: Conversación");
+    expect(personaIdx).toBeGreaterThan(-1);
+    expect(modeIdx).toBeGreaterThan(-1);
+    expect(personaIdx).toBeLessThan(modeIdx);
+  });
+
+  it("custom persona without prompt falls through to no addon", () => {
+    const prompt = getSystemPrompt(config({ persona: "custom" }));
+    expect(prompt).not.toContain("Estilo personalizado");
+  });
+});

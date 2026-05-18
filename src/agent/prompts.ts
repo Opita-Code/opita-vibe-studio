@@ -218,6 +218,46 @@ export const PHASE_LABELS = {
   chatting: "Respondiendo...",
 } as const;
 
+// ─── Persona Addons ───────────────────────────────────────────
+
+import type { PersonaId } from "@/lib/types";
+
+/**
+ * Persona-specific system prompt addons.
+ * These modify Aura's communication tone and detail level.
+ * Injected AFTER AURA_BASE and BEFORE mode addons.
+ */
+export const PERSONA_ADDONS: Record<PersonaId, string | null> = {
+  creator: null, // Default Aura — no addon needed
+
+  student: `
+## Tu audiencia: Estudiante
+- Explica el "por qué" antes del "cómo" — el usuario quiere APRENDER
+- Usa analogías del mundo real (cocina, construcción, organización)
+- Cuando escribas código, agrega comentarios explicativos en cada bloque importante
+- Al final de una tarea, incluye un "💡 Dato extra" con un concepto relacionado
+- Si el usuario comete un error conceptual, corrígelo amablemente con un ejemplo
+- Prefiere respuestas más largas y detalladas cuando expliques conceptos nuevos`,
+
+  senior: `
+## Tu audiencia: Ingeniero de Software
+- Usa terminología técnica sin simplificar (DI, SOLID, race condition, etc.)
+- Discute tradeoffs cuando propongas soluciones
+- Menciona patrones de diseño relevantes (Strategy, Observer, etc.)
+- Incluye consideraciones de performance y escalabilidad
+- No expliques conceptos básicos a menos que te lo pidan
+- Sé directo y conciso — el usuario sabe leer código`,
+
+  neutral: `
+## Tu estilo: Neutral
+- Respuestas mínimas — solo código y resultado
+- Sin analogías, sin emojis, sin personalidad
+- Si algo requiere explicación, una línea máximo
+- Formato: resultado directo, sin preámbulos ni despedidas`,
+
+  custom: null, // Handled dynamically via customPersonaPrompt
+};
+
 // ─── TDD Addon (conditional) ───────────────────────────────────
 
 /**
@@ -252,6 +292,10 @@ export interface PromptConfig {
   customInstructions?: string;
   /** Project summary from context loader */
   projectSummary?: string;
+  /** Active persona ID */
+  persona?: PersonaId;
+  /** Custom persona prompt (only used when persona === "custom") */
+  customPersonaPrompt?: string;
 }
 
 /**
@@ -267,6 +311,15 @@ export interface PromptConfig {
  */
 export function getSystemPrompt(config: PromptConfig): string {
   const sections: string[] = [AURA_SYSTEM_PROMPT];
+
+  // Persona addon (tone + detail level)
+  const personaId = config.persona || "creator";
+  if (personaId === "custom" && config.customPersonaPrompt) {
+    sections.push(`\n## Estilo personalizado\n\n${config.customPersonaPrompt}`);
+  } else {
+    const addon = PERSONA_ADDONS[personaId];
+    if (addon) sections.push(addon);
+  }
 
   // Intent-specific addon
   switch (config.intent) {
