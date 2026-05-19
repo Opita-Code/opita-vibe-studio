@@ -127,6 +127,10 @@ export async function* runBuildAgent(
     yield { type: "progress", percent: progressPercent };
 
     // Stream from LLM
+    // Load user-defined custom tools (persisted in localStorage)
+    const { useCustomToolsStore } = await import("@/stores/custom-tools");
+    const userTools = useCustomToolsStore.getState().getTools();
+
     const streamOptions: StreamOptions = {
       providerId: config.providerId,
       modelId: config.modelId,
@@ -136,6 +140,7 @@ export async function* runBuildAgent(
       // pero con system prompt especializado. El backend gate "subagent"
       // es solo para fases SDD premium (sdd-explore, sdd-propose, etc.)
       action: "chat",
+      ...(userTools.length > 0 ? { customTools: userTools } : {}),
     };
 
     let gotToolRequest = false;

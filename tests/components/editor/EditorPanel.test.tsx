@@ -2,20 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { EditorPanel } from "../../../src/components/layout/EditorPanel";
 
-// Mock Monaco editor
-vi.mock("@monaco-editor/react", () => ({
-  default: ({
+// Mock Vibe Pad editor
+vi.mock("../../../src/components/editor/VibePad", () => ({
+  VibePad: ({
+    path,
     value,
     onChange,
-    language,
   }: {
+    path: string;
     value: string;
     onChange?: (val: string) => void;
-    language?: string;
   }) => (
-    <div data-testid="monaco-editor" data-language={language}>
+    <div data-testid="vibe-pad" data-path={path}>
       <textarea
-        data-testid="monaco-textarea"
+        data-testid="vibe-pad-textarea"
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
       />
@@ -96,7 +96,7 @@ describe("EditorPanel", () => {
     expect(container).not.toBeNull();
   });
 
-  it("should render Monaco editor when a file is active", async () => {
+  it("should render Vibe Pad when a file is active", async () => {
     mockUIState = { ...mockUIState, activeView: "editor" };
     mockProjectState = {
       ...mockProjectState,
@@ -109,10 +109,10 @@ describe("EditorPanel", () => {
     };
 
     render(<EditorPanel />);
-    expect(await screen.findByTestId("monaco-editor")).toBeDefined();
+    expect(await screen.findByTestId("vibe-pad")).toBeDefined();
   });
 
-  it("should pass correct language to Monaco based on file extension", async () => {
+  it("should pass correct path to Vibe Pad based on active tab", async () => {
     mockUIState = { ...mockUIState, activeView: "editor" };
     mockProjectState = {
       ...mockProjectState,
@@ -125,7 +125,7 @@ describe("EditorPanel", () => {
     };
 
     render(<EditorPanel />);
-    const editor = await screen.findByTestId("monaco-editor");
-    expect(editor.getAttribute("data-language")).toBe("css");
+    const editor = await screen.findByTestId("vibe-pad");
+    expect(editor.getAttribute("data-path")).toBe("/test/styles.css");
   });
 });

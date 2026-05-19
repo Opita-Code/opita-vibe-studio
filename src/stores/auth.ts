@@ -117,8 +117,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   fetchTokenUsage: async () => {
     try {
       const token = useAuthStore.getState().session?.token;
-      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      const API_URL = isLocalhost ? "http://localhost:3000" : "https://api.opitacode.com/core";
+      const API_URL = import.meta.env.VITE_DEV_API_URL || "https://api.opitacode.com/core";
       const response = await fetch(API_URL + "/usage", {
         credentials: "include",
         headers: {

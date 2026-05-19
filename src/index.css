@@ -130,28 +130,31 @@ body.is-resizing iframe {
   background: transparent;
 }
 
-/* ─── File Reference Highlight (Monaco Decoration) ────────────── */
+/* ─── Vibe Pad — Agent shimmer animation ──────────────────────── */
 
-.vibe-file-ref-highlight {
-  background-color: rgba(250, 204, 21, 0.12) !important;
-  border-left: 3px solid rgba(250, 204, 21, 0.6) !important;
-  animation: vibe-highlight-fade 2.5s ease-out forwards;
+@keyframes vibe-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
-.vibe-file-ref-glyph {
-  background-color: rgba(250, 204, 21, 0.4);
-  border-radius: 2px;
-  width: 4px !important;
-  margin-left: 2px;
-}
+/* ─── Vibe Pad — Navigate highlight fade ──────────────────────── */
 
 @keyframes vibe-highlight-fade {
   0%, 60% {
-    background-color: rgba(250, 204, 21, 0.12);
-    border-left-color: rgba(250, 204, 21, 0.6);
+    background-color: rgba(6, 182, 212, 0.12);
+    border-left-color: rgba(6, 182, 212, 0.6);
   }
   100% {
     background-color: transparent;
     border-left-color: transparent;
   }
 }
+
+.cm-vibe-highlight {
+  animation: vibe-highlight-fade 2.5s ease-out forwards;
+}
+

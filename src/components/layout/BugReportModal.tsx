@@ -48,8 +48,12 @@ export function BugReportModal() {
   }, []);
 
   const handleSubmit = () => {
-    // TODO: Wire to actual reporting endpoint
-    console.log("Bug report submitted:", reportText);
+    // Open pre-filled email to support with bug report details
+    const subject = encodeURIComponent("Bug Report — Vibe Studio");
+    const body = encodeURIComponent(
+      `${reportText}\n\n---\nApp: Vibe Studio\nTimestamp: ${new Date().toISOString()}\nUserAgent: ${navigator.userAgent}`
+    );
+    window.open(`mailto:soporte@opitacode.com?subject=${subject}&body=${body}`, "_blank");
     setSubmitted(true);
     setTimeout(() => {
       setBugReportVisible(false);

@@ -16,6 +16,13 @@ async function bootstrap() {
       setFileSystemBackend(backend);
     }
 
+    // ─── Phase 0.5: Deep link auth listener (Tauri only) ─────────────────────
+    // Dynamic import ensures @tauri-apps/plugin-deep-link is not bundled for web.
+    if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
+      const { initDeepLinkListener } = await import("./auth/deep-link");
+      await initDeepLinkListener();
+    }
+
     // ─── Phase 1: Core Init ───────────
     await host.initialize();
 

@@ -94,11 +94,12 @@ export function ExecutionRoadmap({ goals, progress }: ExecutionRoadmapProps) {
             {/* Connector line */}
             {i < goals.length - 1 && (
               <div
-                className={`absolute left-[9px] top-5 w-[1px] h-[calc(100%+4px)] ${
+                className={`absolute left-[9px] top-5 w-[1px] ${
                   goal.status === "done"
                     ? "bg-emerald-500/30"
                     : "bg-white/10"
                 }`}
+                style={{ height: "calc(100% - 12px)" }}
               />
             )}
 

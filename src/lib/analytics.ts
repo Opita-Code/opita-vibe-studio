@@ -88,12 +88,10 @@ class VibeAnalytics {
       this.richConsentEnabled = options.richConsent;
     }
 
-    // Use localhost endpoint for development
-    if (typeof window !== "undefined") {
-      const hostname = window.location.hostname;
-      if (hostname === "localhost" || hostname === "127.0.0.1") {
-        this.config.endpoint = "http://localhost:3000/core/events/ingest";
-      }
+    // Allow env var override for local backend development
+    const devApiUrl = import.meta.env.VITE_DEV_API_URL;
+    if (devApiUrl) {
+      this.config.endpoint = `${devApiUrl}/events/ingest`;
     }
 
     // Start periodic flush

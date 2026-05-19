@@ -12,7 +12,7 @@ interface LoginScreenProps {
 }
 
 type AuthMode = "magic" | "password";
-type PasswordView = "login" | "register";
+type PasswordView = "login" | "register" | "forgot";
 
 // ─── Component ──────────────────────────────────────────────────
 
@@ -91,6 +91,23 @@ export function LoginScreen({ onClose, onAuthenticated }: LoginScreenProps) {
     },
     [handleMagicLinkLogin, handlePasswordAuth, isLoading, success, mode]
   );
+
+  const handleForgotPassword = useCallback(async () => {
+    if (!email.trim()) {
+      setError("Ingresa tu correo electrónico para recibir el enlace");
+      return;
+    }
+    setIsLoading(true);
+    clearError();
+    try {
+      await initiateSSO(email.trim());
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err.message || String(err));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [email]);
 
   return (
     <div className="relative flex h-full w-full items-center justify-center bg-obsidian-900">
@@ -197,8 +214,8 @@ export function LoginScreen({ onClose, onAuthenticated }: LoginScreenProps) {
                 className="w-full rounded-xl border border-white/5 bg-obsidian-800/80 px-4 py-3 text-sm text-white/90 placeholder-white/30 outline-none transition-all focus:border-aura-purple/50 focus:ring-1 focus:ring-aura-purple/50 focus:bg-white/5 disabled:opacity-50 shadow-inner"
               />
 
-              {/* Password field — only for password mode */}
-              {mode === "password" && (
+              {/* Password field — only for password mode (not forgot) */}
+              {mode === "password" && passwordView !== "forgot" && (
                 <input
                   type="password"
                   value={password}
@@ -208,6 +225,13 @@ export function LoginScreen({ onClose, onAuthenticated }: LoginScreenProps) {
                   disabled={isLoading}
                   className="w-full rounded-xl border border-white/5 bg-obsidian-800/80 px-4 py-3 text-sm text-white/90 placeholder-white/30 outline-none transition-all focus:border-aura-purple/50 focus:ring-1 focus:ring-aura-purple/50 focus:bg-white/5 disabled:opacity-50 shadow-inner"
                 />
+              )}
+
+              {/* Forgot password helper */}
+              {passwordView === "forgot" && (
+                <p className="text-xs text-white/40 text-center">
+                  Te enviaremos un <strong className="text-aura-cyan/70">Opita Link</strong> para acceder directamente a tu cuenta sin contraseña.
+                </p>
               )}
 
               {error && (
@@ -227,24 +251,40 @@ export function LoginScreen({ onClose, onAuthenticated }: LoginScreenProps) {
               ) : (
                 <>
                   <button
-                    onClick={handlePasswordAuth}
-                    disabled={isLoading || !email.trim() || !password}
+                    onClick={passwordView === "forgot" ? handleForgotPassword : handlePasswordAuth}
+                    disabled={isLoading || !email.trim() || (passwordView !== "forgot" && !password)}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-aura-cyan to-aura-purple px-4 py-3 text-sm font-medium text-white disabled:opacity-50 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_30px_rgba(168,85,247,0.5)]"
                   >
                     {isLoading
                       ? "Procesando..."
                       : passwordView === "register"
                         ? "Crear Cuenta"
-                        : "Iniciar Sesión"
+                        : passwordView === "forgot"
+                          ? "Enviar Opita Link"
+                          : "Iniciar Sesión"
                     }
                   </button>
+                  {passwordView === "login" && (
+                    <button
+                      onClick={() => { setPasswordView("forgot"); clearError(); }}
+                      className="text-xs text-center text-white/40 hover:text-white/60 transition-colors"
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </button>
+                  )}
                   <button
-                    onClick={() => { setPasswordView(passwordView === "login" ? "register" : "login"); clearError(); }}
+                    onClick={() => {
+                      const next = passwordView === "login" ? "register" : "login";
+                      setPasswordView(next);
+                      clearError();
+                    }}
                     className="text-xs text-center text-aura-cyan/60 hover:text-aura-cyan transition-colors"
                   >
-                    {passwordView === "login"
-                      ? "¿No tienes cuenta? Regístrate"
-                      : "¿Ya tienes cuenta? Inicia sesión"
+                    {passwordView === "register"
+                      ? "¿Ya tienes cuenta? Inicia sesión"
+                      : passwordView === "forgot"
+                        ? "← Volver a iniciar sesión"
+                        : "¿No tienes cuenta? Regístrate"
                     }
                   </button>
                 </>

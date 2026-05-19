@@ -2,8 +2,8 @@ import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useUIStore } from "@/stores/ui";
 import { useProjectStore } from "@/stores/project";
 
-const MonacoEditor = lazy(() =>
-  import("@/components/editor/MonacoEditor").then((m) => ({ default: m.MonacoEditor }))
+const VibePad = lazy(() =>
+  import("@/components/editor/VibePad").then((m) => ({ default: m.VibePad }))
 );
 import { FileTabs } from "@/components/editor/FileTabs";
 import { LivePreview } from "@/components/preview/LivePreview";
@@ -14,11 +14,11 @@ import { WelcomeScreen } from "@/components/layout/WelcomeScreen";
  *
  * Renderiza según `activeView` usando renderizado SIMULTÁNEO con CSS
  * visibility en vez de conditional rendering. Esto evita el flashbang
- * blanco al cambiar de vista porque el iframe y Monaco se mantienen
+ * blanco al cambiar de vista porque el iframe y Vibe Pad se mantienen
  * montados en el DOM y solo cambia su visibilidad.
  *
  * - `"preview"` → LivePreview a ancho completo (editor oculto)
- * - `"editor"` → MonacoEditor (preview oculto)
+ * - `"editor"` → VibePad (preview oculto)
  * - `"split"` → Preview + Editor con divisor redimensionable
  *   - `splitOrientation: "vertical"` → arriba/abajo (default)
  *   - `splitOrientation: "horizontal"` → izquierda/derecha
@@ -101,7 +101,7 @@ export function EditorPanel() {
               </button>
             </div>
           )}
-          <MonacoEditor
+          <VibePad
             path={activeTab}
             value={activeContent}
             onChange={(value) => setFileContent(activeTab, value)}
@@ -196,7 +196,7 @@ export function EditorPanel() {
 
   // Todos los paneles se mantienen montados en el DOM; solo cambia
   // su visibilidad vía CSS. Esto evita el flashbang blanco porque
-  // el iframe y Monaco no se desmontan/recrean en cada cambio.
+  // el iframe y Vibe Pad no se desmontan/recrean en cada cambio.
 
   return (
     <section

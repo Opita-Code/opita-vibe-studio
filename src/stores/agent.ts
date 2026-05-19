@@ -157,6 +157,7 @@ export type AgentBusEvent =
   | { type: "phase"; phase: AgentPhase }
   | { type: "progress"; percent: number }
   | { type: "roadmap"; goals: RoadmapGoal[] }
+  | { type: "roadmap_update"; goalId: string; status: RoadmapGoal["status"]; progress?: number }
   | { type: "step"; step: AgentStep }
   | { type: "file-changed"; path: string; action: FileSummary["action"] }
   | { type: "done"; filesChanged: FileSummary[] }

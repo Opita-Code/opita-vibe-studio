@@ -65,6 +65,12 @@ function translateRawError(raw: string): string {
 
 // ─── Stream Options ─────────────────────────────────────────────
 
+export interface CustomToolDef {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
 export interface StreamOptions {
   providerId: string;
   signal?: AbortSignal;
@@ -73,6 +79,7 @@ export interface StreamOptions {
   subagentId?: string;
   customInstructions?: string;
   modelId?: string;
+  customTools?: CustomToolDef[];
 }
 
 // ─── SSE Stream ─────────────────────────────────────────────────
@@ -111,6 +118,7 @@ export async function* streamSSE(
         messages,
         providerId: options.providerId,
         customApiKey: options.customApiKey,
+        ...(options.customTools?.length ? { customTools: options.customTools } : {}),
       }),
       signal: options.signal,
     });

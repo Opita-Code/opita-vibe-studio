@@ -10,6 +10,8 @@ interface MessageListProps {
   messages: Message[];
   isStreaming: boolean;
   hasPipelinePhase?: boolean;
+  /** Centrar contenido con max-width (para modo fullscreen) */
+  centered?: boolean;
   onSuggestionClick?: (text: string) => void;
   onNewChat?: () => void;
   onCancelMessage?: (messageId: string) => void;
@@ -22,7 +24,7 @@ interface MessageListProps {
  * Lista desplazable de mensajes con auto-scroll al último contenido.
  * Muestra un indicador de contexto ("X/20 mensajes") en el encabezado.
  */
-export function MessageList({ messages, isStreaming, onSuggestionClick, onNewChat, onCancelMessage, onEditMessage }: MessageListProps) {
+export function MessageList({ messages, isStreaming, onSuggestionClick, onNewChat, onCancelMessage, onEditMessage, centered }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contextCount = getContextCount(messages);
 
@@ -77,7 +79,7 @@ export function MessageList({ messages, isStreaming, onSuggestionClick, onNewCha
       )}
 
       {messages.length === 0 && !isStreaming ? (
-        <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-6 animate-fade-in">
+        <div className={`flex flex-col items-center justify-center h-full text-center px-6 gap-6 animate-fade-in ${centered ? "max-w-3xl mx-auto" : ""}`}>
           <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-obsidian-800 to-obsidian-900 flex items-center justify-center border border-white/5 shadow-[0_0_30px_rgba(168,85,247,0.15)] backdrop-blur-md mb-2">
             <img src={vibeLogoUrl} alt="Aura" className="w-10 h-10 animate-breathe opacity-80" />
           </div>
@@ -103,7 +105,7 @@ export function MessageList({ messages, isStreaming, onSuggestionClick, onNewCha
           </div>
         </div>
       ) : (
-        <div className="p-4">
+        <div className={`p-4 ${centered ? "max-w-3xl mx-auto w-full" : ""}`}>
           {messages.map((msg, idx) => (
             <MessageBubble
               key={msg.id}

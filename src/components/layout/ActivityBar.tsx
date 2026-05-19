@@ -80,24 +80,6 @@ export function ActivityBar() {
           </svg>
         </button>
 
-        {/* Search */}
-        <button
-          onClick={() => setActiveSidebar(activeSidebar === "search" ? null : "search")}
-          className={`w-full flex justify-center py-2 relative group transition-colors ${
-            activeSidebar === "search" ? "text-white" : "text-slate-500 hover:text-slate-300"
-          }`}
-          title="Buscar en Archivos (Ctrl+Shift+F)"
-          aria-label="Buscar en Archivos"
-          aria-pressed={activeSidebar === "search"}
-        >
-          {activeSidebar === "search" && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-aura-cyan shadow-[0_0_8px_rgba(6,182,212,0.6)]" aria-hidden="true"></div>
-          )}
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-        </button>
 
         {/* Vibe AI — Toggle Multi-Chat Focus */}
         <button

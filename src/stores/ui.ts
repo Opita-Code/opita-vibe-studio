@@ -45,6 +45,10 @@ interface UIState {
   chatPosition: "left" | "right";
   /** Indica si el chat ocupa toda la pantalla */
   chatFullscreen: boolean;
+  /** Muestra el preview VibeLens junto al chat en modo fullscreen */
+  fullscreenPreviewVisible: boolean;
+  /** Ratio del split chat/preview en fullscreen (0.3-0.8, default 0.5) */
+  fullscreenSplitRatio: number;
   /** Visibilidad del historial de chat */
   chatHistoryVisible: boolean;
   /** Componente objetivo para aislar en la vista previa (VibeLens) */
@@ -95,6 +99,8 @@ interface UIActions {
   setChatFullscreen: (full: boolean) => void;
   toggleChatFullscreen: () => void;
   toggleChatHistory: () => void;
+  toggleFullscreenPreview: () => void;
+  setFullscreenSplitRatio: (ratio: number) => void;
   setPreviewTarget: (target: string | null) => void;
   setVibeLensEnabled: (enabled: boolean) => void;
   setActiveSidebar: (sidebar: ActiveSidebar) => void;
@@ -138,6 +144,8 @@ export const useUIStore = create<UIStore>()(
   chatWidth: 320,
   chatPosition: "right",
   chatFullscreen: false,
+  fullscreenPreviewVisible: false,
+  fullscreenSplitRatio: 0.5,
   chatHistoryVisible: false,
   previewTarget: null,
   vibeLensEnabled: true,
@@ -200,6 +208,8 @@ export const useUIStore = create<UIStore>()(
   setChatFullscreen: (full) => set({ chatFullscreen: full }),
   toggleChatFullscreen: () => set((s) => ({ chatFullscreen: !s.chatFullscreen })),
   toggleChatHistory: () => set((s) => ({ chatHistoryVisible: !s.chatHistoryVisible })),
+  toggleFullscreenPreview: () => set((s) => ({ fullscreenPreviewVisible: !s.fullscreenPreviewVisible })),
+  setFullscreenSplitRatio: (ratio) => set({ fullscreenSplitRatio: Math.max(0.3, Math.min(0.8, ratio)) }),
 
   setPreviewTarget: (target) => set({ previewTarget: target }),
 
@@ -226,6 +236,8 @@ export const useUIStore = create<UIStore>()(
         chatWidth: state.chatWidth,
         chatPosition: state.chatPosition,
         chatFullscreen: state.chatFullscreen,
+        fullscreenPreviewVisible: state.fullscreenPreviewVisible,
+        fullscreenSplitRatio: state.fullscreenSplitRatio,
         activeView: state.activeView,
         explorerVisible: state.explorerVisible,
         terminalVisible: state.terminalVisible,

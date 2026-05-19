@@ -72,16 +72,10 @@ export async function* runExploreAgent(
   });
 
   // Research-specific addon (explore-agent only)
-  systemPrompt += `\n\n## Tus capacidades de investigación
-Tienes acceso a herramientas especializadas para investigar a fondo:
-- **Navegar el proyecto**: leer archivos, buscar código, explorar la estructura
-- **Buscar en internet**: documentación, APIs, soluciones, comparaciones
-- **Visitar URLs**: leer páginas web, docs de GitHub, artículos técnicos
-- **Memoria del proyecto**: buscar y guardar decisiones, patrones, descubrimientos
-- **Analizar dependencias**: versiones, vulnerabilidades, alternativas
-
-Usa estas herramientas para dar respuestas COMPLETAS y BIEN FUNDAMENTADAS.
-No adivines — investiga primero, luego responde con evidencia.`;
+  systemPrompt += `\n\n## Modo investigación profunda
+Tienes herramientas para investigar a fondo: leer archivos, buscar código, navegar la web, consultar memoria del proyecto, y analizar dependencias.
+Usa estas herramientas directamente — NO anuncies que las vas a usar. El usuario ve tus pasos en la interfaz.
+Responde con evidencia concreta, no con suposiciones.`;
 
   // ─── State ──────────────────────────────────────────────────
 

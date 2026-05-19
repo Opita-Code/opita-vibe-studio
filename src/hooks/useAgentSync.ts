@@ -58,6 +58,20 @@ export function useAgentSync(activeMessageId: string | null | undefined) {
           break;
         }
 
+        case "roadmap_update": {
+          // Update a single goal within the message's inline roadmap
+          const session = store.sessions[store.activeSessionId];
+          const msg = session?.messages.find((m) => m.id === msgId);
+          const currentGoals = msg?.agentExecution?.roadmap ?? [];
+          const updatedGoals = currentGoals.map((g) =>
+            g.id === event.goalId
+              ? { ...g, status: event.status, ...(event.progress !== undefined ? { progress: event.progress } : {}) }
+              : g
+          );
+          store.updateMessageExecution(msgId, { roadmap: updatedGoals });
+          break;
+        }
+
         case "step": {
           // Get current execution, append step
           const session = store.sessions[store.activeSessionId];

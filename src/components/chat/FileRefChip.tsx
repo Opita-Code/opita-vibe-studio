@@ -29,7 +29,7 @@ interface FileRefChipProps {
 
 // ─── Navigation Event ──────────────────────────────────────────
 
-/** Dispatch a custom event that MonacoEditor listens for */
+/** Dispatch a custom event that Vibe Pad listens for */
 function navigateToLine(file: string, line?: number, endLine?: number) {
   window.dispatchEvent(
     new CustomEvent("vibe:navigate-to-line", {

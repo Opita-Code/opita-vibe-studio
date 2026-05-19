@@ -116,6 +116,17 @@ const sesClient = new SESClient(awsConfig);
 const ddbClient = new DynamoDBClient(awsConfig);
 const docClient = DynamoDBDocumentClient.from(ddbClient);
 
+// ─── Email Sender Config (single source of truth) ───────────────
+// RULES:
+// 1. ALWAYS use EMAIL_SOURCE — never construct Source inline
+// 2. Display name is REQUIRED — naked "noreply@" goes to spam
+// 3. NEVER use personal emails, temporary domains, or non-opitacode.com addresses
+// 4. ReplyTo must point to a monitored mailbox
+const EMAIL_ADDRESS = process.env.SES_FROM_EMAIL || "noreply@opitacode.com";
+const EMAIL_DISPLAY_NAME = "Opita Code";
+const EMAIL_SOURCE = `${EMAIL_DISPLAY_NAME} <${EMAIL_ADDRESS}>`;
+const EMAIL_REPLY_TO = ["soporte@opitacode.com"];
+
 // ─── Auth Helper ────────────────────────────────────────────────
 
 /**
@@ -552,7 +563,8 @@ export const handler = async (event: any) => {
       const isAllowedRedirect = (
         redirectTo.startsWith("http://localhost:") ||
         redirectTo.startsWith("https://opitacode.com") ||
-        redirectTo.includes(".opitacode.com")
+        redirectTo.includes(".opitacode.com") ||
+        redirectTo === "vibe-studio://auth" // Desktop Tauri deep link
       );
       if (!isAllowedRedirect) {
         redirectTo = serviceCfg.defaultRedirect;
@@ -575,13 +587,12 @@ export const handler = async (event: any) => {
       const longVerifyUrl = `https://${stableApiDomain}${verifyPath}`;
       // Shorten magic link URL via Opita Links (15 min TTL matching JWT expiry)
       const verifyUrl = await shortenUrl(longVerifyUrl, { ttl: 900, meta: { source: "magic-link", service } });
-      const fromEmail = process.env.SES_FROM_EMAIL || "noreply@opitacode.com";
 
       try {
         await sesClient.send(new SendEmailCommand({
-          Source: fromEmail,
+          Source: EMAIL_SOURCE,
           Destination: { ToAddresses: [email] },
-          ReplyToAddresses: ["owner@opitacode.com"],
+          ReplyToAddresses: EMAIL_REPLY_TO,
           Message: {
             Subject: { Data: serviceCfg.subject },
             Body: {
@@ -644,7 +655,8 @@ export const handler = async (event: any) => {
       const isAllowedVerifyRedirect = (
         frontendUrl.startsWith("http://localhost:") ||
         frontendUrl.startsWith("https://opitacode.com") ||
-        frontendUrl.includes(".opitacode.com")
+        frontendUrl.includes(".opitacode.com") ||
+        frontendUrl === "vibe-studio://auth" // Desktop Tauri deep link
       );
       if (!isAllowedVerifyRedirect) {
         frontendUrl = canonicalDefault;
@@ -688,6 +700,17 @@ export const handler = async (event: any) => {
         ? "Path=/; HttpOnly; SameSite=Lax"
         : `Path=/; ${cookieDomain} HttpOnly; Secure; SameSite=None`;
       const setCookie = `opita_session=${sessionToken}; ${cookieAttrs}; Max-Age=${7 * 24 * 60 * 60}`;
+
+      // ── Desktop Tauri Deep Link: embed session token in URL, no cookie ──
+      // The OS delivers vibe-studio:// URLs directly to the Tauri process;
+      // they never appear in a browser tab, so token exposure risk is minimal.
+      // Pattern: same as Slack, Linear, 1Password desktop auth.
+      if (frontendUrl.startsWith("vibe-studio://")) {
+        return {
+          statusCode: 302,
+          headers: { "Location": `${frontendUrl}?session_token=${sessionToken}` }
+        };
+      }
 
       return {
         statusCode: 302,
@@ -896,13 +919,12 @@ export const handler = async (event: any) => {
         },
       }));
 
-      const fromEmail = process.env.SES_FROM_EMAIL || "noreply@opitacode.com";
       const serviceCfg = SERVICE_CONFIG["vibe-studio"];
       try {
         await sesClient.send(new SendEmailCommand({
-          Source: fromEmail,
+          Source: EMAIL_SOURCE,
           Destination: { ToAddresses: [email] },
-          ReplyToAddresses: ["owner@opitacode.com"],
+          ReplyToAddresses: EMAIL_REPLY_TO,
           Message: {
             Subject: { Data: `${verifyCode} — Verifica tu correo en ${serviceCfg.name}` },
             Body: { Html: { Data: buildVerifyEmailCodeEmail(serviceCfg, verifyCode) } },
@@ -1050,14 +1072,13 @@ export const handler = async (event: any) => {
       }));
 
       // Send email with the code
-      const fromEmail = process.env.SES_FROM_EMAIL || "noreply@opitacode.com";
       const serviceCfg = SERVICE_CONFIG["vibe-studio"];
 
       try {
         await sesClient.send(new SendEmailCommand({
-          Source: fromEmail,
+          Source: EMAIL_SOURCE,
           Destination: { ToAddresses: [email] },
-          ReplyToAddresses: ["owner@opitacode.com"],
+          ReplyToAddresses: EMAIL_REPLY_TO,
           Message: {
             Subject: { Data: `${resetCode} — Código para restablecer tu contraseña` },
             Body: {

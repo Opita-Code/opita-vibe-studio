@@ -325,6 +325,12 @@ interface IncomingMessage {
   attachments?: Attachment[];
 }
 
+interface CustomToolDef {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
 interface ChatPayload {
   action?: string;
   providerId?: string;
@@ -333,6 +339,7 @@ interface ChatPayload {
   messages?: IncomingMessage[];
   customInstructions?: string;
   modelId?: string;
+  customTools?: CustomToolDef[];
 }
 
 type ContentPart =
@@ -744,82 +751,97 @@ export const handler = awslambda.streamifyResponse(
           },
         };
 
-        // ── Write/execute tools (Estudiante + Pro only) ─────────────────
-        if (action === "subagent" && (plan === "pro" || plan === "estudiante")) {
-          // ─── SUBAGENT QUOTA GUARD (ESTUDIANTE: 30/día) ───
-          if (plan === "estudiante") {
-            const today = new Date().toISOString().split("T")[0];
-            try {
-              const userResult = await docClient.send(new GetCommand({
-                TableName: Resource.Users.name,
-                Key: { email: userId }
-              }));
-              const userData = userResult.Item || { daily_subagent_count: 0, subagent_reset_date: today };
-              if (userData.subagent_reset_date !== today) {
-                userData.daily_subagent_count = 0;
-                userData.subagent_reset_date = today;
-              }
-              if (userData.daily_subagent_count >= 30) {
-                responseStream.write(`data: ${JSON.stringify({ content: "\n\n⛔ **Has alcanzado tu límite de 30 ejecuciones de código diarias.** Vuelve mañana o mejora a Vibe Pro para uso ilimitado." })}\n\n`);
-                responseStream.write(`data: [DONE]\n\n`);
-                responseStream.end();
-                return;
-              }
-              await docClient.send(new UpdateCommand({
-                TableName: Resource.Users.name,
-                Key: { email: userId },
-                UpdateExpression: "SET daily_subagent_count = :count, subagent_reset_date = :date",
-                ExpressionAttributeValues: {
-                  ":count": userData.daily_subagent_count + 1,
-                  ":date": today
-                }
-              }));
-            } catch (err) {
-              console.error("Error validando Subagent Quota:", err);
-            }
-          }
+        // ── Write/execute tools (all plans) ────────────────────────────
+        // These tools are executed CLIENT-SIDE (Sandpack/in-memory FS).
+        // The backend only registers them so the LLM knows they exist.
+        // Both action="chat" (build agent) and action="subagent" (SDD) use them.
+        tools.write_file = {
+          description: 'Crea o sobreescribe un archivo completo en el proyecto. SIEMPRE lee el archivo primero con read_file.',
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: {
+              path: { type: "string", description: "Ruta relativa del archivo" },
+              content: { type: "string", description: "Contenido completo del archivo" }
+            },
+            required: ["path", "content"]
+          })
+        };
+        tools.apply_diff = {
+          description: 'Aplica un cambio parcial a un archivo existente. SIEMPRE lee el archivo antes con read_file. El texto de búsqueda debe ser EXACTO.',
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: {
+              path: { type: "string", description: "Ruta del archivo" },
+              search: { type: "string", description: "Texto EXACTO a reemplazar (debe coincidir exactamente con el contenido actual)" },
+              replace: { type: "string", description: "Texto de reemplazo" }
+            },
+            required: ["path", "search", "replace"]
+          })
+        };
+        tools.delete_file = {
+          description: 'Elimina un archivo del proyecto. Se crea un snapshot automático antes de eliminar.',
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: { path: { type: "string", description: "Ruta del archivo a eliminar" } },
+            required: ["path"]
+          })
+        };
+        tools.execute_command = {
+          description: 'Ejecuta un comando en la terminal del proyecto: tests, instalar paquetes, builds, linters, type-check.',
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: {
+              command: { type: "string", description: "Comando a ejecutar (e.g., npm test, npx tsc --noEmit, npm install X)" },
+              cwd: { type: "string", description: "Directorio de trabajo relativo (opcional)" }
+            },
+            required: ["command"]
+          })
+        };
 
-          tools.write_file = {
-            description: 'Crea o sobreescribe un archivo completo en el proyecto. SIEMPRE lee el archivo primero con read_file.',
-            inputSchema: jsonSchema({
-              type: "object",
-              properties: {
-                path: { type: "string", description: "Ruta relativa del archivo" },
-                content: { type: "string", description: "Contenido completo del archivo" }
-              },
-              required: ["path", "content"]
-            })
-          };
-          tools.apply_diff = {
-            description: 'Aplica un cambio parcial a un archivo existente. SIEMPRE lee el archivo antes con read_file. El texto de búsqueda debe ser EXACTO.',
-            inputSchema: jsonSchema({
-              type: "object",
-              properties: {
-                path: { type: "string", description: "Ruta del archivo" },
-                search: { type: "string", description: "Texto EXACTO a reemplazar (debe coincidir exactamente con el contenido actual)" },
-                replace: { type: "string", description: "Texto de reemplazo" }
-              },
-              required: ["path", "search", "replace"]
-            })
-          };
-          tools.delete_file = {
-            description: 'Elimina un archivo del proyecto. Se crea un snapshot automático antes de eliminar.',
-            inputSchema: jsonSchema({
-              type: "object",
-              properties: { path: { type: "string", description: "Ruta del archivo a eliminar" } },
-              required: ["path"]
-            })
-          };
-          tools.execute_command = {
-            description: 'Ejecuta un comando en la terminal del proyecto: tests, instalar paquetes, builds, linters, type-check.',
-            inputSchema: jsonSchema({
-              type: "object",
-              properties: {
-                command: { type: "string", description: "Comando a ejecutar (e.g., npm test, npx tsc --noEmit, npm install X)" },
-                cwd: { type: "string", description: "Directorio de trabajo relativo (opcional)" }
-              },
-              required: ["command"]
-            })
+        // ── Subagent quota guard (Estudiante: 30/día) ───────────────────
+        // Only applies to SDD subagent actions, NOT standard build mode.
+        if (action === "subagent" && plan === "estudiante") {
+          const today = new Date().toISOString().split("T")[0];
+          try {
+            const userResult = await docClient.send(new GetCommand({
+              TableName: Resource.Users.name,
+              Key: { email: userId }
+            }));
+            const userData = userResult.Item || { daily_subagent_count: 0, subagent_reset_date: today };
+            if (userData.subagent_reset_date !== today) {
+              userData.daily_subagent_count = 0;
+              userData.subagent_reset_date = today;
+            }
+            if (userData.daily_subagent_count >= 30) {
+              responseStream.write(`data: ${JSON.stringify({ content: "\n\n⛔ **Has alcanzado tu límite de 30 ejecuciones de código diarias.** Vuelve mañana o mejora a Vibe Pro para uso ilimitado." })}\n\n`);
+              responseStream.write(`data: [DONE]\n\n`);
+              responseStream.end();
+              return;
+            }
+            await docClient.send(new UpdateCommand({
+              TableName: Resource.Users.name,
+              Key: { email: userId },
+              UpdateExpression: "SET daily_subagent_count = :count, subagent_reset_date = :date",
+              ExpressionAttributeValues: {
+                ":count": userData.daily_subagent_count + 1,
+                ":date": today
+              }
+            }));
+          } catch (err) {
+            console.error("Error validando Subagent Quota:", err);
+          }
+        }
+
+        // ── Custom user tools (client-defined, client-executed) ────────
+        // Users can define their own tools that run client-side.
+        // Max 10 custom tools per request. Names prefixed with 'custom_' to avoid collisions.
+        const customTools = (body.customTools || []).slice(0, 10);
+        for (const ct of customTools) {
+          if (!ct.name || !ct.description) continue;
+          const safeName = `custom_${ct.name.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 50)}`;
+          tools[safeName] = {
+            description: ct.description.slice(0, 500),
+            inputSchema: jsonSchema(ct.parameters || { type: "object", properties: {}, required: [] }),
           };
         }
 

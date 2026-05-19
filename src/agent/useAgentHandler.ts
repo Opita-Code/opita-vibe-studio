@@ -522,6 +522,7 @@ function processEvent(
 
     case "roadmap_update":
       agentStore.updateGoal(event.goalId, event.status, event.progress);
+      agentBus.emit({ type: "roadmap_update", goalId: event.goalId, status: event.status, progress: event.progress });
       break;
 
     case "await_confirmation":
@@ -563,6 +564,13 @@ function processEvent(
         accumulatedContent += `\n\n---\n**Archivos modificados:**\n${fileList}`;
         setAccumulated(accumulatedContent);
         chatStore.replaceLastMessageContent(accumulatedContent);
+      }
+      // Fallback: if agent completed without producing ANY visible output,
+      // show a message so the user doesn't see a ghost interaction.
+      if (!accumulatedContent.trim()) {
+        const fallbackMsg = "⚠️ No pude completar la tarea. Puede ser un problema de conexión o de cuota. Intenta de nuevo o verifica tu configuración de API.";
+        setAccumulated(fallbackMsg);
+        chatStore.replaceLastMessageContent(fallbackMsg);
       }
       break;
   }

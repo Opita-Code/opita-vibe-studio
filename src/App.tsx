@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { StatusBar } from "@/components/layout/StatusBar";
 import { ActionBar } from "@/components/layout/ActionBar";
@@ -33,6 +33,11 @@ function GlobalKeybindings() {
   return null;
 }
 
+// Lazy-load VibeLens preview for fullscreen mode — avoids loading Sandpack upfront
+const FullscreenPreview = lazy(() =>
+  import("@/components/preview/LivePreview").then((m) => ({ default: m.LivePreview }))
+);
+
 /**
  * Chat-first Workspace layout.
  *
@@ -47,24 +52,70 @@ function Workspace() {
   const setChatWidth = useUIStore((s) => s.setChatWidth);
   const chatHistoryVisible = useUIStore((s) => s.chatHistoryVisible);
   const chatFullscreen = useUIStore((s) => s.chatFullscreen);
+  const fullscreenPreviewVisible = useUIStore((s) => s.fullscreenPreviewVisible);
+  const fullscreenSplitRatio = useUIStore((s) => s.fullscreenSplitRatio);
+  const setFullscreenSplitRatio = useUIStore((s) => s.setFullscreenSplitRatio);
+
+  // Preview version counter — for refresh
+  const [previewVersion, setPreviewVersion] = useState(0);
+
+  // Ref for computing resize deltas → ratio
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Chat-first: always render the chat panel
   const chatPanel = (
-    <div
-      className={`z-10 h-full ${chatFullscreen ? "flex-1 min-w-0" : "flex-shrink-0"}`}
-      style={chatFullscreen ? undefined : { width: chatWidth }}
+    <motion.div
+      layout
+      className={`z-10 h-full ${chatFullscreen ? (fullscreenPreviewVisible ? "" : "flex-1 min-w-0") : "flex-shrink-0"}`}
+      style={chatFullscreen ? (fullscreenPreviewVisible ? { width: `${fullscreenSplitRatio * 100}%` } : undefined) : { width: chatWidth }}
+      transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
     >
       <SidebarSlot />
-    </div>
+    </motion.div>
   );
 
+  // Shared animation variants for collapsible side panels
+  const sidePanelVariants = {
+    initial: { opacity: 0, width: 0, scale: 0.95 },
+    animate: { opacity: 1, width: "auto", scale: 1 },
+    exit: { opacity: 0, width: 0, scale: 0.95 },
+  };
+  const sidePanelTransition = { duration: 0.3, ease: [0.4, 0, 0.2, 1] as const };
+
   return (
-    <div className="flex flex-1 overflow-hidden relative w-full h-full pb-16 md:pb-0">
+    <div ref={containerRef} className="flex flex-1 overflow-hidden relative w-full h-full pb-16 md:pb-0">
       {/* 1. Activity bar (izquierda) — oculta en fullscreen */}
-      {!chatFullscreen && <ActivityBar />}
+      <AnimatePresence>
+        {!chatFullscreen && (
+          <motion.div
+            key="activity-bar"
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
+            transition={sidePanelTransition}
+            className="shrink-0"
+          >
+            <ActivityBar />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 2. Explorer/Search panels (izquierda) — independiente del chat */}
-      {!chatFullscreen && <ExplorerDock />}
+      <AnimatePresence>
+        {!chatFullscreen && (
+          <motion.div
+            key="explorer-dock"
+            variants={sidePanelVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={sidePanelTransition}
+            className="shrink-0 overflow-hidden"
+          >
+            <ExplorerDock />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 3. Chat History panel — visible con chat activo */}
       <AnimatePresence>
@@ -85,24 +136,188 @@ function Workspace() {
       {chatPosition === "left" && (
         <>
           {chatPanel}
-          {!chatFullscreen && (
-            <ResizeHandle onResize={(delta) => setChatWidth(chatWidth + delta)} />
-          )}
+          <AnimatePresence>
+            {!chatFullscreen && (
+              <motion.div
+                key="resize-left"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ResizeHandle onResize={(delta) => setChatWidth(chatWidth + delta)} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
 
       {/* 5. Editor (centro) — oculto en fullscreen mode */}
-      {!chatFullscreen && <EditorSlot />}
+      <AnimatePresence>
+        {!chatFullscreen && (
+          <motion.div
+            key="editor-slot"
+            className="flex-1 min-w-0 h-full overflow-hidden"
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.97 }}
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+          >
+            <EditorSlot />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 5b. VibeLens preview — en modo normal, entre editor y chat */}
+      <AnimatePresence>
+        {!chatFullscreen && fullscreenPreviewVisible && (
+          <>
+            <ResizeHandle onResize={(delta) => {
+              const containerWidth = containerRef.current?.offsetWidth ?? window.innerWidth;
+              if (containerWidth > 0) {
+                setFullscreenSplitRatio(fullscreenSplitRatio + (chatPosition === "right" ? delta : -delta) / containerWidth);
+              }
+            }} />
+            <motion.div
+              key="normal-preview"
+              className="flex flex-col h-full overflow-hidden border-l border-white/10"
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 360 }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] as const }}
+            >
+              {/* Toolbar mínimo */}
+              <div className="flex items-center justify-between px-3 py-2 shrink-0 bg-obsidian-900/80 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-aura-cyan animate-pulse" />
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-white/50">
+                    VibeLens
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPreviewVersion((v) => v + 1)}
+                    className="p-1 text-slate-500 hover:text-white hover:bg-white/10 rounded transition-colors"
+                    title="Recargar vista previa"
+                    aria-label="Recargar vista previa"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path d="M23 4v6h-6M1 20v-6h6" />
+                      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => useUIStore.getState().toggleFullscreenPreview()}
+                    className="p-1 text-slate-500 hover:text-red-400 hover:bg-white/10 rounded transition-colors"
+                    title="Cerrar vista previa"
+                    aria-label="Cerrar vista previa"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              {/* Preview iframe */}
+              <div className="flex-1 overflow-hidden bg-obsidian-950">
+                <Suspense fallback={
+                  <div className="flex-1 flex items-center justify-center h-full text-slate-500 font-mono text-sm">
+                    <span className="animate-pulse">Cargando VibeLens...</span>
+                  </div>
+                }>
+                  <FullscreenPreview version={previewVersion} />
+                </Suspense>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* 6. Chat a la derecha (si aplica) */}
       {chatPosition === "right" && (
         <>
-          {!chatFullscreen && (
-            <ResizeHandle onResize={(delta) => setChatWidth(chatWidth - delta)} />
-          )}
+          <AnimatePresence>
+            {!chatFullscreen && (
+              <motion.div
+                key="resize-right"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ResizeHandle onResize={(delta) => setChatWidth(chatWidth - delta)} />
+              </motion.div>
+            )}
+          </AnimatePresence>
           {chatPanel}
         </>
       )}
+
+      {/* 7. Fullscreen preview — VibeLens al lado del chat en modo enfoque */}
+      <AnimatePresence>
+        {chatFullscreen && fullscreenPreviewVisible && (
+          <>
+            {/* Resize handle between chat and preview */}
+            <ResizeHandle onResize={(delta) => {
+              const containerWidth = containerRef.current?.offsetWidth ?? window.innerWidth;
+              if (containerWidth > 0) {
+                setFullscreenSplitRatio(fullscreenSplitRatio + delta / containerWidth);
+              }
+            }} />
+            <motion.div
+              key="fullscreen-preview"
+              className="flex flex-col h-full overflow-hidden border-l border-white/10"
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: `${(1 - fullscreenSplitRatio) * 100}%` }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] as const }}
+            >
+              {/* Toolbar mínimo */}
+              <div className="flex items-center justify-between px-3 py-2 shrink-0 bg-obsidian-900/80 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-aura-cyan animate-pulse" />
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-white/50">
+                    VibeLens
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPreviewVersion((v) => v + 1)}
+                    className="p-1 text-slate-500 hover:text-white hover:bg-white/10 rounded transition-colors"
+                    title="Recargar vista previa"
+                    aria-label="Recargar vista previa"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path d="M23 4v6h-6M1 20v-6h6" />
+                      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => useUIStore.getState().toggleFullscreenPreview()}
+                    className="p-1 text-slate-500 hover:text-red-400 hover:bg-white/10 rounded transition-colors"
+                    title="Cerrar vista previa"
+                    aria-label="Cerrar vista previa"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              {/* Preview iframe */}
+              <div className="flex-1 overflow-hidden bg-obsidian-950">
+                <Suspense fallback={
+                  <div className="flex-1 flex items-center justify-center h-full text-slate-500 font-mono text-sm">
+                    <span className="animate-pulse">Cargando VibeLens...</span>
+                  </div>
+                }>
+                  <FullscreenPreview version={previewVersion} />
+                </Suspense>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -199,9 +414,7 @@ export default function App() {
         <div className="flex-1 relative">
           <OnboardingFlow 
             onEnterGuest={() => useAuthStore.getState().completeOnboarding()}
-            onLogin={() => {
-              window.location.href = `https://cuenta.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`;
-            }} 
+            onLogin={() => setLoginModalOpen(true)} 
           />
         </div>
         {loginModalOpen && (

@@ -33,7 +33,12 @@ export async function initiateSSO(email?: string, options?: SSOOptions): Promise
 
   // Use the explicit post-auth destination, NOT window.location.href.
   // window.location.href here would be the login page URL, causing a redirect loop.
-  const postAuthUrl = options?.postAuthUrl ?? `${window.location.origin}/app`;
+  // When running inside Tauri, use the vibe-studio:// deep link scheme so the OS
+  // routes the magic link back into the desktop app instead of the web browser.
+  const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  const postAuthUrl = isTauri
+    ? "vibe-studio://auth"
+    : (options?.postAuthUrl ?? `${window.location.origin}/app`);
   const service = options?.service ?? "vibe-studio";
 
   const response = await fetch(`${API_URL}/auth/request`, {

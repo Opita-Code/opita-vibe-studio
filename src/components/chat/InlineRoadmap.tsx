@@ -91,10 +91,10 @@ function GoalRow({
       {/* Vertical connector line */}
       {!isLast && (
         <div
-          className={`absolute left-[7px] top-4 w-[1px] bottom-0 -mb-0.5 ${
+          className={`absolute left-[7px] top-4 w-[1px] ${
             isDone ? "bg-emerald-500/30" : isActive ? "bg-cyan-400/20" : "bg-white/8"
           }`}
-          style={{ height: "calc(100% + 4px)" }}
+          style={{ height: "calc(100% - 12px)" }}
         />
       )}
 
