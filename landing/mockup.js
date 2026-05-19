@@ -290,14 +290,29 @@ const SCENARIOS = [
 
 // ─── Syntax Highlighting ─────────────────────────────────────
 function hl(line) {
-  return line
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  // Tokenize: extract strings and comments FIRST to protect them
+  const tokens = [];
+  let safe = line
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Extract strings (single, double, template) and comments
+  safe = safe.replace(/(\/\/.*$|'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/g, (m) => {
+    const idx = tokens.length;
+    const cls = m.startsWith('//') ? 'text-white/25' : 'text-green-400/80';
+    tokens.push(`<span class="${cls}">${m}</span>`);
+    return `\x00${idx}\x00`;
+  });
+
+  // Now highlight keywords and hooks on the safe string (no strings/comments to corrupt)
+  safe = safe
     .replace(/\b(import|export|default|function|const|let|return|from|if|else|new|typeof|void)\b/g, '<span class="text-aura-purple">$1</span>')
     .replace(/\b(useState|useEffect|useRef|useCallback|useMemo|useSocket|useImages)\b/g, '<span class="text-aura-cyan">$1</span>')
     .replace(/\b(true|false|null|undefined)\b/g, '<span class="text-orange-400/80">$1</span>')
-    .replace(/(className|key|src|loading|onClick|onChange|onSubmit|onClose|onMove|onToggle|value|href|target|rel|index|active)(?==)/g, '<span class="text-aura-cyan">$1</span>')
-    .replace(/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/g, '<span class="text-green-400/80">$1</span>')
-    .replace(/\/\/.*/g, '<span class="text-white/25">$&</span>');
+    .replace(/(className|key|src|loading|onClick|onChange|onSubmit|onClose|onMove|onToggle|value|href|target|rel|index|active)(?==)/g, '<span class="text-aura-cyan">$1</span>');
+
+  // Restore tokens
+  safe = safe.replace(/\x00(\d+)\x00/g, (_, i) => tokens[i]);
+  return safe;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
