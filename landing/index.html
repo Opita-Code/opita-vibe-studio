@@ -199,6 +199,10 @@
     .mockup-panel:hover {
       outline-color: rgba(6, 182, 212, 0.25);
     }
+    /* Mockup animation states */
+    .mock-hidden { opacity: 0; transform: translateY(8px); }
+    .mock-visible { opacity: 1; transform: translateY(0); transition: opacity 0.4s ease, transform 0.4s ease; }
+    .mock-typing { border-right: 2px solid rgba(6,182,212,0.6); padding-right: 2px; }
   </style>
 </head>
 
@@ -306,7 +310,7 @@
             <!-- Code -->
             <pre class="py-4 pl-2 pr-4 flex-1 overflow-hidden leading-[1.65rem] text-white/60 m-0" style="text-align:left;"><code id="mock-code"></code></pre>
             <!-- Agent activity glow on line 12 -->
-            <div id="mock-glow" class="absolute left-0 right-0 h-[1.65rem] bg-gradient-to-r from-aura-cyan/8 via-aura-cyan/4 to-transparent pointer-events-none"></div>
+            <div id="mock-glow" class="absolute left-0 right-0 h-[1.65rem] bg-gradient-to-r from-aura-cyan/8 via-aura-cyan/4 to-transparent pointer-events-none" style="opacity:0;transition:opacity 0.6s ease;"></div>
           </div>
         </div>
 
@@ -324,16 +328,16 @@
           
           <div class="flex-1 p-3 overflow-hidden flex flex-col gap-3 justify-end pb-0">
             <!-- User Message -->
-            <div id="mock-user-msg" class="self-end max-w-[85%] bg-white/10 rounded-2xl rounded-tr-sm px-3 py-2.5 text-sm text-white/90"></div>
+            <div id="mock-user-msg" class="self-end max-w-[85%] bg-white/10 rounded-2xl rounded-tr-sm px-3 py-2.5 text-sm text-white/90 mock-hidden"></div>
             
             <!-- Execution Roadmap (mini) -->
-            <div class="self-start w-full bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2.5 space-y-1.5">
+            <div class="self-start w-full bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2.5 space-y-1.5 mock-hidden" id="mock-roadmap-container">
               <div class="text-[10px] text-white/30 uppercase tracking-widest mb-1">Roadmap</div>
               <div id="mock-roadmap"></div>
             </div>
 
             <!-- AI Message -->
-            <div id="mock-ai-response" class="self-start max-w-[95%] bg-gradient-to-br from-aura-purple/15 to-transparent border border-aura-purple/15 rounded-2xl rounded-tl-sm px-3 py-2.5 text-sm text-white/80"></div>
+            <div id="mock-ai-response" class="self-start max-w-[95%] bg-gradient-to-br from-aura-purple/15 to-transparent border border-aura-purple/15 rounded-2xl rounded-tl-sm px-3 py-2.5 text-sm text-white/80 mock-hidden"></div>
           </div>
           
           <!-- Chat Input -->
