@@ -43,7 +43,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ["react", "react-dom", "zustand", "wouter", "date-fns"],
-          editor: ["@monaco-editor/react", "monaco-editor"],
+          editor: ["@codemirror/state", "@codemirror/view", "@codemirror/language"],
           preview: ["@codesandbox/sandpack-react"],
           ui: ["framer-motion", "lucide-react"],
           core: ["@tauri-apps/api", "idb-keyval", "jose"]
