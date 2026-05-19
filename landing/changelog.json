@@ -1,0 +1,99 @@
+[
+  {
+    "version": "0.3.6",
+    "date": "2026-05-19",
+    "title": "SEO, Custom Tools & Opita Links",
+    "components": [
+      { "name": "Web App", "tag": "web/v0.3.6" },
+      { "name": "Backend", "tag": "backend/v0.3.8" },
+      { "name": "Landing", "tag": "landing/v0.3.7" }
+    ],
+    "highlights": [
+      "Custom Tools: define hasta 10 herramientas personalizadas que el agente usa automáticamente",
+      "Opita Links: autenticación por magic link — sin contraseñas, sin códigos",
+      "Landing con SEO completo: Open Graph, Twitter Cards, meta tags optimizados"
+    ],
+    "details": {
+      "Web App": [
+        "Migración de Monaco Editor a CodeMirror — builds más estables",
+        "Custom Tools y Custom Skills configurables por usuario",
+        "Modal de login inline en Tauri (sin redirects a navegador externo)"
+      ],
+      "Backend": [
+        "Cognito migrado a modo DEVELOPER — emails desde opitacode.com",
+        "Constantes centralizadas de email (EMAIL_SOURCE, EMAIL_REPLY_TO)",
+        "Flujo de reset de contraseña con Opita Link directo"
+      ],
+      "Landing": [
+        "SEO: título, meta description, Open Graph, Twitter Cards, canonical URL",
+        "Features actualizadas: Custom Tools, BYOK, Vista Previa, Móvil",
+        "Hover expandible en feature cards",
+        "Alineación unificada en pricing cards (text-left + mt-auto en CTAs)",
+        "Eliminadas menciones a Tauri — enfoque en valor de usuario"
+      ]
+    }
+  },
+  {
+    "version": "0.2.2",
+    "date": "2026-05-18",
+    "title": "Estabilización de Producción",
+    "components": [
+      { "name": "Web App", "tag": "web/v0.2.2" },
+      { "name": "Backend", "tag": "backend/v0.2.2" }
+    ],
+    "highlights": [
+      "Chat streaming restaurado en producción",
+      "CORS y headers de CloudFront corregidos",
+      "115 tests E2E pasando sin regresiones"
+    ],
+    "details": {
+      "Web App": [
+        "Fix: headers de autenticación propagados correctamente vía CloudFront",
+        "Fix: errores 413 por tokens bloated en cookies"
+      ],
+      "Backend": [
+        "CORS configurado para dominios de producción",
+        "Wompi payment integration con secrets en SST"
+      ]
+    }
+  },
+  {
+    "version": "0.2.0",
+    "date": "2026-05-18",
+    "title": "Lanzamiento Inicial",
+    "components": [
+      { "name": "Web App", "tag": "web/v0.2.0" },
+      { "name": "Backend", "tag": "backend/v0.2.0" },
+      { "name": "Landing", "tag": "landing/v0.2.0" },
+      { "name": "Desktop", "tag": "tauri/v0.2.0" }
+    ],
+    "highlights": [
+      "Editor de código con agente autónomo y Execution Roadmap",
+      "Vista previa en vivo con Sandpack",
+      "Planes Free, Estudiante y Pro con pagos Wompi"
+    ],
+    "details": {
+      "Web App": [
+        "Build Agent con orquestación de herramientas",
+        "Model Router inteligente (DeepSeek, Gemini, Anthropic)",
+        "Sistema de XP, misiones y quota dinámica",
+        "BYOK: conecta tu propia API key"
+      ],
+      "Backend": [
+        "Auth con Magic Links (Cognito + SES)",
+        "Chat API con streaming y gestión de quota (DynamoDB)",
+        "Infraestructura SST v4 en AWS"
+      ],
+      "Landing": [
+        "Página de producto con mockup interactivo del IDE",
+        "Sección de precios con integración Wompi",
+        "Sección de descarga para escritorio"
+      ],
+      "Desktop": [
+        "App nativa con Tauri para Windows, macOS, Linux",
+        "Acceso al filesystem local",
+        "Deep links para autenticación"
+      ]
+    }
+  }
+]
