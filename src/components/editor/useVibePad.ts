@@ -7,8 +7,8 @@
 
 import { useRef, useEffect, useCallback } from "react";
 import { EditorState, Compartment, type Extension } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightActiveLine } from "@codemirror/view";
-import { history, defaultKeymap, historyKeymap } from "@codemirror/commands";
+import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightActiveLine, drawSelection, highlightSpecialChars, rectangularSelection, placeholder } from "@codemirror/view";
+import { history, defaultKeymap, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { bracketMatching, foldGutter, foldKeymap, indentOnInput, indentUnit } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
@@ -79,12 +79,17 @@ export function useVibePad(
       bracketMatching(),
       closeBrackets(),
       indentOnInput(),
+      drawSelection(),
+      highlightSpecialChars(),
+      rectangularSelection(),
+      placeholder("Escribe código aquí..."),
 
       // Search
       highlightSelectionMatches(),
 
       // Keymaps
       keymap.of([
+        indentWithTab,
         ...closeBracketsKeymap,
         ...defaultKeymap,
         ...historyKeymap,
