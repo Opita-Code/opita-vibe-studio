@@ -297,8 +297,7 @@ function hl(line) {
     .replace(/\b(true|false|null|undefined)\b/g, '<span class="text-orange-400/80">$1</span>')
     .replace(/(className|key|src|loading|onClick|onChange|onSubmit|onClose|onMove|onToggle|value|href|target|rel|index|active)(?==)/g, '<span class="text-aura-cyan">$1</span>')
     .replace(/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/g, '<span class="text-green-400/80">$1</span>')
-    .replace(/\/\/.*/g, '<span class="text-white/25">$&</span>')
-    .replace(/\b(\d+)\b/g, '<span class="text-orange-400/80">$1</span>');
+    .replace(/\/\/.*/g, '<span class="text-white/25">$&</span>');
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
