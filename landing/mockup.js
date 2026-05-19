@@ -290,28 +290,31 @@ const SCENARIOS = [
 
 // ─── Syntax Highlighting ─────────────────────────────────────
 function hl(line) {
-  // Tokenize: extract strings and comments FIRST to protect them
   const tokens = [];
   let safe = line
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  // Extract strings (single, double, template) and comments
-  safe = safe.replace(/(\/\/.*$|'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/g, (m) => {
-    const idx = tokens.length;
-    const cls = m.startsWith('//') ? 'text-white/25' : 'text-green-400/80';
-    tokens.push(`<span class="${cls}">${m}</span>`);
-    return `\x00${idx}\x00`;
+  // 1. Extract comments first (they can contain anything)
+  safe = safe.replace(/\/\/.*/g, (m) => {
+    tokens.push('<span class="text-white/25">' + m + '</span>');
+    return '___PH_' + (tokens.length - 1) + '___';
   });
 
-  // Now highlight keywords and hooks on the safe string (no strings/comments to corrupt)
+  // 2. Extract string literals
+  safe = safe.replace(/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/g, (m) => {
+    tokens.push('<span class="text-green-400/80">' + m + '</span>');
+    return '___PH_' + (tokens.length - 1) + '___';
+  });
+
+  // 3. Highlight keywords on clean text (no strings or comments to corrupt)
   safe = safe
     .replace(/\b(import|export|default|function|const|let|return|from|if|else|new|typeof|void)\b/g, '<span class="text-aura-purple">$1</span>')
     .replace(/\b(useState|useEffect|useRef|useCallback|useMemo|useSocket|useImages)\b/g, '<span class="text-aura-cyan">$1</span>')
     .replace(/\b(true|false|null|undefined)\b/g, '<span class="text-orange-400/80">$1</span>')
     .replace(/(className|key|src|loading|onClick|onChange|onSubmit|onClose|onMove|onToggle|value|href|target|rel|index|active)(?==)/g, '<span class="text-aura-cyan">$1</span>');
 
-  // Restore tokens
-  safe = safe.replace(/\x00(\d+)\x00/g, (_, i) => tokens[i]);
+  // 4. Restore tokens
+  safe = safe.replace(/___PH_(\d+)___/g, (_, i) => tokens[i]);
   return safe;
 }
 
