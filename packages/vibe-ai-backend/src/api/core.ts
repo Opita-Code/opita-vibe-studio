@@ -1029,7 +1029,7 @@ export const handler = async (event: any) => {
       };
     }
 
-    // ─── Forgot Password ──────────────────────────────────────────
+    // ─── Forgot Password (sends Opita Link, not a code) ─────────────
     if (path === "/auth/forgot-password" && method === "POST") {
       const body = JSON.parse(rawBody);
       const email = body.email?.trim()?.toLowerCase();
@@ -1038,41 +1038,49 @@ export const handler = async (event: any) => {
         return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Email requerido" }) };
       }
 
-      // Rate limiting: prevent reset code spam (reuse /auth/request limits)
+      // Rate limiting: prevent magic link spam (reuse /auth/request limits)
       const rl = await checkAuthRateLimit(event, "/auth/request", email);
       if (!rl.allowed) {
-        // Return 200 to prevent email enumeration
-        return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Si el correo existe, recibirás un código de verificación." }) };
+        return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Si el correo existe, recibirás un enlace para acceder." }) };
       }
 
-      // Check if user exists and has a password set
+      // Check if user exists (but always return 200 to prevent enumeration)
       const userResult = await docClient.send(new GetCommand({
         TableName: Resource.Users.name,
         Key: { email },
       }));
 
-      if (!userResult.Item?.password_hash) {
-        // User doesn't exist or has no password — return same message (prevent enumeration)
-        return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Si el correo existe, recibirás un código de verificación." }) };
+      if (!userResult.Item) {
+        return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Si el correo existe, recibirás un enlace para acceder." }) };
       }
 
-      // Generate 6-digit code
-      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-      const codeExpiry = Math.floor(Date.now() / 1000) + 900; // 15 minutes
+      // Resolve service from request body (defaults to vibe-studio)
+      const service = resolveService(body.service);
+      const serviceCfg = SERVICE_CONFIG[service];
 
-      // Store code in UserKeys table (auto-cleanup via TTL)
-      await docClient.send(new PutCommand({
-        TableName: Resource.UserKeys.name,
-        Item: {
-          id: `reset-code#${email}`,
-          code: resetCode,
-          attempts: 0,
-          expiresAt: codeExpiry,
-        },
-      }));
+      // Build redirect — prefer caller's redirectTo, then service default
+      let redirectTo: string = body.redirectTo || serviceCfg.defaultRedirect;
+      const isAllowedRedirect = (
+        redirectTo.startsWith("http://localhost:") ||
+        redirectTo.startsWith("https://opitacode.com") ||
+        redirectTo.includes(".opitacode.com") ||
+        redirectTo === "vibe-studio://auth"
+      );
+      if (!isAllowedRedirect) {
+        redirectTo = serviceCfg.defaultRedirect;
+      }
 
-      // Send email with the code
-      const serviceCfg = SERVICE_CONFIG["vibe-studio"];
+      // Generate magic link JWT (same flow as /auth/request)
+      const token = signJWT(
+        { email, type: "magic_link", service, redirectTo },
+        process.env.JWT_SECRET || "",
+        15
+      );
+
+      const stableApiDomain = process.env.STABLE_API_DOMAIN || "api.opitacode.com";
+      const verifyPath = `/core/auth/verify?token=${token}`;
+      const longVerifyUrl = `https://${stableApiDomain}${verifyPath}`;
+      const verifyUrl = await shortenUrl(longVerifyUrl, { ttl: 900, meta: { source: "forgot-password", service } });
 
       try {
         await sesClient.send(new SendEmailCommand({
@@ -1080,17 +1088,18 @@ export const handler = async (event: any) => {
           Destination: { ToAddresses: [email] },
           ReplyToAddresses: EMAIL_REPLY_TO,
           Message: {
-            Subject: { Data: `${resetCode} — Código para restablecer tu contraseña` },
+            Subject: { Data: `Tu acceso a ${serviceCfg.name} — Opita Link` },
             Body: {
-              Html: { Data: buildResetCodeEmail(serviceCfg, resetCode) },
+              Html: { Data: buildMagicLinkEmail(service, verifyUrl) },
             },
           },
         }));
       } catch (e: any) {
         console.error("SES Error (forgot-password):", e.message || e);
+        console.log("MAGIC_LINK_URL_DEV_FALLBACK:", verifyUrl);
       }
 
-      return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Si el correo existe, recibirás un código de verificación." }) };
+      return { statusCode: 200, headers: getCorsHeaders(event), body: JSON.stringify({ message: "Si el correo existe, recibirás un enlace para acceder." }) };
     }
 
     // ─── Reset Password ───────────────────────────────────────────
