@@ -218,7 +218,7 @@ const SERVICE_CONFIG: Record<ServiceId, {
     brandColor: "#6366f1",
     accentColor: "rgba(99, 102, 241, 0.4)",
     logoUrl: "https://opitacode.com/opita-code-horizontal-white-v4.png",
-    defaultRedirect: "https://opitacode.com/projects",
+    defaultRedirect: "https://cuenta.opitacode.com/",
   },
   "default": {
     name: "Opita Code",
@@ -618,7 +618,7 @@ export const handler = async (event: any) => {
       
       
       if (!token) {
-        return { statusCode: 302, headers: { Location: `${process.env.FRONTEND_URL || "https://opitacode.com/projects"}?error=missing_token` } };
+        return { statusCode: 302, headers: { Location: `${process.env.FRONTEND_URL || "https://cuenta.opitacode.com/"}?error=missing_token` } };
       }
 
       let payload: any;
@@ -643,7 +643,7 @@ export const handler = async (event: any) => {
       } catch (e: any) {
         console.error("[DEBUG-VERIFY] Error:", e.message);
         // Redirect to the service's default instead of a generic FRONTEND_URL
-        const errorRedirect = payload?.redirectTo || process.env.FRONTEND_URL || "https://opitacode.com/projects";
+        const errorRedirect = payload?.redirectTo || process.env.FRONTEND_URL || "https://cuenta.opitacode.com/";
         return { statusCode: 302, headers: { Location: `${errorRedirect}?error=invalid_token` } };
       }
 
@@ -651,7 +651,7 @@ export const handler = async (event: any) => {
       // then fall back to the service's default, then to FRONTEND_URL.
       const tokenService = resolveService(payload.service);
       const canonicalDefault = SERVICE_CONFIG[tokenService].defaultRedirect;
-      let frontendUrl: string = payload.redirectTo || canonicalDefault || process.env.FRONTEND_URL || "https://opitacode.com/projects";
+      let frontendUrl: string = payload.redirectTo || canonicalDefault || process.env.FRONTEND_URL || "https://cuenta.opitacode.com/";
       const isAllowedVerifyRedirect = (
         frontendUrl.startsWith("http://localhost:") ||
         frontendUrl.startsWith("https://opitacode.com") ||
