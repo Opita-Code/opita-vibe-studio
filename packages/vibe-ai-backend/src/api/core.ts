@@ -427,10 +427,7 @@ function getCorsHeaders(event: any) {
   let allowedOrigin = "https://opitacode.com";
   
   if (origin === "https://opitacode.com" || 
-      origin === "https://www.opitacode.com" || 
-      origin === "https://dev.opitacode.com" || 
-      origin === "https://vibe.opitacode.com" || 
-      origin === "https://cuenta.opitacode.com" || 
+      (origin.startsWith("https://") && origin.endsWith(".opitacode.com")) ||
       origin.startsWith("http://localhost:") || 
       origin.startsWith("tauri://")) {
     allowedOrigin = origin;
