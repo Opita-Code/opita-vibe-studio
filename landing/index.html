@@ -241,7 +241,7 @@
     <!-- Tagline -->
     <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 mb-8 animate-fade-in-up" style="animation-delay: 0.1s;">
       <span class="w-2 h-2 rounded-full bg-aura-cyan animate-pulse"></span>
-      <span class="text-xs font-medium tracking-wider uppercase text-white/70">v0.3.5 — Custom Tools & Opita Links</span>
+      <span class="text-xs font-medium tracking-wider uppercase text-white/70">v0.4.0 — Memory SDK & Arquitectura AWS</span>
     </div>
 
     <!-- Main Headline -->
@@ -396,7 +396,7 @@
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 px-4 text-left">
-        <!-- Feature 1: Build Agent -->
+        <!-- Feature 1: Build Agent (2 cols) -->
         <div class="glass-surface p-8 rounded-3xl border border-white/5 hover:border-aura-cyan/40 transition-all md:col-span-2 group">
           <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 border border-white/10 group-hover:bg-aura-cyan/10 group-hover:border-aura-cyan/30 transition-colors">
             <svg class="w-6 h-6 text-aura-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -408,7 +408,7 @@
           </div>
         </div>
 
-        <!-- Feature 2: Custom Tools -->
+        <!-- Feature 2: Custom Tools (1 col) -->
         <div class="glass-surface p-8 rounded-3xl border border-white/5 hover:border-aura-purple/40 transition-all group relative overflow-hidden">
           <div class="absolute -right-10 -top-10 w-40 h-40 bg-aura-purple/10 rounded-full blur-3xl group-hover:bg-aura-purple/20 transition-colors"></div>
           <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 border border-white/10 relative z-10">
@@ -421,7 +421,7 @@
           </div>
         </div>
 
-        <!-- Feature 3: BYOK + Model Router -->
+        <!-- Feature 3: BYOK (1 col) -->
         <div class="glass-surface p-8 rounded-3xl border border-white/5 hover:border-white/20 transition-all group">
           <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 border border-white/10">
             <svg class="w-6 h-6 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
@@ -433,19 +433,7 @@
           </div>
         </div>
 
-        <!-- Feature 4: Multi-platform -->
-        <div class="glass-surface p-8 rounded-3xl border border-white/5 hover:border-aura-blue/40 transition-all group">
-          <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 border border-white/10 group-hover:bg-aura-blue/10 group-hover:border-aura-blue/30 transition-colors">
-            <svg class="w-6 h-6 text-aura-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-          </div>
-          <h3 class="text-xl font-medium text-white/90 mb-3">Web, Escritorio y Móvil</h3>
-          <p class="text-white/50 leading-relaxed text-sm">Programa desde cualquier dispositivo: navegador, app nativa o teléfono.</p>
-          <div class="max-h-0 group-hover:max-h-40 overflow-hidden transition-all duration-500 ease-out">
-            <p class="text-white/35 text-xs mt-3 pt-3 border-t border-white/5">App de escritorio con acceso al filesystem para Windows, macOS y Linux. Interfaz web responsive optimizada para móvil — programa desde donde estés.</p>
-          </div>
-        </div>
-
-        <!-- Feature 5: Live Preview -->
+        <!-- Feature 4: Live Preview (2 cols) -->
         <div class="glass-surface p-8 rounded-3xl border border-white/5 hover:border-emerald-500/40 transition-all md:col-span-2 group">
           <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 border border-white/10 group-hover:bg-emerald-500/10 group-hover:border-emerald-500/30 transition-colors">
             <svg class="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
@@ -454,6 +442,20 @@
           <p class="text-white/50 leading-relaxed text-sm">Ve tu código cobrar vida mientras lo escribes. La preview renderiza React, HTML y CSS al instante.</p>
           <div class="max-h-0 group-hover:max-h-40 overflow-hidden transition-all duration-500 ease-out">
             <p class="text-white/35 text-xs mt-3 pt-3 border-t border-white/5">Basada en Sandpack. Soporta React, TypeScript, CSS y dependencias npm. El agente ve la preview y puede iterar sobre ella.</p>
+          </div>
+        </div>
+
+        <!-- Feature 5: Multi-platform (full-width accent) -->
+        <div class="glass-surface p-8 rounded-3xl border border-aura-blue/20 hover:border-aura-blue/40 transition-all md:col-span-3 group relative overflow-hidden">
+          <div class="absolute -right-20 -bottom-20 w-60 h-60 bg-aura-blue/5 rounded-full blur-3xl group-hover:bg-aura-blue/10 transition-colors"></div>
+          <div class="flex flex-col md:flex-row md:items-center gap-6">
+            <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 group-hover:bg-aura-blue/10 group-hover:border-aura-blue/30 transition-colors shrink-0">
+              <svg class="w-6 h-6 text-aura-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+            </div>
+            <div class="flex-1 relative z-10">
+              <h3 class="text-xl font-medium text-white/90 mb-2">Web, Escritorio y Móvil</h3>
+              <p class="text-white/50 leading-relaxed text-sm">Programa desde cualquier dispositivo: navegador, app nativa o teléfono. App de escritorio con acceso al filesystem para Windows, macOS y Linux. Interfaz web responsive optimizada para móvil.</p>
+            </div>
           </div>
         </div>
       </div>
