@@ -24,7 +24,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "@opita/memory-sdk": path.resolve(__dirname, "../opita-core-sdk/packages/memory-sdk/src/index.ts"),
+      "@opita/memory-sdk": path.resolve(__dirname, "./packages/memory-sdk/src/index.ts"),
     },
   },
 
