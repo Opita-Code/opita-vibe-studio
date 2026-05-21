@@ -19,10 +19,20 @@ export interface ProviderKeyEntry {
   key: string;
   /** URL base opcional (para custom endpoints) */
   endpoint?: string;
+  /** OAuth refresh token (chatgpt-web only) */
+  refreshToken?: string;
+  /** Token expiration timestamp ISO (chatgpt-web only) */
+  expiresAt?: string;
   /** Timestamp de creación */
   createdAt: string;
   /** Proveedor configurado desde (formato ISO) */
   updatedAt: string;
+}
+
+/** Optional OAuth token metadata passed during save */
+export interface TokenMeta {
+  refreshToken?: string;
+  expiresAt?: string;
 }
 
 export interface ProviderDisplayInfo {
@@ -156,6 +166,7 @@ export async function saveProviderKey(
   providerId: string,
   key: string,
   endpoint?: string,
+  tokenMeta?: TokenMeta,
 ): Promise<void> {
   if (!providerId || !key) {
     throw new Error("providerId y key son requeridos");
@@ -211,6 +222,8 @@ export async function saveProviderKey(
   const entry: ProviderKeyEntry = {
     key: finalKey,
     endpoint,
+    refreshToken: tokenMeta?.refreshToken,
+    expiresAt: tokenMeta?.expiresAt,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -228,13 +241,18 @@ export async function saveProviderKey(
 
 export async function getProviderKey(
   providerId: string,
-): Promise<{ key: string; endpoint?: string } | null> {
+): Promise<{ key: string; endpoint?: string; refreshToken?: string; expiresAt?: string } | null> {
   const raw = localStorage.getItem(storageKey(providerId));
   if (!raw) return null;
 
   try {
     const entry: ProviderKeyEntry = JSON.parse(raw);
-    return { key: entry.key, endpoint: entry.endpoint };
+    return {
+      key: entry.key,
+      endpoint: entry.endpoint,
+      refreshToken: entry.refreshToken,
+      expiresAt: entry.expiresAt,
+    };
   } catch {
     return null;
   }
@@ -287,9 +305,14 @@ export async function testProviderConnection(
     }
 
     if (providerId === "chatgpt-web") {
-      const response = await fetch("https://api.openai.com/v1/models", {
+      // OAuth tokens ARE valid OpenAI API tokens — /v1/models works correctly
+      const doFetch =
+        typeof window !== "undefined" && "__TAURI__" in window
+          ? (await import("@tauri-apps/plugin-http")).fetch
+          : globalThis.fetch;
+      const response = await doFetch("https://api.openai.com/v1/models", {
         headers: { Authorization: `Bearer ${apiKey}` },
-      });
+      } as RequestInit);
       return response.ok;
     }
 

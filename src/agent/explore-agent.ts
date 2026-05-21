@@ -28,6 +28,10 @@ import type { ToolCall } from "@/tools/definitions";
 
 /** Max iterations — explore is lighter than build */
 const MAX_ITERATIONS = 10;
+/** Max consecutive errors before breaking */
+const MAX_CONSECUTIVE_ERRORS = 3;
+/** Max tool messages in context (sliding window) */
+const MAX_TOOL_MESSAGES = 12;
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -82,6 +86,7 @@ Responde con evidencia concreta, no con suposiciones.`;
   const stepLog: AgentStep[] = [];
   const toolMessages: Message[] = [];
   let iterations = 0;
+  let consecutiveErrors = 0;
 
   yield { type: "phase", phase: "thinking" };
   yield { type: "thinking", message: "Investigando..." };
@@ -137,6 +142,25 @@ Responde con evidencia concreta, no con suposiciones.`;
     }
 
     if (!gotToolRequest) break;
+    if (config.signal?.aborted) break;
+
+    // Track consecutive errors — break early if tools keep failing
+    const lastStep = stepLog[stepLog.length - 1];
+    if (lastStep?.status === "error") {
+      consecutiveErrors++;
+      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        yield { type: "error", message: "Demasiados errores consecutivos en la investigación. Deteniendo." };
+        break;
+      }
+    } else {
+      consecutiveErrors = 0;
+    }
+
+    // Sliding window: keep only the last MAX_TOOL_MESSAGES to prevent
+    // context overflow on deep explorations.
+    while (toolMessages.length > MAX_TOOL_MESSAGES) {
+      toolMessages.shift();
+    }
   }
 
   yield { type: "done", summary: [] };

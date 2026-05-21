@@ -122,7 +122,8 @@ export function selectModel(input: ModelRouterInput): ModelSelection {
       // Pro + high cognitive → premium model
       return {
         providerId: "deepseek",
-        modelId: "deepseek-v4-pro",
+        // P0 fix: use actual registry model ID (was deepseek-v4-pro which doesn't exist)
+        modelId: "deepseek-reasoner",
         byok: false,
       };
     }
@@ -155,7 +156,8 @@ function pickFlash(
     return { providerId: "gemini", modelId: "gemini-2.5-flash" };
   }
   if (hasDeepSeek) {
-    return { providerId: "deepseek", modelId: "deepseek-v4-flash" };
+    // P0 fix: use actual registry model ID (was deepseek-v4-flash which doesn't exist)
+    return { providerId: "deepseek", modelId: "deepseek-chat" };
   }
   return FALLBACK;
 }
@@ -166,6 +168,8 @@ function pickFlash(
 function inferProvider(modelId?: string): string {
   if (!modelId) return "deepseek";
   if (modelId.startsWith("gpt-") || modelId.startsWith("o1") || modelId.startsWith("o3")) return "openai";
+  // P2 fix: add Claude model detection (was falling through to deepseek)
+  if (modelId.startsWith("claude")) return "anthropic";
   if (modelId.startsWith("gemini")) return "gemini";
   if (modelId.startsWith("deepseek")) return "deepseek";
   if (modelId.includes("/")) return "openrouter"; // e.g. "google/gemini-2.5-flash"

@@ -92,8 +92,21 @@ export async function persistToOPFS(
     const writable = await fileHandle.createWritable();
     await writable.write(JSON.stringify(data));
     await writable.close();
-  } catch {
-    // Silent failure — OPFS is best-effort, never block the user
+  } catch (err: unknown) {
+    // P0 fix: surface critical persistence errors instead of swallowing them.
+    // QuotaExceededError means the user's work won't survive tab close.
+    console.error("[OPFS Persistence] Failed to persist workspace:", err);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("vibe:persist-error", {
+          detail: {
+            workspaceId,
+            error: err instanceof Error ? err.message : "Unknown error",
+            isQuotaError: err instanceof DOMException && err.name === "QuotaExceededError",
+          },
+        }),
+      );
+    }
   }
 }
 
@@ -136,13 +149,21 @@ export async function listPersistedWorkspaces(): Promise<
       if (handle.kind !== "file") continue;
       try {
         const file = await (handle as FileSystemFileHandle).getFile();
-        const text = await file.text();
-        const data = JSON.parse(text) as PersistedWorkspace;
-        results.push({
-          id: data.id,
-          name: data.name,
-          savedAt: data.savedAt,
-        });
+        // P1 fix: only read first 1KB to extract metadata fields (id, name, savedAt)
+        // instead of reading entire multi-MB workspace files into memory.
+        const slice = file.slice(0, 1024);
+        const text = await slice.text();
+        // Extract just the metadata fields from the JSON prefix
+        const idMatch = text.match(/"id"\s*:\s*"([^"]*)"/);
+        const nameMatch = text.match(/"name"\s*:\s*"([^"]*)"/);
+        const savedAtMatch = text.match(/"savedAt"\s*:\s*(\d+)/);
+        if (idMatch && nameMatch && savedAtMatch) {
+          results.push({
+            id: idMatch[1],
+            name: nameMatch[1],
+            savedAt: Number(savedAtMatch[1]),
+          });
+        }
       } catch {
         // Skip corrupted entries
       }
@@ -172,6 +193,8 @@ export async function deleteFromOPFS(workspaceId: string): Promise<void> {
 // ─── Auto-Persist Timer ─────────────────────────────────────────
 
 let _timer: ReturnType<typeof setInterval> | null = null;
+// P1 fix: store callback reference so stopAutoPersist always cleans up
+let _onTick: (() => void) | null = null;
 
 /**
  * Starts the auto-persist timer. Should be called once at app startup.
@@ -179,6 +202,7 @@ let _timer: ReturnType<typeof setInterval> | null = null;
  */
 export function startAutoPersist(onTick: () => void): void {
   stopAutoPersist();
+  _onTick = onTick;
   _timer = setInterval(onTick, PERSIST_INTERVAL_MS);
 
   // Also persist on tab close
@@ -190,12 +214,13 @@ export function startAutoPersist(onTick: () => void): void {
 /**
  * Stops the auto-persist timer and removes the beforeunload listener.
  */
-export function stopAutoPersist(onTick?: () => void): void {
+export function stopAutoPersist(): void {
   if (_timer) {
     clearInterval(_timer);
     _timer = null;
   }
-  if (onTick && typeof window !== "undefined") {
-    window.removeEventListener("beforeunload", onTick);
+  if (_onTick && typeof window !== "undefined") {
+    window.removeEventListener("beforeunload", _onTick);
   }
+  _onTick = null;
 }

@@ -8,7 +8,9 @@ export interface AuthResult {
   session: Session;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || "https://api.opitacode.com/core";
+import { CORE_API_URL } from "@/lib/api-config";
+
+const API_URL = CORE_API_URL;
 
 // ─── Public API ─────────────────────────────────────────────────
 
@@ -64,6 +66,11 @@ function getCookie(name: string) {
   return null;
 }
 
+function removeSSOCookie(name: string) {
+  const domain = window.location.hostname.includes('opitacode.com') ? 'domain=.opitacode.com;' : '';
+  document.cookie = `${name}=; ${domain} path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax`;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function decodeJWT(token: string): any {
   try {
@@ -94,6 +101,10 @@ export async function restoreSession(): Promise<AuthResult | null> {
     if (cognitoToken) {
       const claims = decodeJWT(cognitoToken);
       if (claims && claims.sub) {
+        if (claims.exp && claims.exp * 1000 < Date.now()) {
+          removeSSOCookie('opita_id_token');
+          return null; // Token expired, force re-login
+        }
         const user: UserProfile = {
           id: `user-${claims.email}`,
           email: claims.email,
@@ -145,10 +156,7 @@ export async function restoreSession(): Promise<AuthResult | null> {
   }
 }
 
-function removeSSOCookie(name: string) {
-  const domain = window.location.hostname.includes('opitacode.com') ? 'domain=.opitacode.com;' : '';
-  document.cookie = `${name}=; ${domain} path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax`;
-}
+
 
 /**
  * Cierra la sesión del usuario.

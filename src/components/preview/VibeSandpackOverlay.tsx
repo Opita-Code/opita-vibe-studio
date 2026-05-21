@@ -81,7 +81,10 @@ export function VibeSandpackOverlay({ onDismiss }: { onDismiss?: () => void }) {
             </div>
 
             <button 
-              onClick={() => window.location.reload()} 
+              onClick={() => {
+                // P1 fix: refresh only the sandbox, not the entire app
+                (sandpack as any).dispatch({ type: "refresh" });
+              }} 
               className="flex items-center gap-2 bg-gradient-to-r from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30 text-red-200 px-6 py-3 rounded-xl transition-all duration-300 text-sm font-semibold border border-red-500/20 hover:border-red-500/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.2)]"
             >
               <RefreshCw className="w-4 h-4" />

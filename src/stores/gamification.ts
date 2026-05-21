@@ -14,6 +14,7 @@ import {
   getDifficulty,
 } from "@/lib/xp-constants";
 import { useAuthStore } from "./auth";
+import { CORE_API_URL } from "@/lib/api-config";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -61,7 +62,7 @@ export type GamificationStore = GamificationState & GamificationActions;
 // ─── API Helper ─────────────────────────────────────────────────
 
 function getApiUrl(): string {
-  return import.meta.env.VITE_DEV_API_URL || "https://api.opitacode.com/core";
+  return CORE_API_URL;
 }
 
 async function gamificationFetch(
@@ -238,7 +239,12 @@ export const useGamificationStore = create<GamificationStore>((set, get) => ({
       gamificationFetch("/gamification/xp/award", {
         method: "POST",
         body: JSON.stringify({ action }),
-      }).catch(() => {});
+      })
+        .then((res) => {
+          // P1 fix: sync local profile so XP bar reflects the award
+          if (res.ok) useGamificationStore.getState().fetchProfile();
+        })
+        .catch(() => {});
     };
   })(),
 }));

@@ -18,7 +18,7 @@ const idbStorage: StateStorage = {
 };
 
 // ─── Constants ─────────────────────────────────────────────────
-export const MAX_CONTEXT_MESSAGES = 50; // Increased since we persist
+export const MAX_CONTEXT_MESSAGES = 500; // Storage cap per session (context window uses token budget)
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -210,7 +210,19 @@ export const useChatStore = create<ChatStore>()(
       switchSession: (id) =>
         set((state) => {
           if (!state.sessions[id]) return state;
-          return { activeSessionId: id };
+          // P0 fix: abort any active stream before switching to prevent
+          // content being written to the wrong session.
+          if (state.abortController) {
+            state.abortController.abort();
+          }
+          return {
+            activeSessionId: id,
+            isStreaming: false,
+            isExecutingMCP: false,
+            pipelinePhase: null,
+            pendingConfirmation: null,
+            abortController: null,
+          };
         }),
 
       deleteSession: (id) =>
@@ -430,13 +442,17 @@ export const useChatStore = create<ChatStore>()(
           const session = state.sessions[state.activeSessionId];
           if (!session) return state;
 
-          const updatedMessages = session.messages.map((msg) => {
-            if (msg.id !== messageId || !msg.agentExecution) return msg;
-            return {
-              ...msg,
-              agentExecution: { ...msg.agentExecution, ...update },
-            };
-          });
+          const index = session.messages.findIndex(m => m.id === messageId);
+          if (index === -1) return state;
+          
+          const updatedMessages = [...session.messages];
+          const msg = updatedMessages[index];
+          if (!msg.agentExecution) return state;
+          
+          updatedMessages[index] = {
+            ...msg,
+            agentExecution: { ...msg.agentExecution, ...update },
+          };
 
           return {
             sessions: {
@@ -451,19 +467,23 @@ export const useChatStore = create<ChatStore>()(
           const session = state.sessions[state.activeSessionId];
           if (!session) return state;
 
-          const updatedMessages = session.messages.map((msg) => {
-            if (msg.id !== messageId || !msg.agentExecution) return msg;
-            return {
-              ...msg,
-              agentExecution: {
-                ...msg.agentExecution,
-                status,
-                ...(status === "done" || status === "error"
-                  ? { completedAt: Date.now() }
-                  : {}),
-              },
-            };
-          });
+          const index = session.messages.findIndex(m => m.id === messageId);
+          if (index === -1) return state;
+          
+          const updatedMessages = [...session.messages];
+          const msg = updatedMessages[index];
+          if (!msg.agentExecution) return state;
+
+          updatedMessages[index] = {
+            ...msg,
+            agentExecution: {
+              ...msg.agentExecution,
+              status,
+              ...(status === "done" || status === "error"
+                ? { completedAt: Date.now() }
+                : {}),
+            },
+          };
 
           return {
             sessions: {
@@ -515,13 +535,16 @@ export const useChatStore = create<ChatStore>()(
           const session = state.sessions[state.activeSessionId];
           if (!session) return state;
 
-          const updatedMessages = session.messages.map((msg) => {
-            if (msg.id !== messageId) return msg;
-            return {
-              ...msg,
-              sections: [...(msg.sections || []), section],
-            };
-          });
+          const index = session.messages.findIndex(m => m.id === messageId);
+          if (index === -1) return state;
+          
+          const updatedMessages = [...session.messages];
+          const msg = updatedMessages[index];
+          
+          updatedMessages[index] = {
+            ...msg,
+            sections: [...(msg.sections || []), section],
+          };
 
           return {
             sessions: {
@@ -536,15 +559,19 @@ export const useChatStore = create<ChatStore>()(
           const session = state.sessions[state.activeSessionId];
           if (!session) return state;
 
-          const updatedMessages = session.messages.map((msg) => {
-            if (msg.id !== messageId || !msg.sections) return msg;
-            return {
-              ...msg,
-              sections: msg.sections.map((s) =>
-                s.id === sectionId ? { ...s, content: s.content + content } : s
-              ),
-            };
-          });
+          const index = session.messages.findIndex(m => m.id === messageId);
+          if (index === -1) return state;
+          
+          const updatedMessages = [...session.messages];
+          const msg = updatedMessages[index];
+          if (!msg.sections) return state;
+          
+          updatedMessages[index] = {
+            ...msg,
+            sections: msg.sections.map((s) =>
+              s.id === sectionId ? { ...s, content: s.content + content } : s
+            ),
+          };
 
           return {
             sessions: {
@@ -561,7 +588,9 @@ export const useChatStore = create<ChatStore>()(
       partialize: (state) => ({
         sessions: state.sessions,
         activeSessionId: state.activeSessionId,
+        activeProvider: state.activeProvider,
         activeModelId: state.activeModelId,
+        executionMode: state.executionMode,
         useSubagent: state.useSubagent,
         subagentInstructions: state.subagentInstructions,
       }),
@@ -570,7 +599,10 @@ export const useChatStore = create<ChatStore>()(
       // nunca llegó al agente — se elimina para evitar UI rota.
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        state.sessions = sanitizeAllSessions(state.sessions);
+        // P1 fix: use setState() instead of direct mutation so persist
+        // middleware sees the sanitized state on next write.
+        const sanitized = sanitizeAllSessions(state.sessions);
+        useChatStore.setState({ sessions: sanitized });
       },
     }
   )

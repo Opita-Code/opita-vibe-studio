@@ -104,8 +104,8 @@ const OPENROUTER_MODELS: ModelConfig[] = [
     tier: "byok",
   },
   {
-    id: "anthropic/claude-3-haiku",
-    name: "Claude 3 Haiku",
+    id: "anthropic/claude-3.5-sonnet",
+    name: "Claude 3.5 Sonnet",
     providerId: "openrouter",
     maxTokens: 8192,
     temperature: 0.7,
@@ -130,8 +130,8 @@ const CUSTOM_MODELS: ModelConfig[] = [
 
 const CHATGPT_WEB_MODELS: ModelConfig[] = [
   {
-    id: "text-davinci-002-render-sha",
-    name: "ChatGPT Plus (Web)",
+    id: "codex-mini",
+    name: "Codex Mini (ChatGPT Plus)",
     providerId: "chatgpt-web",
     maxTokens: 8192,
     temperature: 0.7,

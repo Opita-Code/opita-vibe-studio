@@ -235,9 +235,15 @@ export async function* runBuildAgent(
 
       // Poll chatStore for user confirmation (same pattern as pipeline/engine.ts)
       const { useChatStore } = await import("@/stores/chat");
+      const CONFIRMATION_TIMEOUT_MS = 60_000; // 60s max wait
       const waitForConfirmation = (): Promise<boolean> => {
         return new Promise((resolve) => {
+          const startTime = Date.now();
           const check = () => {
+            // Respect cancellation
+            if (config.signal?.aborted) { resolve(false); return; }
+            // Timeout guard — don't poll forever
+            if (Date.now() - startTime > CONFIRMATION_TIMEOUT_MS) { resolve(false); return; }
             const state = useChatStore.getState();
             if (state.pendingConfirmation === null) {
               resolve(true); // User confirmed

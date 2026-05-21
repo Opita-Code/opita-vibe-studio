@@ -7,11 +7,9 @@ import {
   BYOK_PROVIDERS,
 } from "@/lib/byok-store";
 import type { ProviderDisplayInfo, ProviderDefinition } from "@/lib/byok-store";
-import { listen } from "@tauri-apps/api/event";
-import { isTauri } from "@tauri-apps/api/core";
+import type { OAuthTokens } from "@/lib/chatgpt-auth";
 import { motion, AnimatePresence } from "framer-motion";
-import { useUIStore } from "@/stores/ui";
-import { Trash2, Link as LinkIcon, AlertCircle, CheckCircle2, ChevronRight, Zap } from "lucide-react";
+import { Trash2, Link as LinkIcon, AlertCircle, CheckCircle2, ChevronRight, Zap, Copy, ExternalLink, Loader2 } from "lucide-react";
 
 export function ByokPanel() {
   const [providers, setProviders] = useState<ProviderDisplayInfo[]>([]);
@@ -263,104 +261,28 @@ export function ByokPanel() {
                       >
                         <div className="p-4 flex flex-col gap-4">
                           
-                          {/* ChatGPT WebAuth Logic */}
+                          {/* ChatGPT / Codex OAuth */}
                           {provider.id === "chatgpt-web" && (
-                            <div className="p-3 rounded-lg bg-aura-purple/10 border border-aura-purple/20 text-xs text-aura-purple flex flex-col gap-2">
-                              <span className="font-semibold block">Conexión Automática (WebAuth):</span>
-                              <p className="text-slate-300 leading-relaxed">
-                                Vibe Studio abrirá una ventana segura. Solo inicia sesión en ChatGPT y nosotros capturaremos tu sesión automáticamente de forma local.
-                              </p>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  try {
-                                    if (!isTauri()) {
-                                      useUIStore.setState({ statusMessage: "Esta función requiere la app de escritorio." });
-                                      return;
-                                    }
-
-                                    // Generar PKCE
-                                    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-                                    let codeVerifier = '';
-                                    const randomArray = new Uint8Array(64);
-                                    window.crypto.getRandomValues(randomArray);
-                                    for (let i = 0; i < 64; i++) {
-                                      codeVerifier += chars[randomArray[i] % chars.length];
-                                    }
-
-                                    const encoder = new TextEncoder();
-                                    const data = encoder.encode(codeVerifier);
-                                    const digest = await window.crypto.subtle.digest('SHA-256', data);
-                                    const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-                                      .replace(/\+/g, '-')
-                                      .replace(/\//g, '_')
-                                      .replace(/=+$/, '');
-
-                                    let state = '';
-                                    const stateArray = new Uint8Array(32);
-                                    window.crypto.getRandomValues(stateArray);
-                                    for (let i = 0; i < 32; i++) {
-                                      state += chars[stateArray[i] % chars.length];
-                                    }
-
-                                    const clientId = "app_EMoamEEZ73f0CkXaXp7hrann";
-                                    const redirectUri = "http://localhost:1455/auth/callback";
-                                    const authUrl = `https://auth.openai.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=openid+profile+email+offline_access&code_challenge=${codeChallenge}&code_challenge_method=S256&state=${state}&id_token_add_organizations=true&codex_cli_simplified_flow=true`;
-
-                                    // Enviar el state al backend para validación CSRF
-                                    const { emit } = await import("@tauri-apps/api/event");
-                                    await emit("oauth_set_state", state);
-
-                                    const { open } = await import("@tauri-apps/plugin-shell");
-                                    await open(authUrl);
-
-                                    const unlisten = await listen<string>("oauth_code", async (event) => {
-                                      unlisten();
-                                      try {
-                                        const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
-                                        const res = await tauriFetch("https://auth.openai.com/oauth/token", {
-                                          method: "POST",
-                                          headers: { "Content-Type": "application/json" },
-                                          body: JSON.stringify({
-                                            client_id: clientId,
-                                            grant_type: "authorization_code",
-                                            code: event.payload,
-                                            redirect_uri: redirectUri,
-                                            code_verifier: codeVerifier
-                                          })
-                                        });
-                                        
-                                        const tokenData = await res.json();
-                                        if (tokenData.access_token) {
-                                          setApiKey(tokenData.access_token);
-                                          setSaveError(null);
-                                          setSaving(true);
-                                          try {
-                                            await saveProviderKey("chatgpt-web", tokenData.access_token);
-                                            setSaveSuccess(true);
-                                            setSelectedProvider(null);
-                                            await loadProviders();
-                                          } catch (err) {
-                                            setSaveError("Error al autoguardar: " + String(err));
-                                          } finally {
-                                            setSaving(false);
-                                          }
-                                        } else {
-                                          setSaveError("Error al obtener token de OpenAI");
-                                        }
-                                      } catch(e) {
-                                        useUIStore.setState({ statusMessage: "Error en la conexión con OpenAI: " + String(e) });
-                                      }
-                                    });
-                                  } catch (err) {
-                                    useUIStore.setState({ statusMessage: "Hubo un error interno: " + String(err) });
-                                  }
-                                }}
-                                className="mt-1 w-full py-2 bg-aura-purple/20 hover:bg-aura-purple/30 text-aura-purple border border-aura-purple/40 font-semibold rounded-md transition-colors"
-                              >
-                                Iniciar Sesión en ChatGPT
-                              </button>
-                            </div>
+                            <ChatGPTAuthBlock
+                              onSuccess={async (tokens) => {
+                                setSaveError(null);
+                                setSaving(true);
+                                try {
+                                  await saveProviderKey("chatgpt-web", tokens.accessToken, undefined, {
+                                    refreshToken: tokens.refreshToken,
+                                    expiresAt: tokens.expiresAt,
+                                  });
+                                  setSaveSuccess(true);
+                                  setSelectedProvider(null);
+                                  await loadProviders();
+                                } catch (err) {
+                                  setSaveError("Error al guardar: " + String(err));
+                                } finally {
+                                  setSaving(false);
+                                }
+                              }}
+                              onError={(msg) => setSaveError(msg)}
+                            />
                           )}
 
                           {/* Custom Endpoint URL */}
@@ -442,4 +364,139 @@ function StatusDot({ status }: { status: ProviderDisplayInfo["status"] }) {
   };
 
   return <span className={`inline-block h-2 w-2 rounded-full ${colors[status] ?? "bg-slate-600"}`} />;
+}
+
+// ─── ChatGPT Auth Block (multi-platform) ─────────────────────
+//
+// Tauri  → PKCE with localhost redirect (seamless)
+// Web    → Device Code Flow (code + link shown to user)
+
+function ChatGPTAuthBlock({
+  onSuccess,
+  onError,
+}: {
+  onSuccess: (tokens: OAuthTokens) => void;
+  onError: (msg: string) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [deviceCode, setDeviceCode] = useState<{
+    userCode: string;
+    verificationUri: string;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const isTauriEnv =
+    typeof window !== "undefined" && "__TAURI__" in window;
+
+  const handleAuth = useCallback(async () => {
+    setLoading(true);
+    setDeviceCode(null);
+    setCopied(false);
+
+    try {
+      const { startAuth, pollForDeviceToken } = await import(
+        "@/lib/chatgpt-auth"
+      );
+      const result = await startAuth();
+
+      if (result.type === "tokens") {
+        // Tauri PKCE → got tokens immediately
+        onSuccess(result.tokens);
+        setLoading(false);
+        return;
+      }
+
+      // Web/Mobile → Device Code Flow
+      setDeviceCode({
+        userCode: result.pending.userCode,
+        verificationUri: result.pending.verificationUri,
+      });
+
+      // Poll in background
+      const tokens = await pollForDeviceToken(result.pending);
+      onSuccess(tokens);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+      setDeviceCode(null);
+    }
+  }, [onSuccess, onError]);
+
+  const handleCopy = useCallback(() => {
+    if (deviceCode?.userCode) {
+      navigator.clipboard.writeText(deviceCode.userCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [deviceCode]);
+
+  return (
+    <div className="p-3 rounded-lg bg-aura-purple/10 border border-aura-purple/20 text-xs text-aura-purple flex flex-col gap-2">
+      <span className="font-semibold block">
+        Conexión con Codex (ChatGPT Plus):
+      </span>
+
+      {!deviceCode ? (
+        <>
+          <p className="text-slate-300 leading-relaxed">
+            {isTauriEnv
+              ? "Se abrirá una ventana segura. Solo inicia sesión en tu cuenta de ChatGPT y nosotros capturaremos tu sesión de forma local."
+              : "Conecta tu cuenta de ChatGPT Plus para usar Codex. Se mostrará un código que deberás ingresar en OpenAI."}
+          </p>
+          <button
+            type="button"
+            onClick={handleAuth}
+            disabled={loading}
+            className="mt-1 w-full py-2 bg-aura-purple/20 hover:bg-aura-purple/30 text-aura-purple border border-aura-purple/40 font-semibold rounded-md transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {loading && <Loader2 size={14} className="animate-spin" />}
+            {loading ? "Conectando..." : "Iniciar Sesión en ChatGPT"}
+          </button>
+        </>
+      ) : (
+        /* Device Code Flow UI */
+        <div className="flex flex-col gap-3">
+          <p className="text-slate-300 leading-relaxed">
+            Abre el siguiente enlace e ingresa el código:
+          </p>
+
+          {/* User code display */}
+          <div className="flex items-center justify-between bg-black/30 rounded-lg px-4 py-3 border border-aura-purple/30">
+            <span className="font-mono text-lg tracking-[0.3em] text-white font-bold">
+              {deviceCode.userCode}
+            </span>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="p-1.5 rounded hover:bg-white/10 transition-colors"
+              title="Copiar código"
+            >
+              {copied ? (
+                <CheckCircle2 size={16} className="text-emerald-400" />
+              ) : (
+                <Copy size={16} className="text-slate-400" />
+              )}
+            </button>
+          </div>
+
+          {/* Verification link */}
+          <a
+            href={deviceCode.verificationUri}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-2 py-2 bg-aura-purple/20 hover:bg-aura-purple/30 border border-aura-purple/40 rounded-md transition-colors font-semibold"
+          >
+            <ExternalLink size={14} />
+            Abrir OpenAI
+          </a>
+
+          <div className="flex items-center gap-2 text-slate-400">
+            <Loader2 size={12} className="animate-spin" />
+            <span>Esperando que completes el inicio de sesión...</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

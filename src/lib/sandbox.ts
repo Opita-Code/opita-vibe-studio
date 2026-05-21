@@ -12,6 +12,7 @@
  */
 
 import { useProjectStore } from "@/stores/project";
+import { useAuthStore } from "@/stores/auth";
 import type { FileNode } from "@/lib/types";
 
 // ─── Constants ──────────────────────────────────────────────────
@@ -101,12 +102,14 @@ export function ensureSandbox(): string {
  * @param currentContents - Current fileContents from Zustand
  * @param newContentSize - Size of the new content being written
  * @param isNewFile - Whether this is a new file (vs overwriting existing)
+ * @param filePath - Path of the file being written (for accurate overwrite size calc)
  */
 export function validateSandboxQuota(
   plan: PlanTier,
   currentContents: Record<string, string>,
   newContentSize: number,
   isNewFile: boolean,
+  filePath?: string,
 ): void {
   const quota = QUOTAS[plan];
 
@@ -136,8 +139,14 @@ export function validateSandboxQuota(
     );
   }
 
+  // P2 fix: subtract existing file size on overwrites to avoid double-counting
+  let existingSize = 0;
+  if (!isNewFile && filePath && currentContents[filePath]) {
+    existingSize = new TextEncoder().encode(currentContents[filePath]).byteLength;
+  }
+
   // Check total size
-  const projectedTotal = currentTotalBytes + newContentSize;
+  const projectedTotal = currentTotalBytes - existingSize + newContentSize;
   if (projectedTotal > quota.maxTotalBytes) {
     const maxMB = Math.round(quota.maxTotalBytes / (1024 * 1024));
     const currentMB = (currentTotalBytes / (1024 * 1024)).toFixed(1);
@@ -154,12 +163,9 @@ export function validateSandboxQuota(
  */
 export function getUserPlan(): PlanTier {
   try {
-    // Lazy import to avoid circular deps
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { useAuthStore } = require("@/stores/auth");
-    const plan = useAuthStore.getState()?.session?.plan;
-    if (plan === "VIBE_PRO" || plan === "pro") return "pro";
-    if (plan === "VIBE_STUDENT" || plan === "student") return "student";
+    const plan = useAuthStore.getState()?.plan;
+    if (plan === "pro") return "pro";
+    if (plan === "estudiante") return "student";
     return "free";
   } catch {
     return "free";
@@ -187,7 +193,9 @@ export function syncSandboxFileTree(
   if (findNodeByPath(workspace.files, fullPath)) return;
 
   // Build the file tree path, creating directories as needed
-  const newFiles = [...workspace.files];
+  // P1 fix: deep clone to avoid mutating Zustand state directly
+  // (shallow clone only copied the top-level array, children were shared refs)
+  const newFiles: FileNode[] = JSON.parse(JSON.stringify(workspace.files));
   let currentLevel = newFiles;
 
   for (let i = 0; i < parts.length - 1; i++) {

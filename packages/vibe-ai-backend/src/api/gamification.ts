@@ -298,15 +298,13 @@ export async function awardXP(
       : 1; // Reset streak if missed a day
   }
 
-  // Check for milestone
+  // Check for milestones (handle level jumps — award ALL milestones between previousLevel and newLevel)
   let newMilestone: AwardResult["newMilestone"];
   let milestoneQuotaBoost = 0;
   if (leveledUp) {
     for (const m of MILESTONES) {
-      if (m.level === newLevel) {
-        newMilestone = { level: m.level, badge: m.badge, label: m.label };
-        milestoneQuotaBoost = m.quotaBoost;
-        // Record milestone
+      if (m.level > previousLevel && m.level <= newLevel) {
+        // Record each milestone
         await docClient.send(new PutCommand({
           TableName: Resource.TokenUsage.name,
           Item: {
@@ -317,8 +315,11 @@ export async function awardXP(
             unlockedAt: new Date().toISOString(),
             quotaBoost: m.quotaBoost,
           },
-        }));
-        break;
+          ConditionExpression: "attribute_not_exists(pk)",
+        }).catch(() => { /* already unlocked */ }));
+        milestoneQuotaBoost += m.quotaBoost;
+        // Report the highest milestone for UI toast
+        newMilestone = { level: m.level, badge: m.badge, label: m.label };
       }
     }
   }
@@ -328,14 +329,21 @@ export async function awardXP(
   const quotaAwarded = milestoneQuotaBoost;
   const newEarnedQuota = Math.min(cap, profile.earnedQuota + quotaAwarded);
 
-  // Save updated profile
-  await saveProfile(email, {
-    totalXp: newTotalXp,
-    level: newLevel,
-    streakDays,
-    lastActiveDate: today,
-    earnedQuota: newEarnedQuota,
-  });
+  // Atomic profile update — use UpdateCommand instead of PutCommand to prevent race conditions
+  const pk = `user#${email}`;
+  await docClient.send(new UpdateCommand({
+    TableName: Resource.TokenUsage.name,
+    Key: { pk, sk: "xp#profile" },
+    UpdateExpression: "SET totalXp = :xp, #lvl = :lvl, streakDays = :streak, lastActiveDate = :today, earnedQuota = :eq",
+    ExpressionAttributeNames: { "#lvl": "level" },
+    ExpressionAttributeValues: {
+      ":xp": newTotalXp,
+      ":lvl": newLevel,
+      ":streak": streakDays,
+      ":today": today,
+      ":eq": newEarnedQuota,
+    },
+  }));
 
   return {
     xpAwarded,
@@ -547,7 +555,16 @@ export async function completeMission(
 }> {
   const today = new Date().toISOString().split("T")[0];
   const pk = `user#${email}`;
-  const sk = `mission#${today}`;
+  
+  // Determine if this is a daily or weekly mission by its ID pattern
+  let sk: string;
+  if (missionId.includes("-W") && missionId.includes("-semanal")) {
+    // Weekly mission ID format: "2026-W21-semanal"
+    const weekPart = missionId.replace("-semanal", "");
+    sk = `mission#weekly#${weekPart}`;
+  } else {
+    sk = `mission#${today}`;
+  }
 
   const result = await docClient.send(new GetCommand({
     TableName: Resource.TokenUsage.name,
@@ -559,21 +576,32 @@ export async function completeMission(
   }
 
   const missions = result.Item.missions as Mission[];
-  const mission = missions.find((m) => m.id === missionId);
+  const missionIndex = missions.findIndex((m) => m.id === missionId);
 
-  if (!mission || mission.completed) {
+  if (missionIndex === -1 || missions[missionIndex].completed) {
     return { success: false, xpAwarded: 0, quotaAwarded: 0, leveledUp: false, streakDays: 0 };
   }
+
+  const mission = missions[missionIndex];
 
   // Mark as completed
   mission.completed = true;
   mission.completedAt = new Date().toISOString();
 
-  // Save updated missions
-  await docClient.send(new PutCommand({
-    TableName: Resource.TokenUsage.name,
-    Item: { ...result.Item, missions },
-  }));
+  // Save updated missions with condition to prevent race-condition double-completion
+  try {
+    await docClient.send(new PutCommand({
+      TableName: Resource.TokenUsage.name,
+      Item: { ...result.Item, missions },
+      ConditionExpression: `missions[${missionIndex}].completed = :false`,
+      ExpressionAttributeValues: { ":false": false },
+    }));
+  } catch (condErr: any) {
+    if (condErr.name === "ConditionalCheckFailedException") {
+      return { success: false, xpAwarded: 0, quotaAwarded: 0, leveledUp: false, streakDays: 0 };
+    }
+    throw condErr;
+  }
 
   // Award XP (this also updates streak and checks milestones)
   const xpAction = `mission_complete_${mission.difficulty}`;

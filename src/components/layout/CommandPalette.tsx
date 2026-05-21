@@ -163,8 +163,8 @@ export function CommandPalette() {
         break;
       }
       case "TOGGLE_CHAT_FULLSCREEN": {
-        const uiStore = (await import("@/stores/ui")).useUIStore.getState();
-        uiStore.toggleChatFullscreen();
+        // P2 fix: useUIStore already imported at top — no dynamic import needed
+        useUIStore.getState().toggleChatFullscreen();
         break;
       }
       case "NEW_CHAT": {
@@ -173,14 +173,12 @@ export function CommandPalette() {
         break;
       }
       case "TOGGLE_EXPLORER": {
-        const uiStore2 = (await import("@/stores/ui")).useUIStore.getState();
-        uiStore2.setActiveSidebar(uiStore2.activeSidebar === "explorer" ? null : "explorer");
+        const { activeSidebar, setActiveSidebar } = useUIStore.getState();
+        setActiveSidebar(activeSidebar === "explorer" ? null : "explorer");
         break;
       }
       case "EXPORT_PROJECT": {
-        // Export is handled via the export panel component
-        const uiStore3 = (await import("@/stores/ui")).useUIStore.getState();
-        uiStore3.setStatusMessage("Usa el panel de exportación para descargar tu proyecto.");
+        useUIStore.getState().setStatusMessage("Usa el panel de exportación para descargar tu proyecto.");
         break;
       }
       default:
@@ -188,7 +186,7 @@ export function CommandPalette() {
     }
   };
 
-  let globalIndex = 0; // To track index across categories
+  // P0 fix: removed mutable globalIndex variable — use flattenedItems.indexOf() instead
 
   return (
     <AnimatePresence>
@@ -257,7 +255,8 @@ export function CommandPalette() {
                   {category}
                 </div>
                 {items.map((item) => {
-                  const currentIndex = globalIndex++;
+                  // P0 fix: compute index from flattened list instead of mutable counter
+                  const currentIndex = flattenedItems.indexOf(item);
                   const isSelected = selectedIndex === currentIndex;
                   
                   return (

@@ -59,6 +59,8 @@ function generateId(): string {
  */
 export function useAgentHandler() {
   const abortRef = useRef<AbortController | null>(null);
+  // Guard against concurrent send() calls (P0 race condition fix)
+  const isRunningRef = useRef(false);
 
   // Registra el intent del agente activo para que el nudge guard
   // sepa si puede interceptar mensajes como nudges.
@@ -67,6 +69,7 @@ export function useAgentHandler() {
   // Grace window: el agente no arranca hasta que este timer expire
   const gracePendingRef = useRef<{
     timerId: ReturnType<typeof setTimeout>;
+    resolve: () => void;  // Stored so cancel() can resolve the promise
     userMsgId: string;
     assistantMsgId: string;
     text: string;
@@ -85,6 +88,10 @@ export function useAgentHandler() {
 
   const send = useCallback(
     async (text: string, attachments?: Attachment[], isRetry = false) => {
+      // P0 fix: prevent concurrent runs from orphaning streams
+      if (isRunningRef.current) return;
+      isRunningRef.current = true;
+
       const chatStore = useChatStore.getState();
       const authStore = useAuthStore.getState();
       const projectStore = useProjectStore.getState();
@@ -160,6 +167,8 @@ export function useAgentHandler() {
 
       // ─── Grace Window — el agente arranca después de GRACE_WINDOW_MS ──
       // Durante este tiempo, cancel() y editPending() son gratuitos.
+      // P0 fix: store resolve() so cancel() can break the grace promise
+      // instead of leaving it dangling forever.
       await new Promise<void>((resolve) => {
         const timerId = setTimeout(() => {
           gracePendingRef.current = null;
@@ -169,6 +178,7 @@ export function useAgentHandler() {
 
         gracePendingRef.current = {
           timerId,
+          resolve,
           userMsgId,
           assistantMsgId,
           text,
@@ -303,6 +313,7 @@ export function useAgentHandler() {
         clearNudges(); // limpiar nudges huérfanos al terminar
 
         abortRef.current = null;
+        isRunningRef.current = false; // P0 fix: release concurrency guard
       }
     },
     []
@@ -317,17 +328,18 @@ export function useAgentHandler() {
     const grace = gracePendingRef.current;
     if (grace) {
       clearTimeout(grace.timerId);
-      gracePendingRef.current = null;
+      // P0 fix: delete messages, resolve the dangling Promise, and let
+      // send()'s stillExists check + finally block handle cleanup.
       useChatStore.getState().deleteMessage(grace.userMsgId);
       useChatStore.getState().deleteMessage(grace.assistantMsgId);
+      const { resolve } = grace;
+      gracePendingRef.current = null;
+      resolve(); // Break the await so send() can exit via stillExists guard
       return;
     }
-    // Soft-abort del stream
+    // P2 fix: cancel() only aborts — send()'s finally block handles ALL
+    // cleanup (setStreaming, endExecution, etc.) to avoid duplicated mutations.
     abortRef.current?.abort();
-    useChatStore.getState().setStreaming(false);
-    useChatStore.getState().setPipelinePhase(null);
-    useChatStore.getState().setExecutingMCP(false);
-    useAgentStore.getState().endExecution();
   }, []);
 
   /**

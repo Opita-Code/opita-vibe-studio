@@ -72,18 +72,13 @@ export async function* runChatAgent(
     modelId: config.modelId,
     customApiKey: config.customApiKey,
     signal: config.signal,
-    customInstructions: config.customInstructions,
+    // customInstructions already injected via getSystemPrompt — don't duplicate
     action: "chat",
   };
-
-  let hasYieldedText = false;
 
   for await (const chunk of streamSSE(fullMessages, streamOptions)) {
     const event = mapChunkToEvent(chunk);
     if (event) {
-      if (event.type === "text" && !hasYieldedText) {
-        hasYieldedText = true;
-      }
       yield event;
     }
   }

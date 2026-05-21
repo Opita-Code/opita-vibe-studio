@@ -42,9 +42,11 @@ export const useCustomToolsStore = create<CustomToolsStore>()(
       },
 
       updateTool: (name, updates) => {
+        // Strip name from updates to prevent collision with existing tools
+        const { name: _ignoredName, ...safeUpdates } = updates as CustomToolDef;
         set({
           tools: get().tools.map((t) =>
-            t.name === name ? { ...t, ...updates } : t,
+            t.name === name ? { ...t, ...safeUpdates } : t,
           ),
         });
       },

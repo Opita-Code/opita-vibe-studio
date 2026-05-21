@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
@@ -162,10 +162,12 @@ function MobilePreviewView() {
   const activeView = useUIStore((s) => s.activeView);
   const setActiveView = useUIStore((s) => s.setActiveView);
 
-  // Force preview mode when this tab is active
-  if (activeView !== "preview") {
-    setActiveView("preview");
-  }
+  // P1 fix: moved from render body to useEffect to avoid state updates during render
+  useEffect(() => {
+    if (activeView !== "preview") {
+      setActiveView("preview");
+    }
+  }, [activeView, setActiveView]);
 
   return (
     <div className="flex flex-col h-full bg-obsidian-900/90">

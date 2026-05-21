@@ -70,10 +70,10 @@ export function createAnthropicProvider(apiKey?: string): AIProvider {
             "anthropic-dangerous-direct-browser-access": "true",
           },
           body: JSON.stringify({
-            model: options?.model || "claude-3-haiku-20240307",
+            model: options?.model || "claude-3-5-haiku-20241022",
             system: systemMessage,
             messages: validMessages,
-            max_tokens: options?.maxTokens || 4096,
+            max_tokens: options?.maxTokens || 8192,
             temperature: options?.temperature ?? 0.7,
             stream: true,
           }),

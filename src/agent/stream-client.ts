@@ -14,8 +14,7 @@ import type { Message } from "@/lib/types";
 import type { SSEChunk } from "./types";
 import { useAuthStore } from "@/stores/auth";
 
-const AWS_API_URL =
-  "https://api.opitacode.com/chat/";
+import { CHAT_API_URL } from "@/lib/api-config";
 
 // ─── Error Translation ─────────────────────────────────────────
 
@@ -105,7 +104,7 @@ export async function* streamSSE(
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const response = await fetch(AWS_API_URL, {
+    const response = await fetch(CHAT_API_URL, {
       method: "POST",
       headers,
       credentials: "include",

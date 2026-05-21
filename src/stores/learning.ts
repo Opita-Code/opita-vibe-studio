@@ -114,7 +114,12 @@ export const useLearningStore = create<LearningStore>((set, get) => ({
   },
 
   addEvent: (event) => {
-    const nextEvents = [...get().learningEvents, event];
+    const MAX_EVENTS = 500;
+    let nextEvents = [...get().learningEvents, event];
+    // P1 fix: cap events to prevent unbounded storage growth
+    if (nextEvents.length > MAX_EVENTS) {
+      nextEvents = nextEvents.slice(-MAX_EVENTS);
+    }
     set({ learningEvents: nextEvents });
     persistLearningEvents(nextEvents).catch(console.error);
   },

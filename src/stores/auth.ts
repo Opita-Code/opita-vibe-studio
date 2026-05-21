@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { UserProfile, Session, TokenUsage, UserPlan } from "@/lib/types";
+import { CORE_API_URL } from "@/lib/api-config";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   isLoading: false,
   guestEmail: null,
   needsMigration: false,
-  hasCompletedOnboarding: localStorage.getItem("vibe-onboarding-done") === "true",
+  hasCompletedOnboarding: (() => { try { return localStorage.getItem("vibe-onboarding-done") === "true"; } catch { return false; } })(),
   loginModalOpen: false,
 
   setLoginModalOpen: (open) => set({ loginModalOpen: open }),
@@ -117,7 +118,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   fetchTokenUsage: async () => {
     try {
       const token = useAuthStore.getState().session?.token;
-      const API_URL = import.meta.env.VITE_DEV_API_URL || "https://api.opitacode.com/core";
+      const API_URL = CORE_API_URL;
       const response = await fetch(API_URL + "/usage", {
         credentials: "include",
         headers: {

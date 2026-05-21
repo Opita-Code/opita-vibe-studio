@@ -175,14 +175,17 @@ export class BrowserFS implements FileSystemBackend {
 
   // ─── File System Operations ────────────────────────────────
 
-  async readFile(path: string): Promise<string> {
+  async readFile(path: string, asBinary?: boolean): Promise<string | Uint8Array> {
     const handle = await this.getOrRestoreHandle();
     const fileHandle = await resolveFileHandle(handle, path);
     const file = await fileHandle.getFile();
+    if (asBinary) {
+      return new Uint8Array(await file.arrayBuffer());
+    }
     return file.text();
   }
 
-  async writeFile(path: string, content: string): Promise<void> {
+  async writeFile(path: string, content: string | Uint8Array | ArrayBuffer): Promise<void> {
     const handle = await this.getOrRestoreHandle();
     const relPath = getRelativePath(handle, path);
     const parts = relPath.split("/").filter(Boolean);
@@ -193,10 +196,34 @@ export class BrowserFS implements FileSystemBackend {
       current = await current.getDirectoryHandle(part, { create: true });
     }
 
-    const fileHandle = await current.getFileHandle(fileName, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(content);
-    await writable.close();
+    // Atomic write: write to temp file, then rename.
+    // If the app crashes mid-write, the original file stays intact.
+    const tempName = `${fileName}.~vibe-tmp`;
+
+    try {
+      const tempHandle = await current.getFileHandle(tempName, { create: true });
+      const writable = await tempHandle.createWritable();
+      await writable.write(content as any);
+      await writable.close();
+
+      // Atomic rename via move() (OPFS native)
+      if (typeof (tempHandle as any).move === "function") {
+        await (tempHandle as any).move(current, fileName);
+      } else {
+        // Fallback: delete original, create new from temp content
+        try { await current.removeEntry(fileName); } catch { /* may not exist yet */ }
+        const finalHandle = await current.getFileHandle(fileName, { create: true });
+        const finalWritable = await finalHandle.createWritable();
+        const tempFile = await tempHandle.getFile();
+        await finalWritable.write(await tempFile.arrayBuffer() as any);
+        await finalWritable.close();
+        try { await current.removeEntry(tempName); } catch { /* cleanup */ }
+      }
+    } catch (err) {
+      // Clean up temp file on any error
+      try { await current.removeEntry(tempName); } catch { /* ignore */ }
+      throw err;
+    }
   }
 
   async listDirectory(path: string): Promise<FileNode[]> {
@@ -267,11 +294,12 @@ export class BrowserFS implements FileSystemBackend {
         await oldFileHandle.move(newDir, newName);
       } else {
         // Fallback: copy and delete
+        // P0 fix: use arrayBuffer() to preserve binary content (text() mangles non-UTF-8)
         const file = await oldFileHandle.getFile();
-        const content = await file.text();
+        const buffer = await file.arrayBuffer();
         const newFileHandle = await newDir.getFileHandle(newName, { create: true });
         const writable = await newFileHandle.createWritable();
-        await writable.write(content);
+        await writable.write(buffer);
         await writable.close();
         
         await this.deleteEntry(oldPath);

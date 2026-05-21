@@ -56,7 +56,7 @@ export async function loadProject(path: string): Promise<FileNode[]> {
 
 /** Lee el contenido de un archivo como string. */
 export async function readFileContent(path: string): Promise<string> {
-  return getFileSystemBackend().readFile(path);
+  return getFileSystemBackend().readFile(path) as Promise<string>;
 }
 
 /** Escribe contenido en un archivo. */

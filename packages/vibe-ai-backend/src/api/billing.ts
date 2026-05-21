@@ -1,9 +1,9 @@
 import { Resource as SSTResource } from "sst";
 import * as crypto from "crypto";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import * as jose from "jose";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, UpdateCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 
 const Resource = SSTResource as any;
 
@@ -19,7 +19,11 @@ function base64url(buf: Buffer) {
 function verifyLegacyJWT(token: string, secret: string) {
   const [h, b, sig] = token.split(".");
   const expectedSig = base64url(createHmac("sha256", secret).update(`${h}.${b}`).digest());
-  if (sig !== expectedSig) throw new Error("Invalid signature");
+  const sigBuf = Buffer.from(sig);
+  const expectedSigBuf = Buffer.from(expectedSig);
+  if (sigBuf.length !== expectedSigBuf.length || !timingSafeEqual(sigBuf, expectedSigBuf)) {
+    throw new Error("Invalid signature");
+  }
   const payload = JSON.parse(Buffer.from(b, 'base64').toString('utf8'));
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp && now > payload.exp) throw new Error("Token expired");
@@ -72,7 +76,7 @@ async function extractAuthEmail(event: any): Promise<string | null> {
   return null;
 }
 
-const awsConfig = process.env.LOCALSTACK_ENDPOINT ? {
+const awsConfig = (process.env.LOCALSTACK_ENDPOINT && process.env.NODE_ENV !== "production") ? {
   endpoint: process.env.LOCALSTACK_ENDPOINT,
   region: process.env.AWS_REGION || "us-east-1",
   credentials: { accessKeyId: "test", secretAccessKey: "test" }
@@ -121,9 +125,56 @@ export async function handler(event: any) {
     "Access-Control-Allow-Credentials": "true",
   };
 
-  // ── GET /checkout-sign ──────────────────────────────────────────
+  const rawPath = event.requestContext?.http?.path || "";
+  const path = rawPath.replace(/^\/billing/, "");
+
+  // ── GET /checkout-sign or GET /payments ──────────────────────────
   if (method === "GET") {
     const headers = corsHeaders;
+
+    if (path === "/payments" || path === "/transactions") {
+      const email = await extractAuthEmail(event);
+      if (!email) {
+        return {
+          statusCode: 401,
+          headers,
+          body: JSON.stringify({ error: "Sesión inválida o expirada" }),
+        };
+      }
+
+      try {
+        const response = await docClient.send(new ScanCommand({
+          TableName: Resource.Transactions.name,
+          FilterExpression: "user_id = :user_id",
+          ExpressionAttributeValues: {
+            ":user_id": email,
+          },
+        }));
+
+        const items = (response.Items || []).map((item: any) => ({
+          id: item.id,
+          date: item.created_at || new Date().toISOString(),
+          amount: (item.amount_in_cents || 0) / 100,
+          currency: item.currency || "COP",
+          status: item.status || "APPROVED",
+          product: item.product_id === "VIBE_PRO" ? "Vibe Studio Pro" : item.product_id === "VIBE_STUDENT" ? "Vibe Estudiante" : item.product_id,
+          reference: item.id,
+        })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ items }),
+        };
+      } catch (err: any) {
+        console.error("[payments] Error:", err);
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ error: "Error interno al consultar transacciones" }),
+        };
+      }
+    }
 
     // ── AUTH: JWT preferred, query-string userId fallback ──
     // Vibe Studio app sends JWT cookie → extractAuthEmail works.
@@ -155,7 +206,7 @@ export async function handler(event: any) {
       return { statusCode: 500, headers, body: JSON.stringify({ error: "Configuración incompleta" }) };
     }
 
-    const reference = `${productKey}_${userId}_${Date.now()}`;
+    const reference = `${productKey}::${userId}::${Date.now()}`;
 
     // Wompi integrity: SHA256(reference + amountInCents + currency + integritySecret)
     const concatenation = `${reference}${product.amountInCents}${product.currency}${integritySecret}`;
@@ -216,56 +267,74 @@ export async function handler(event: any) {
 
     const expectedChecksum = crypto.createHash('sha256').update(signatureString).digest('hex');
 
-    if (expectedChecksum !== signature.checksum) {
+    const checksumBuf = Buffer.from(signature.checksum);
+    const expectedBuf = Buffer.from(expectedChecksum);
+    if (checksumBuf.length !== expectedBuf.length || !timingSafeEqual(checksumBuf, expectedBuf)) {
       console.error("Firma de Wompi inválida", { expectedChecksum, received: signature.checksum });
       return { statusCode: 401, body: "Unauthorized - Invalid Signature" };
     }
 
     // 2. Procesar el evento
     if (body.event === "transaction.updated" && tx.status === "APPROVED") {
-      const refParts = tx.reference.split("_");
-      
-      let productId = "VIBE_STUDIO";
+      let productId = "VIBE_STUDENT";
       let userId = "";
-      
-      if (refParts.length >= 3) {
-        // Formato esperado: PREFIX_OPCIONAL_{userId}_{timestamp}
-        userId = refParts[refParts.length - 2];
-        const prefixParts = refParts.slice(0, refParts.length - 2);
-        productId = prefixParts.join("_");
 
-        if (productId === "VIBE_PRO" || productId === "VIBE_STUDIO") {
-          productId = "VIBE_STUDIO";
+      // New format uses :: as delimiter (safe for emails with underscores)
+      if (tx.reference.includes("::")) {
+        const refParts = tx.reference.split("::");
+        if (refParts.length >= 3) {
+          productId = refParts[0];
+          userId = refParts[1];
+          // refParts[2] is the timestamp
+        } else if (refParts.length === 2) {
+          productId = refParts[0];
+          userId = refParts[1];
         }
-      } else if (refParts.length === 2) {
-        // Fallback poco probable: {PRODUCT}_{userId} sin timestamp
-        productId = refParts[0];
-        userId = refParts[1];
       } else {
-        console.error("Referencia no reconocible, ignorando userId:", tx.reference);
+        // Legacy format: VIBE_STUDENT_{userId}_{timestamp}
+        const refParts = tx.reference.split("_");
+        if (refParts.length >= 3) {
+          userId = refParts[refParts.length - 2];
+          const prefixParts = refParts.slice(0, refParts.length - 2);
+          productId = prefixParts.join("_");
+        } else if (refParts.length === 2) {
+          productId = refParts[0];
+          userId = refParts[1];
+        } else {
+          console.error("Referencia no reconocible, ignorando:", tx.reference);
+        }
       }
 
       try {
-        // A) Registrar transacción
-        await docClient.send(new PutCommand({
-          TableName: Resource.Transactions.name,
-          Item: {
-            id: tx.id,
-            user_id: userId,
-            product_id: productId,
-            amount_in_cents: tx.amount_in_cents,
-            currency: tx.currency,
-            status: tx.status,
-            created_at: new Date().toISOString()
+        // A) Registrar transacción (idempotent — reject duplicates)
+        try {
+          await docClient.send(new PutCommand({
+            TableName: Resource.Transactions.name,
+            Item: {
+              id: tx.id,
+              user_id: userId,
+              product_id: productId,
+              amount_in_cents: tx.amount_in_cents,
+              currency: tx.currency,
+              status: tx.status,
+              created_at: new Date().toISOString()
+            },
+            ConditionExpression: "attribute_not_exists(id)",
+          }));
+        } catch (dupErr: any) {
+          if (dupErr.name === "ConditionalCheckFailedException") {
+            console.info(`Webhook duplicado ignorado para tx ${tx.id}`);
+            return { statusCode: 200, headers: corsHeaders, body: "OK (duplicate)" };
           }
-        }));
+          throw dupErr;
+        }
 
         // B) Actualizar perfil del usuario
-        if (productId === "VIBE_STUDIO" || productId === "VIBE_STUDENT") {
+        if (productId === "VIBE_PRO" || productId === "VIBE_STUDENT") {
           const newPlan = productId === "VIBE_STUDENT" ? "estudiante" : "pro";
           await docClient.send(new UpdateCommand({
             TableName: Resource.Users.name,
-            Key: { email: userId }, // El userId que viene de Wompi debe ser el email
+            Key: { email: userId },
             UpdateExpression: "SET #plan = :plan, updated_at = :updated_at",
             ExpressionAttributeNames: {
               "#plan": "plan"
@@ -275,17 +344,22 @@ export async function handler(event: any) {
               ":updated_at": new Date().toISOString()
             }
           }));
+          console.info(`Plan actualizado: ${userId} → ${newPlan} (tx: ${tx.id})`);
+        } else {
+          console.warn(`Producto desconocido en referencia: ${productId} (tx: ${tx.reference})`);
         }
       } catch (dbError) {
         console.error("Error actualizando base de datos:", dbError);
         return { statusCode: 500, body: "Error interno de base de datos" };
       }
+    } else if (body.event === "transaction.updated" && tx.status !== "APPROVED") {
+      console.info(`Transacción no aprobada: ${tx.id} → status=${tx.status}, ref=${tx.reference}`);
     }
 
-    return { statusCode: 200, body: "OK" };
+    return { statusCode: 200, headers: corsHeaders, body: "OK" };
   } catch (err: any) {
     console.error("Error en el webhook de Wompi", err);
-    return { statusCode: 500, body: "Error procesando el webhook" };
+    return { statusCode: 500, headers: corsHeaders, body: "Error procesando el webhook" };
   }
 }
 

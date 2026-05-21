@@ -64,7 +64,7 @@ export async function* streamAwsSse(
   signal?: AbortSignal,
   customApiKey?: string,
   options?: { action?: string; subagentId?: string; customInstructions?: string; modelId?: string }
-): AsyncGenerator<{ type: "text" | "reasoning" | "error" | "done" | "mcp_tool_request"; content: string; tool?: string; args?: Record<string, unknown>; errorType?: "network" | "rate-limit" | "abort" | "server" }> {
+): AsyncGenerator<{ type: "text" | "reasoning" | "error" | "done" | "mcp_tool_request"; content: string; tool?: string; args?: Record<string, unknown>; errorType?: "network" | "rate-limit" | "abort" | "server"; toolCallId?: string }> {
   try {
     const token = useAuthStore.getState().session?.token;
     const headers: Record<string, string> = {
@@ -147,6 +147,7 @@ export async function* streamAwsSse(
             yield { type: "done", content: "" };
             return; // Termina el generador
           }
+          if (dataStr === "") continue;
 
           try {
             const parsed = JSON.parse(dataStr);
@@ -157,7 +158,8 @@ export async function* streamAwsSse(
                  type: "mcp_tool_request", 
                  content: "", 
                  tool: parsed.tool, 
-                 args: parsed.args 
+                 args: parsed.args,
+                 toolCallId: parsed.toolCallId
                };
             }
             // Error inline del backend (AI SDK runtime errors)

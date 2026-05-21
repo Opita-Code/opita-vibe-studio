@@ -367,7 +367,8 @@ async function toolApplyDiff(
 
     if (occurrences === 1) {
       // Caso ideal: exactamente 1 match
-      newContent = content.replace(search, replace);
+      // Use function form to prevent $1/$& replacement pattern injection
+      newContent = content.replace(search, () => replace);
     } else if (occurrences === 0) {
       // Fallback: intentar con whitespace normalizado
       const normalizeWs = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -581,12 +582,9 @@ async function toolDeleteFile(
       const existing = virtualRead(path);
       if (existing !== null) saveSnapshot(cleanPath, existing, "delete");
 
-      const store = useProjectStore.getState();
-      if (store.openTabs.includes(fullVirtualPath)) {
-        store.closeTab(fullVirtualPath);
-      }
-      // Remove from fileContents by setting empty and closing
-      // (Zustand doesn't have a delete method, closeTab cleans up)
+      // P0 fix: actually remove the file from memory + file tree
+      useProjectStore.getState().deleteFileContent(fullVirtualPath);
+
       return {
         name: "delete_file",
         success: true,
@@ -907,7 +905,7 @@ async function toolExecuteCommand(
 
     return {
       name: "execute_command",
-      success: true,
+      success: result.exit_code === 0,
       result: output,
     };
   } catch (err) {

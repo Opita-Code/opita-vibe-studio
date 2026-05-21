@@ -26,6 +26,7 @@ import { useGamificationStore } from "@/stores/gamification";
 import { XPParticleSystem } from "@/components/gamification/XPParticleSystem";
 import { analytics } from "@/lib/analytics";
 import { useConsentStore } from "@/stores/consent";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 function GlobalKeybindings() {
   useKeybindings();
@@ -403,6 +404,7 @@ export default function App() {
   }
 
   return (
+    <ErrorBoundary name="App">
     <Suspense fallback={
       <div className="flex h-full w-full items-center justify-center bg-obsidian-900">
         <div className="w-8 h-8 rounded-full border-2 border-aura-cyan border-t-transparent animate-spin"></div>
@@ -454,5 +456,6 @@ export default function App() {
         </div>
       </div>
     </Suspense>
+    </ErrorBoundary>
   );
 }

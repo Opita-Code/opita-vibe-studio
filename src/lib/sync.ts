@@ -3,6 +3,7 @@ import { exportProjectAsZip } from "./export";
 import type { FileNode } from "./types";
 import type { FileSystemBackend } from "./fs-backend/types";
 import { useAuthStore } from "@/stores/auth";
+import { buildAuthHeaders } from "@/lib/api-config";
 import { STORAGE_LIMITS } from "./tokens";
 import { usePurchaseIntentStore } from "@/hooks/usePurchaseIntent";
 
@@ -58,7 +59,7 @@ export class SyncEngine {
       const urlRes = await fetch(`${API_BASE_URL}`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${token}`,
+          ...buildAuthHeaders(token),
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ action: "upload", projectId })
@@ -132,7 +133,7 @@ export class SyncEngine {
       const urlRes = await fetch(`${API_BASE_URL}`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${token}`,
+          ...buildAuthHeaders(token),
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ action: "download", projectId })

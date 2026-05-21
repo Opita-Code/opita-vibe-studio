@@ -2,11 +2,12 @@ import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 import { useGamificationStore } from "@/stores/gamification";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
-import { useState, useRef, useEffect } from "react";
+import { useShallow } from "zustand/react/shallow";
+import React, { useState, useRef, useEffect } from "react";
 import { XPBar } from "@/components/gamification/XPBar";
 import { requiresTier, getPlanName } from "@/lib/plan-registry";
 
-export function ActivityBar() {
+export const ActivityBar = React.memo(function ActivityBar() {
   const { 
     activeSidebar, 
     setActiveSidebar, 
@@ -16,9 +17,29 @@ export function ActivityBar() {
     setBugReportVisible,
     chatFullscreen,
     toggleChatFullscreen,
-  } = useUIStore();
-  const { authMode, user } = useAuthStore();
-  const { missionPanelOpen, setMissionPanelOpen, missions, fetchProfile, profile } = useGamificationStore();
+  } = useUIStore(useShallow((state) => ({
+    activeSidebar: state.activeSidebar,
+    setActiveSidebar: state.setActiveSidebar,
+    activityBarVisible: state.activityBarVisible,
+    setSettingsVisible: state.setSettingsVisible,
+    settingsVisible: state.settingsVisible,
+    setBugReportVisible: state.setBugReportVisible,
+    chatFullscreen: state.chatFullscreen,
+    toggleChatFullscreen: state.toggleChatFullscreen,
+  })));
+
+  const { authMode, user } = useAuthStore(useShallow((state) => ({
+    authMode: state.authMode,
+    user: state.user,
+  })));
+
+  const { missionPanelOpen, setMissionPanelOpen, missions, fetchProfile, profile } = useGamificationStore(useShallow((state) => ({
+    missionPanelOpen: state.missionPanelOpen,
+    setMissionPanelOpen: state.setMissionPanelOpen,
+    missions: state.missions,
+    fetchProfile: state.fetchProfile,
+    profile: state.profile,
+  })));
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -287,4 +308,4 @@ export function ActivityBar() {
       </div>
     </div>
   );
-}
+});

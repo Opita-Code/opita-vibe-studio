@@ -204,23 +204,7 @@ async function checkModelRPM(userId: string, plan: string, modelId: string): Pro
   const pk = `user#${userId}`;
 
   try {
-    const result = await docClient.send(new GetCommand({
-      TableName: Resource.TokenUsage.name,
-      Key: { pk, sk: minuteKey },
-    }));
-
-    const currentCount = (result.Item?.requestCount as number) || 0;
-
-    if (currentCount >= rpm) {
-      // Calculate seconds until next minute
-      const nextMinute = new Date(now);
-      nextMinute.setSeconds(0, 0);
-      nextMinute.setMinutes(nextMinute.getMinutes() + 1);
-      return { allowed: false, retryAfterSeconds: Math.ceil((nextMinute.getTime() - now.getTime()) / 1000) };
-    }
-
-    // Increment counter atomically
-    await docClient.send(new UpdateCommand({
+    const updateResult = await docClient.send(new UpdateCommand({
       TableName: Resource.TokenUsage.name,
       Key: { pk, sk: minuteKey },
       UpdateExpression: "ADD requestCount :one SET expiresAt = if_not_exists(expiresAt, :ttl)",
@@ -228,7 +212,18 @@ async function checkModelRPM(userId: string, plan: string, modelId: string): Pro
         ":one": 1,
         ":ttl": Math.floor(now.getTime() / 1000) + 120, // TTL: 2 minutes
       },
+      ReturnValues: "UPDATED_NEW",
     }));
+
+    const newCount = (updateResult.Attributes?.requestCount as number) || 1;
+
+    if (newCount > rpm) {
+      // Calculate seconds until next minute
+      const nextMinute = new Date(now);
+      nextMinute.setSeconds(0, 0);
+      nextMinute.setMinutes(nextMinute.getMinutes() + 1);
+      return { allowed: false, retryAfterSeconds: Math.ceil((nextMinute.getTime() - now.getTime()) / 1000) };
+    }
 
     return { allowed: true, retryAfterSeconds: 0 };
   } catch (err) {
@@ -345,7 +340,7 @@ interface ChatPayload {
 type ContentPart =
   | { type: "text"; text: string }
   | { type: "image"; image: string }
-  | { type: "file"; data: string; mediaType: string };
+  | { type: "file"; data: string | URL; mimeType: string };
 
 interface StreamChunk {
   type: string;
@@ -577,7 +572,7 @@ export const handler = awslambda.streamifyResponse(
               imageAttachments.push(att);
             } else if (att.data.startsWith("http")) {
               // Es una URL de S3 (archivo grande subido)
-              contentParts.push({ type: "file", data: att.data, mediaType: att.contentType });
+              contentParts.push({ type: "file", data: new URL(att.data), mimeType: att.contentType });
             } else {
               textContent = `\n--- Archivo adjunto: ${att.name} ---\n\`\`\`\n${att.data}\n\`\`\`\n` + textContent;
             }
@@ -1005,6 +1000,10 @@ export const handler = awslambda.streamifyResponse(
         responseStream.write(`data: [DONE]\n\n`);
         responseStream.end();
       }
+    } else {
+      responseStream.setContentType("application/json");
+      responseStream.write(JSON.stringify({ error: "Acción desconocida" }));
+      responseStream.end();
     }
   }
 );

@@ -5,8 +5,13 @@ import { CognitoIdentityProviderClient, AdminUpdateUserAttributesCommand } from 
 import { Resource as SSTResource } from "sst";
 import { z } from "zod";
 import * as jose from "jose";
-import { randomUUID, createHmac, scryptSync, randomBytes, timingSafeEqual } from "crypto";
+import { randomUUID, createHmac, scryptSync, randomBytes, timingSafeEqual, randomInt } from "crypto";
 import { getProfile, getMissions, completeMission, awardXP } from "./gamification.js";
+
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("FATAL: JWT_SECRET is not set");
+}
 
 // ─── Opita Links SDK (inline) ───────────────────────────────────────────────
 async function shortenUrl(url: string, options?: { ttl?: number; meta?: Record<string, string> }): Promise<string> {
@@ -53,7 +58,11 @@ function signJWT(payload: any, secret: string, expiresInMinutes: number) {
 function verifyJWT(token: string, secret: string) {
   const [h, b, sig] = token.split(".");
   const expectedSig = base64url(createHmac("sha256", secret).update(`${h}.${b}`).digest());
-  if (sig !== expectedSig) throw new Error("Invalid signature");
+  const sigBuf = Buffer.from(sig);
+  const expectedSigBuf = Buffer.from(expectedSig);
+  if (sigBuf.length !== expectedSigBuf.length || !timingSafeEqual(sigBuf, expectedSigBuf)) {
+    throw new Error("Invalid signature");
+  }
   const payload = JSON.parse(Buffer.from(b, 'base64').toString('utf8'));
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp && now > payload.exp) throw new Error("Token expired");
@@ -61,15 +70,14 @@ function verifyJWT(token: string, secret: string) {
 }
 
 // ─── Cognito Plan Extraction (source of truth) ─────────────────
-// Decode Cognito ID token (RSA-signed) WITHOUT verification.
-// Safe because: plan is used for display/quota, not authorization.
-// Actual auth enforcement happens in chat.ts which does JWKS verification.
-function decodeJWTPayload(token: string): any {
+const COGNITO_ISSUER = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_LItAcj2Aa";
+const JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
+
+async function verifyCognitoToken(token: string): Promise<any | null> {
   try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    return JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-  } catch {
+    const decoded = await jose.jwtVerify(token, JWKS, { issuer: COGNITO_ISSUER });
+    return decoded.payload;
+  } catch (e) {
     return null;
   }
 }
@@ -80,7 +88,7 @@ async function resolvePlan(event: any, email: string): Promise<string> {
   const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
   const idMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
   if (idMatch) {
-    const claims = decodeJWTPayload(idMatch[1]);
+    const claims = await verifyCognitoToken(idMatch[1]);
     if (claims?.['custom:plan']) {
       return claims['custom:plan'];
     }
@@ -107,7 +115,7 @@ function verifyPassword(password: string, hash: string, salt: string): boolean {
 
 const Resource = SSTResource as any;
 
-const awsConfig = process.env.LOCALSTACK_ENDPOINT ? {
+const awsConfig = (process.env.LOCALSTACK_ENDPOINT && process.env.NODE_ENV !== "production") ? {
   endpoint: process.env.LOCALSTACK_ENDPOINT,
   region: process.env.AWS_REGION || "us-east-1",
   credentials: { accessKeyId: "test", secretAccessKey: "test" }
@@ -139,24 +147,12 @@ const EMAIL_REPLY_TO = ["soporte@opitacode.com"];
  * 3. opita_session cookie (Legacy Magic Link — HMAC verified)
  */
 async function extractAuthEmail(event: any): Promise<string | null> {
-  const COGNITO_ISSUER = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_LItAcj2Aa";
-  const JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
-
-  async function verifyCognitoToken(token: string): Promise<string | null> {
-    try {
-      const decoded = await jose.jwtVerify(token, JWKS, { issuer: COGNITO_ISSUER });
-      return (decoded.payload.email || decoded.payload.sub) as string | null;
-    } catch (e) {
-      return null;
-    }
-  }
-
   // 1. Bearer token from Authorization header (Cognito JWT)
   const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (bearerToken) {
-    const email = await verifyCognitoToken(bearerToken);
-    if (email) return email;
+    const claims = await verifyCognitoToken(bearerToken);
+    if (claims?.email || claims?.sub) return (claims.email || claims.sub) as string;
   }
 
   const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
@@ -164,8 +160,8 @@ async function extractAuthEmail(event: any): Promise<string | null> {
   // 2. Cognito ID token cookie
   const cognitoMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
   if (cognitoMatch) {
-    const email = await verifyCognitoToken(cognitoMatch[1]);
-    if (email) return email;
+    const claims = await verifyCognitoToken(cognitoMatch[1]);
+    if (claims?.email || claims?.sub) return (claims.email || claims.sub) as string;
   }
 
   // 3. Legacy opita_session cookie (Magic Link HMAC)
@@ -430,7 +426,13 @@ function getCorsHeaders(event: any) {
   const origin = event.headers?.origin || event.headers?.Origin || "";
   let allowedOrigin = "https://opitacode.com";
   
-  if (origin === "https://opitacode.com" || origin.endsWith(".opitacode.com") || origin.startsWith("http://localhost:")) {
+  if (origin === "https://opitacode.com" || 
+      origin === "https://www.opitacode.com" || 
+      origin === "https://dev.opitacode.com" || 
+      origin === "https://vibe.opitacode.com" || 
+      origin === "https://cuenta.opitacode.com" || 
+      origin.startsWith("http://localhost:") || 
+      origin.startsWith("tauri://")) {
     allowedOrigin = origin;
   }
 
@@ -672,6 +674,10 @@ export const handler = async (event: any) => {
         TableName: Resource.Users.name,
         Item: {
           email: email,
+          name: email.split("@")[0],
+          plan: "free",
+          email_verified: true,
+          created_at: new Date().toISOString(),
           last_login: new Date().toISOString(),
         },
         ConditionExpression: "attribute_not_exists(email)"
@@ -724,42 +730,126 @@ export const handler = async (event: any) => {
     }
 
     if (path === "/auth/me" && method === "GET") {
-      // Leer cookie
-      const cookies = event.cookies || [];
-      const cookieHeader = event.headers.cookie || "";
-      
-      let sessionToken = null;
-      
-      // Extraer opita_session de cookie string
-      const match = cookieHeader.match(/opita_session=([^;]+)/);
-      if (match) {
-        sessionToken = match[1];
-      } else {
-        // En HTTP API v2, los cookies pueden venir en el array event.cookies
-        for (const c of cookies) {
-          if (c.startsWith("opita_session=")) {
-            sessionToken = c.split("=")[1];
-            break;
-          }
-        }
-      }
-
-      if (!sessionToken) {
+      const email = await extractAuthEmail(event);
+      if (!email) {
         return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
       }
 
       try {
-        const payload = verifyJWT(sessionToken, process.env.JWT_SECRET || "") as any;
+        // Fetch user from DynamoDB
+        const userDbResult = await docClient.send(new GetCommand({
+          TableName: Resource.Users.name,
+          Key: { email }
+        }));
+        const userDb = userDbResult.Item || {};
         
-        const plan = await resolvePlan(event, payload.email);
+        const plan = await resolvePlan(event, email);
 
         return {
           statusCode: 200,
           headers: getCorsHeaders(event),
-          body: JSON.stringify({ user: { email: payload.email, role: payload.role, plan } })
+          body: JSON.stringify({
+            user: {
+              email,
+              role: userDb.role || "user",
+              plan,
+              given_name: userDb.given_name || userDb.name || "",
+              family_name: userDb.family_name || "",
+              phone_number: userDb.phone_number || "",
+              picture: userDb.picture || ""
+            }
+          })
         };
       } catch (e) {
         return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Invalid session" }) };
+      }
+    }
+
+    if (path === "/auth/update-profile" && method === "POST") {
+      const email = await extractAuthEmail(event);
+      if (!email) {
+        return {
+          statusCode: 401,
+          headers: getCorsHeaders(event),
+          body: JSON.stringify({ error: "Sesión inválida o expirada" })
+        };
+      }
+
+      try {
+        const body = JSON.parse(rawBody);
+        const { given_name, family_name, phone_number, picture } = body;
+
+        // 1. Update DynamoDB Users table
+        const updateFields: string[] = [];
+        const expressionAttributeNames: Record<string, string> = {};
+        const expressionAttributeValues: Record<string, any> = {};
+
+        if (given_name !== undefined) {
+          updateFields.push("#gn = :gn");
+          expressionAttributeNames["#gn"] = "given_name";
+          expressionAttributeValues[":gn"] = given_name;
+        }
+        if (family_name !== undefined) {
+          updateFields.push("#fn = :fn");
+          expressionAttributeNames["#fn"] = "family_name";
+          expressionAttributeValues[":fn"] = family_name;
+        }
+        if (phone_number !== undefined) {
+          updateFields.push("#pn = :pn");
+          expressionAttributeNames["#pn"] = "phone_number";
+          expressionAttributeValues[":pn"] = phone_number;
+        }
+        if (picture !== undefined) {
+          updateFields.push("#pic = :pic");
+          expressionAttributeNames["#pic"] = "picture";
+          expressionAttributeValues[":pic"] = picture;
+        }
+
+        if (updateFields.length > 0) {
+          updateFields.push("updated_at = :updated_at");
+          expressionAttributeValues[":updated_at"] = new Date().toISOString();
+
+          await docClient.send(new UpdateCommand({
+            TableName: Resource.Users.name,
+            Key: { email },
+            UpdateExpression: `SET ${updateFields.join(", ")}`,
+            ExpressionAttributeNames: expressionAttributeNames,
+            ExpressionAttributeValues: expressionAttributeValues
+          }));
+        }
+
+        // 2. Also try to update Cognito if the user exists in Cognito User Pool
+        const COGNITO_POOL_ID = "us-east-1_LItAcj2Aa";
+        const cognitoAttributes = [];
+        if (given_name !== undefined) cognitoAttributes.push({ Name: "given_name", Value: given_name });
+        if (family_name !== undefined) cognitoAttributes.push({ Name: "family_name", Value: family_name });
+        if (phone_number !== undefined) cognitoAttributes.push({ Name: "phone_number", Value: phone_number });
+        if (picture !== undefined) cognitoAttributes.push({ Name: "picture", Value: picture });
+
+        if (cognitoAttributes.length > 0) {
+          try {
+            await cognitoClient.send(new AdminUpdateUserAttributesCommand({
+              UserPoolId: COGNITO_POOL_ID,
+              Username: email,
+              UserAttributes: cognitoAttributes
+            }));
+          } catch (cognitoErr: any) {
+            console.warn(`[update-profile] Cognito sync skipped or failed for ${email}:`, cognitoErr.message || cognitoErr);
+          }
+        }
+
+        return {
+          statusCode: 200,
+          headers: getCorsHeaders(event),
+          body: JSON.stringify({ success: true, message: "Perfil actualizado con éxito" })
+        };
+      } catch (err: any) {
+        console.error("[update-profile] Error:", err);
+        return {
+          statusCode: 500,
+          headers: getCorsHeaders(event),
+          body: JSON.stringify({ error: "Error interno al actualizar el perfil" })
+        };
       }
     }
 
@@ -892,34 +982,10 @@ export const handler = async (event: any) => {
 
     // Projects endpoints
     if (path === "/projects" && (method === "GET" || method === "POST")) {
-      const cookies = event.cookies || [];
-      const cookieHeader = event.headers.cookie || "";
-      let sessionToken = null;
-
-      const match = cookieHeader.match(/opita_session=([^;]+)/);
-      if (match) {
-        sessionToken = match[1];
-      } else {
-        for (const c of cookies) {
-          if (c.startsWith("opita_session=")) {
-            sessionToken = c.split("=")[1];
-            break;
-          }
-        }
+      const email = await extractAuthEmail(event);
+      if (!email) {
+        return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Unauthorized" }) };
       }
-
-      if (!sessionToken) {
-        return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized" }) };
-      }
-
-      let payload: any;
-      try {
-        payload = verifyJWT(sessionToken, process.env.JWT_SECRET || "");
-      } catch (e) {
-        return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized" }) };
-      }
-
-      const email = payload.email as string;
 
       if (method === "GET") {
         const response = await docClient.send(new QueryCommand({
@@ -936,6 +1002,7 @@ export const handler = async (event: any) => {
 
         return {
           statusCode: 200,
+          headers: getCorsHeaders(event),
           body: JSON.stringify(projects),
         };
       }
@@ -944,7 +1011,7 @@ export const handler = async (event: any) => {
         const body = JSON.parse(rawBody);
         
         if (!body.title || !body.description) {
-          return { statusCode: 400, body: JSON.stringify({ error: "Missing fields" }) };
+          return { statusCode: 400, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Missing fields" }) };
         }
 
         const newProject = {
@@ -964,6 +1031,7 @@ export const handler = async (event: any) => {
 
         return {
           statusCode: 201,
+          headers: getCorsHeaders(event),
           body: JSON.stringify([newProject]),
         };
       }
@@ -1019,7 +1087,7 @@ export const handler = async (event: any) => {
       }));
 
       // Send email verification code (non-blocking — user can use app immediately)
-      const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const verifyCode = randomInt(100000, 1000000).toString();
       const verifyExpiry = Math.floor(Date.now() / 1000) + 1800; // 30 minutes
 
       await docClient.send(new PutCommand({
@@ -1111,12 +1179,11 @@ export const handler = async (event: any) => {
       }
 
       // Update last_login
-      await docClient.send(new PutCommand({
+      await docClient.send(new UpdateCommand({
         TableName: Resource.Users.name,
-        Item: {
-          ...userResult.Item,
-          last_login: new Date().toISOString(),
-        }
+        Key: { email },
+        UpdateExpression: "SET last_login = :ll",
+        ExpressionAttributeValues: { ":ll": new Date().toISOString() },
       }));
 
       const sessionToken = signJWT(
@@ -1590,7 +1657,14 @@ export const handler = async (event: any) => {
       if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
       const plan = await resolvePlan(event, email);
       const body = JSON.parse(rawBody);
-      const result = await awardXP(email, body.action || "chat_message", plan);
+      // SECURITY: Only allow passive XP actions that are safe for client-triggered awards.
+      // Mission completions and streak bonuses are awarded server-side by completeMission().
+      const ALLOWED_PASSIVE_ACTIONS = new Set(["chat_message", "template_use", "project_create", "feature_explore", "daily_login"]);
+      const action = body.action || "chat_message";
+      if (!ALLOWED_PASSIVE_ACTIONS.has(action)) {
+        return { statusCode: 403, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Acción no permitida" }) };
+      }
+      const result = await awardXP(email, action, plan);
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
@@ -1598,12 +1672,13 @@ export const handler = async (event: any) => {
       };
     }
 
-    return { statusCode: 404, body: "Not found" };
+    return { statusCode: 404, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Not found" }) };
 
   } catch (err: any) {
     console.error("Auth Error:", err.message || err);
     return {
       statusCode: 500,
+      headers: getCorsHeaders(event),
       body: JSON.stringify({ error: "Internal Server Error" }),
     };
   }

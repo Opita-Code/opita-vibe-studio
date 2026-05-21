@@ -1,17 +1,19 @@
 import type { AIProvider, ChatChunk, ChatOptions, Message } from "@/lib/types";
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { getValidToken } from "@/lib/chatgpt-auth";
 
-// Generador simple de UUID v4 para los IDs de mensajes de ChatGPT
-function uuidv4() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
-    const r = (Math.random() * 16) | 0,
-      v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
+// ─── Codex Responses API Provider ──────────────────────────────
+//
+// Consumes https://api.openai.com/v1/responses using OAuth tokens
+// obtained via the Codex PKCE / Device Code flow.
+//
+// Uses the same API surface as OpenCode — NOT the legacy
+// backend-api/conversation scraping approach.
 
-export function createChatGPTWebProvider(sessionToken?: string): AIProvider {
-  const token = sessionToken ?? "";
+const RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses";
+const DEFAULT_MODEL = "codex-mini";
+
+export function createChatGPTWebProvider(accessToken?: string): AIProvider {
+  const token = accessToken ?? "";
   const configured = token.length > 0;
 
   const countTokens = (messages: Message[]): number => {
@@ -21,59 +23,81 @@ export function createChatGPTWebProvider(sessionToken?: string): AIProvider {
 
   const provider: AIProvider = {
     id: "chatgpt-web",
-    name: "ChatGPT (WebAuth)",
+    name: "Codex (ChatGPT Plus)",
     tier: "byok",
 
     chat: async function* (
       messages: Message[],
-      _options?: ChatOptions,
+      options?: ChatOptions,
     ): AsyncGenerator<ChatChunk> {
       if (!configured) {
         yield {
           type: "error",
-          content: "ChatGPT WebAuth no está configurado. Inicia sesión en la configuración.",
+          content:
+            "Codex no está conectado. Inicia sesión con tu cuenta de ChatGPT Plus en Configuración → Conexiones IA.",
         };
         return;
       }
 
       try {
-        // Obtenemos solo el último mensaje del usuario para enviarlo, 
-        // ya que la API web maneja el contexto internamente si le pasáramos el conversation_id.
-        // Por ahora, para simplificar y que funcione como stateless, creamos una nueva converación cada vez.
-        // Opcional: concatenar el historial en el prompt si queremos contexto sin manejar UUIDs complejos.
-        const fullPrompt = messages.map(m => `${m.role.toUpperCase()}:\n${m.content}`).join("\n\n") + "\n\nASSISTANT:\n";
+        // Auto-refresh token if expired
+        let activeToken: string;
+        try {
+          activeToken = await getValidToken();
+        } catch {
+          // Fallback to stored token if refresh fails
+          activeToken = token;
+        }
+
+        // Build Responses API payload
+        const input = messages.map((m) => ({
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: m.content,
+        }));
 
         const payload = {
-          action: "next",
-          messages: [
-            {
-              id: uuidv4(),
-              author: { role: "user" },
-              content: { content_type: "text", parts: [fullPrompt] },
-              metadata: {},
-            },
-          ],
-          parent_message_id: uuidv4(),
-          model: "text-davinci-002-render-sha", // Modelo base gratuito de la web
-          timezone_offset_min: -180,
-          history_and_training_disabled: true,
+          model: options?.model ?? DEFAULT_MODEL,
+          input,
+          stream: true,
         };
 
-        const response = await tauriFetch("https://chatgpt.com/backend-api/conversation", {
+        // Use tauriFetch in Tauri to avoid CORS, standard fetch in web
+        const doFetch =
+          typeof window !== "undefined" && "__TAURI__" in window
+            ? (await import("@tauri-apps/plugin-http")).fetch
+            : globalThis.fetch;
+
+        const response = await doFetch(RESPONSES_ENDPOINT, {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${token}`,
+            Authorization: `Bearer ${activeToken}`,
             "Content-Type": "application/json",
-            "Accept": "text/event-stream",
-            "OAI-Device-Id": uuidv4(),
-            "OAI-Language": "es-CO",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
           },
-          body: JSON.stringify(payload)
-        });
+          body: JSON.stringify(payload),
+          signal: options?.signal,
+        } as RequestInit);
 
         if (!response.ok) {
           const text = await response.text();
+
+          // Handle specific HTTP errors
+          if (response.status === 401) {
+            yield {
+              type: "error",
+              content:
+                "Token expirado o inválido. Ve a Configuración → Conexiones IA y reconecta tu cuenta de ChatGPT.",
+            };
+            return;
+          }
+          if (response.status === 429) {
+            yield {
+              type: "error",
+              content:
+                "Límite de uso alcanzado en tu cuenta de ChatGPT. Espera un momento e intenta de nuevo.",
+            };
+            return;
+          }
+
           throw new Error(`HTTP ${response.status}: ${text}`);
         }
 
@@ -82,7 +106,6 @@ export function createChatGPTWebProvider(sessionToken?: string): AIProvider {
 
         const decoder = new TextDecoder();
         let buffer = "";
-        let lastText = "";
 
         while (true) {
           const { done, value } = await reader.read();
@@ -92,42 +115,71 @@ export function createChatGPTWebProvider(sessionToken?: string): AIProvider {
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
 
-          for (const line of lines) {
-            const cleanLine = line.trim();
-            if (cleanLine === "" || cleanLine === "data: [DONE]") continue;
+          let currentEvent = "";
 
-            if (cleanLine.startsWith("data: ")) {
-              try {
-                const dataStr = cleanLine.slice(6);
-                if (dataStr === "[DONE]") continue;
-                
-                const data = JSON.parse(dataStr);
-                const contentParts = data.message?.content?.parts;
-                
-                if (contentParts && contentParts.length > 0) {
-                  const currentText = contentParts[0];
-                  // ChatGPT Web API envía el texto COMPLETO acumulado en cada chunk,
-                  // no el delta. Por lo tanto, debemos calcular el delta para nuestro UI.
-                  const delta = currentText.slice(lastText.length);
-                  lastText = currentText;
-                  
-                  if (delta) {
-                    yield { type: "text", content: delta };
-                  }
-                }
-              } catch (e) {
-                console.warn("[ChatGPT Web] Error parsing chunk", e, cleanLine);
+          for (const line of lines) {
+            const trimmed = line.trim();
+
+            // SSE event type line
+            if (trimmed.startsWith("event: ")) {
+              currentEvent = trimmed.slice(7);
+              continue;
+            }
+
+            // SSE data line
+            if (trimmed.startsWith("data: ")) {
+              const dataStr = trimmed.slice(6);
+              if (dataStr === "[DONE]") {
+                yield { type: "done", content: "" };
+                return;
               }
+
+              try {
+                const data = JSON.parse(dataStr);
+
+                switch (currentEvent) {
+                  case "response.output_text.delta":
+                    if (data.delta) {
+                      yield { type: "text", content: data.delta };
+                    }
+                    break;
+
+                  case "response.completed":
+                    yield { type: "done", content: "" };
+                    return;
+
+                  case "response.failed":
+                  case "response.incomplete":
+                    yield {
+                      type: "error",
+                      content:
+                        data.error?.message ||
+                        "La respuesta de Codex fue interrumpida.",
+                    };
+                    return;
+
+                  // Ignore other event types (created, in_progress, etc.)
+                  default:
+                    break;
+                }
+              } catch {
+                // Skip unparseable SSE chunks
+              }
+
+              currentEvent = "";
             }
           }
         }
-        
-        yield { type: "done", content: "" };
 
+        // If we exit the read loop without a done event, close gracefully
+        yield { type: "done", content: "" };
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return; // User cancelled — not an error
+        }
         yield {
           type: "error",
-          content: `Error de OpenAI: ${String(err)}. Intenta iniciar sesión nuevamente.`,
+          content: `Error de Codex: ${err instanceof Error ? err.message : String(err)}`,
         };
       }
     },
@@ -136,9 +188,15 @@ export function createChatGPTWebProvider(sessionToken?: string): AIProvider {
 
     validateKey: async (testToken: string): Promise<boolean> => {
       try {
-        const response = await fetch("https://api.openai.com/v1/models", {
+        // OAuth access tokens ARE valid OpenAI tokens
+        const doFetch =
+          typeof window !== "undefined" && "__TAURI__" in window
+            ? (await import("@tauri-apps/plugin-http")).fetch
+            : globalThis.fetch;
+
+        const response = await doFetch("https://api.openai.com/v1/models", {
           headers: { Authorization: `Bearer ${testToken}` },
-        });
+        } as RequestInit);
         return response.ok;
       } catch {
         return false;

@@ -14,11 +14,11 @@ export interface FileSystemBackend {
    */
   listDirectory(path: string): Promise<FileNode[]>;
 
-  /** Reads a file's contents as a UTF-8 string. */
-  readFile(path: string): Promise<string>;
+  /** Reads a file's contents. If asBinary is true, returns Uint8Array, else UTF-8 string. */
+  readFile(path: string, asBinary?: boolean): Promise<string | Uint8Array>;
 
   /** Writes content to a file, creating it if necessary. */
-  writeFile(path: string, content: string): Promise<void>;
+  writeFile(path: string, content: string | Uint8Array | ArrayBuffer): Promise<void>;
 
   /** Creates a directory (and parents if needed). */
   createDirectory(path: string): Promise<void>;

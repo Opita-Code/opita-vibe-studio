@@ -64,6 +64,9 @@ interface ProjectActions {
   /** Establece el contenido de un archivo en memoria y lo marca como dirty */
   setFileContent: (path: string, content: string) => void;
 
+  /** Elimina un archivo virtual de memoria (fileContents + file tree) */
+  deleteFileContent: (path: string) => void;
+
   /** Abre un proyecto (reemplaza todos los workspaces actuales) */
   openProject: (path: string) => Promise<void>;
 
@@ -132,6 +135,20 @@ if (typeof window !== "undefined") {
   queueMicrotask(() => {
     startAutoPersist(_triggerOPFSPersist);
   });
+}
+
+// ─── Helpers ──────────────────────────────────────────────────
+
+/** Recursively removes a file node by path from the workspace tree. */
+function removeFileNode(nodes: FileNode[], targetPath: string): FileNode[] {
+  return nodes
+    .filter((node) => node.path !== targetPath)
+    .map((node) => {
+      if (node.type === "directory" && node.children) {
+        return { ...node, children: removeFileNode(node.children, targetPath) };
+      }
+      return node;
+    });
 }
 
 // ─── Store ─────────────────────────────────────────────────────
@@ -221,6 +238,44 @@ export const useProjectStore = create<ProjectStore>()(
           fileContents: { ...state.fileContents, [path]: content },
           isDirty: { ...state.isDirty, [path]: true },
         })),
+
+      deleteFileContent: (path) => {
+        const { fileContents, isDirty, openTabs, activeTab } = get();
+
+        // Remove from fileContents
+        const newContents = { ...fileContents };
+        delete newContents[path];
+
+        // Remove from isDirty
+        const newDirty = { ...isDirty };
+        delete newDirty[path];
+
+        // Close tab if open
+        const newTabs = openTabs.filter((t) => t !== path);
+        const idx = openTabs.indexOf(path);
+        let newActive = activeTab;
+        if (activeTab === path) {
+          newActive = newTabs.length > 0 ? newTabs[Math.min(idx, newTabs.length - 1)] : null;
+        }
+
+        // Remove file node from workspace file tree
+        const wsId = get().activeWorkspaceId;
+        const workspaces = get().workspaces.map((ws) => {
+          if (ws.id !== wsId) return ws;
+          return {
+            ...ws,
+            files: removeFileNode(ws.files, path),
+          };
+        });
+
+        set({
+          fileContents: newContents,
+          isDirty: newDirty,
+          openTabs: newTabs,
+          activeTab: newActive,
+          workspaces,
+        });
+      },
 
       // ── Asíncronos ─────────────────────────────────────────────
 

@@ -56,6 +56,9 @@ export async function* routeRequest(
   let preferredError: string | null = null;
 
   for (const providerId of tryOrder) {
+    // P1 fix: respect abort signal between failover attempts
+    if (options?.signal?.aborted) return;
+
     try {
       const provider = getProvider(providerId);
       let usedModel = options?.model;
@@ -73,6 +76,8 @@ export async function* routeRequest(
       }
 
       let hasError = false;
+      // P1 fix: track whether we've yielded text to prevent Frankenstein failover
+      let hasYieldedText = false;
 
       for await (const chunk of provider.chat(contextMessages, {
         ...options,
@@ -86,6 +91,10 @@ export async function* routeRequest(
           break; // Salir del for-await para probar el siguiente provider
         }
 
+        if (chunk.type === "text") {
+          hasYieldedText = true;
+        }
+
         yield {
           ...chunk,
           providerId,
@@ -95,6 +104,24 @@ export async function* routeRequest(
         if (chunk.type === "done") {
           return; // Éxito — terminamos
         }
+      }
+
+      // P1 fix: if we already yielded text, do NOT failover to another provider
+      // (that would produce a Frankenstein response: half from A, half from B)
+      if (hasYieldedText && !hasError) {
+        yield {
+          type: "error",
+          content: `⚠️ La conexión con ${providerId} se interrumpió. Tu respuesta puede estar incompleta.`,
+          providerId,
+          model: usedModel ?? "unknown",
+        } as ChatChunk & RouteResult;
+        yield {
+          type: "done",
+          content: "",
+          providerId,
+          model: usedModel ?? "unknown",
+        } as ChatChunk & RouteResult;
+        return;
       }
 
       // Si el provider no produjo errores ni se completó (stream vacío),
