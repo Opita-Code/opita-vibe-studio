@@ -1,0 +1,102 @@
+name: Update Changelog
+
+on:
+  push:
+    tags: ['web/v*', 'backend/v*', 'landing/v*']
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag to generate changelog for (e.g. web/v0.5.0)'
+        required: true
+
+# Prevent concurrent changelog updates from racing
+concurrency:
+  group: changelog-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    # Don't run if the commit message is a changelog update (avoid loops)
+    if: "!contains(github.event.head_commit.message, 'docs(changelog)')"
+    steps:
+      - name: Checkout Code (full history for git log)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use PAT so the push triggers other workflows if needed
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Determine Tag Name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate Changelog Entry
+        run: node scripts/generate-changelog.mjs
+        env:
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+
+      - name: Check for Changes
+        id: diff
+        run: |
+          if git diff --quiet landing/changelog.json; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  No changelog changes (entry already exists)"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "✅ Changelog was updated"
+          fi
+
+      - name: Commit & Push Changelog
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add landing/changelog.json
+          git commit -m "docs(changelog): add v$(echo $TAG_NAME | grep -oP '\d+\.\d+\.\d+')"
+          git push origin HEAD:main
+        env:
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+
+      - name: Configure AWS Credentials
+        if: steps.diff.outputs.changed == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy Changelog to S3
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          aws s3 cp landing/changelog.json s3://vibe-landing-728741135483/changelog.json \
+            --content-type "application/json" \
+            --cache-control "public, max-age=60"
+
+      - name: Invalidate CloudFront Cache
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id EONGVOV3BDAVI \
+            --paths "/changelog.json" "/changelog.html"
+
+      - name: Summary
+        run: |
+          echo "### Changelog Update" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.diff.outputs.changed }}" = "true" ]; then
+            VERSION=$(echo "${{ steps.tag.outputs.name }}" | grep -oP '\d+\.\d+\.\d+')
+            echo "✅ **v${VERSION}** added to changelog and deployed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No changes needed — entry already existed" >> $GITHUB_STEP_SUMMARY
+          fi

@@ -35,7 +35,7 @@ jobs:
         run: |
           aws cloudfront create-invalidation \
             --distribution-id EONGVOV3BDAVI \
-            --paths "/" "/index.html" "/install.html" "/assets/*" "/vibe-logo.svg"
+            --paths "/" "/index.html" "/install.html" "/changelog.html" "/changelog.json" "/assets/*" "/vibe-logo.svg"
 
       - name: Verify Deployment
         run: |

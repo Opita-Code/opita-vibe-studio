@@ -1,12 +1,55 @@
 [
   {
+    "version": "0.4.0",
+    "date": "2026-05-21",
+    "title": "Memory SDK — Arquitectura unificada AWS",
+    "components": [
+      {
+        "name": "Web App",
+        "tag": "web/v0.4.0"
+      },
+      {
+        "name": "Backend",
+        "tag": "backend/v0.4.0"
+      }
+    ],
+    "highlights": [
+      "Migración completa de Supabase a @opita/memory-sdk con DynamoDB",
+      "Nuevo hook useContextSync para sincronización de sesión en tiempo real",
+      "3,200+ líneas de deuda técnica eliminadas (paquete opita-cloud-context)"
+    ],
+    "details": {
+      "Web App": [
+        "Nuevo paquete vendored packages/memory-sdk con CloudBridge, SyncEngine y ContextDecay",
+        "Hook useContextSync integrado en AppLifecycle: hydration + sync periódico cada 5 min",
+        "Eliminado paquete opita-cloud-context (23 archivos, 3200+ líneas)",
+        "Stores learning.ts y memory.ts refactorizados para usar fetch directo a API Gateway"
+      ],
+      "Backend": [
+        "sst.config.ts actualizado con binding de memory-sdk",
+        "API core.ts con endpoint de sincronización de contexto",
+        "Fix de autenticación: redirect a cuenta.opitacode.com en vez de ruta inexistente",
+        "Fix forgot-password: envía Opita Link directo en vez de código de 6 dígitos"
+      ]
+    }
+  },
+  {
     "version": "0.3.6",
     "date": "2026-05-19",
     "title": "SEO, Custom Tools & Opita Links",
     "components": [
-      { "name": "Web App", "tag": "web/v0.3.6" },
-      { "name": "Backend", "tag": "backend/v0.3.8" },
-      { "name": "Landing", "tag": "landing/v0.3.7" }
+      {
+        "name": "Web App",
+        "tag": "web/v0.3.6"
+      },
+      {
+        "name": "Backend",
+        "tag": "backend/v0.3.8"
+      },
+      {
+        "name": "Landing",
+        "tag": "landing/v0.3.7"
+      }
     ],
     "highlights": [
       "Custom Tools: define hasta 10 herramientas personalizadas que el agente usa automáticamente",
@@ -38,8 +81,14 @@
     "date": "2026-05-18",
     "title": "Estabilización de Producción",
     "components": [
-      { "name": "Web App", "tag": "web/v0.2.2" },
-      { "name": "Backend", "tag": "backend/v0.2.2" }
+      {
+        "name": "Web App",
+        "tag": "web/v0.2.2"
+      },
+      {
+        "name": "Backend",
+        "tag": "backend/v0.2.2"
+      }
     ],
     "highlights": [
       "Chat streaming restaurado en producción",
@@ -62,10 +111,22 @@
     "date": "2026-05-18",
     "title": "Lanzamiento Inicial",
     "components": [
-      { "name": "Web App", "tag": "web/v0.2.0" },
-      { "name": "Backend", "tag": "backend/v0.2.0" },
-      { "name": "Landing", "tag": "landing/v0.2.0" },
-      { "name": "Desktop", "tag": "tauri/v0.2.0" }
+      {
+        "name": "Web App",
+        "tag": "web/v0.2.0"
+      },
+      {
+        "name": "Backend",
+        "tag": "backend/v0.2.0"
+      },
+      {
+        "name": "Landing",
+        "tag": "landing/v0.2.0"
+      },
+      {
+        "name": "Desktop",
+        "tag": "tauri/v0.2.0"
+      }
     ],
     "highlights": [
       "Editor de código con agente autónomo y Execution Roadmap",
