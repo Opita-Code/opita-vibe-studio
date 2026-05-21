@@ -194,7 +194,8 @@ export function createChatGPTWebProvider(accessToken?: string): AIProvider {
             ? (await import("@tauri-apps/plugin-http")).fetch
             : globalThis.fetch;
 
-        const response = await doFetch("https://api.openai.com/v1/models", {
+        // P0 Fix: Validate against the correct ChatGPT backend endpoint, not the public API
+        const response = await doFetch("https://chatgpt.com/backend-api/accounts/check", {
           headers: { Authorization: `Bearer ${testToken}` },
         } as RequestInit);
         return response.ok;

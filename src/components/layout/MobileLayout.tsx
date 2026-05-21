@@ -236,8 +236,8 @@ export function MobileLayout() {
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="relative h-full z-10"
+              transition={{ type: "spring", stiffness: 400, damping: 35, mass: 0.8 }}
+              className="relative h-full z-10 w-[85%] max-w-[320px] shadow-2xl"
             >
               <ChatHistoryPanel />
             </motion.div>
