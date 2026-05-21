@@ -17,9 +17,9 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@opita/cloud-context": ["./packages/opita-cloud-context/src/index.ts"]
+      "@opita/memory-sdk": ["../opita-core-sdk/packages/memory-sdk/src/index.ts"]
     }
   },
-  "include": ["src", "packages/opita-cloud-context/src"],
+  "include": ["src", "../opita-core-sdk/packages/memory-sdk/src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

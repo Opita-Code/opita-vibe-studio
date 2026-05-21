@@ -90,8 +90,7 @@ describe("Platform detection + Storage factory integration", () => {
     vi.stubGlobal("indexedDB", createMockIndexedDB());
     vi.stubGlobal("localStorage", createMockLocalStorage());
 
-    const { detectPlatform } = await import("../../packages/opita-cloud-context/src/storage/platform");
-    const { createStorageBackend } = await import("../../packages/opita-cloud-context/src/storage/factory");
+    const { detectPlatform, createStorageBackend } = await import("@opita/memory-sdk");
     const platform = detectPlatform();
     expect(platform).toBe("tauri");
 
@@ -107,8 +106,7 @@ describe("Platform detection + Storage factory integration", () => {
     const ls = createMockLocalStorage();
     vi.stubGlobal("localStorage", ls);
 
-    const { detectPlatform } = await import("../../packages/opita-cloud-context/src/storage/platform");
-    const { createStorageBackend } = await import("../../packages/opita-cloud-context/src/storage/factory");
+    const { detectPlatform, createStorageBackend } = await import("@opita/memory-sdk");
     const platform = detectPlatform();
     expect(platform).toBe("tauri");
 
@@ -127,8 +125,7 @@ describe("Platform detection + Storage factory integration", () => {
     vi.stubGlobal("indexedDB", createMockIndexedDB());
     vi.stubGlobal("localStorage", createMockLocalStorage());
 
-    const { detectPlatform } = await import("../../packages/opita-cloud-context/src/storage/platform");
-    const { createStorageBackend } = await import("../../packages/opita-cloud-context/src/storage/factory");
+    const { detectPlatform, createStorageBackend } = await import("@opita/memory-sdk");
     const platform = detectPlatform();
     expect(platform).toBe("browser");
 
@@ -143,7 +140,7 @@ describe("Platform detection + Storage factory integration", () => {
     vi.stubGlobal("indexedDB", createMockIndexedDB());
     vi.stubGlobal("localStorage", createMockLocalStorage());
 
-    const { createStorageBackend } = await import("../../packages/opita-cloud-context/src/storage/factory");
+    const { createStorageBackend } = await import("@opita/memory-sdk");
     const ns1 = createStorageBackend("browser", "ns1");
     const ns2 = createStorageBackend("browser", "ns2");
 
@@ -159,7 +156,7 @@ describe("Platform detection + Storage factory integration", () => {
     vi.stubGlobal("indexedDB", createMockIndexedDB());
     vi.stubGlobal("localStorage", createMockLocalStorage());
 
-    const { createStorageBackend } = await import("../../packages/opita-cloud-context/src/storage/factory");
+    const { createStorageBackend } = await import("@opita/memory-sdk");
     const storage = createStorageBackend("browser", "clear-ns");
     await storage.set("a", 1);
     await storage.set("b", 2);
@@ -176,8 +173,7 @@ describe("Platform detection + Storage factory integration", () => {
   it("should detect 'node' platform and create MemoryStorageAdapter", async () => {
     vi.stubGlobal("window", undefined);
 
-    const { detectPlatform } = await import("../../packages/opita-cloud-context/src/storage/platform");
-    const { createStorageBackend } = await import("../../packages/opita-cloud-context/src/storage/factory");
+    const { detectPlatform, createStorageBackend } = await import("@opita/memory-sdk");
     const platform = detectPlatform();
     expect(platform).toBe("node");
 
@@ -190,7 +186,7 @@ describe("Platform detection + Storage factory integration", () => {
   it("should support complex values in node storage", async () => {
     vi.stubGlobal("window", undefined);
 
-    const { createStorageBackend } = await import("../../packages/opita-cloud-context/src/storage/factory");
+    const { createStorageBackend } = await import("@opita/memory-sdk");
     const storage = createStorageBackend("node");
 
     const complex = { prefs: { theme: "dark" }, events: [{ id: 1, type: "test" }] };
@@ -202,7 +198,7 @@ describe("Platform detection + Storage factory integration", () => {
   it("should list keys with prefix in node storage", async () => {
     vi.stubGlobal("window", undefined);
 
-    const { createStorageBackend } = await import("../../packages/opita-cloud-context/src/storage/factory");
+    const { createStorageBackend } = await import("@opita/memory-sdk");
     const storage = createStorageBackend("node");
 
     await storage.set("prefs:theme", "dark");
@@ -221,7 +217,7 @@ describe("Platform detection + Storage factory integration", () => {
   it("should support remove and get null in node storage", async () => {
     vi.stubGlobal("window", undefined);
 
-    const { createStorageBackend } = await import("../../packages/opita-cloud-context/src/storage/factory");
+    const { createStorageBackend } = await import("@opita/memory-sdk");
     const storage = createStorageBackend("node");
 
     await storage.set("temp", "value");

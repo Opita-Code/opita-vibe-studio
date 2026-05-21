@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Integration Test: Auth + Migration
  *
  * Verifies that the auth store's `migrateFromGuest()` action correctly detects
@@ -14,9 +14,8 @@
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useAuthStore } from "../../src/stores/auth";
-import { migrateGuestData } from "../../packages/opita-cloud-context/src/sync/migration";
-import { MemoryStorageAdapter } from "../../packages/opita-cloud-context/src/storage/memory-storage";
-import type { StorageBackend } from "../../packages/opita-cloud-context/src/types";
+import { migrateGuestData, MemoryStorageAdapter } from "@opita/memory-sdk";
+import type { StorageBackend } from "@opita/memory-sdk";
 
 describe("Auth + Migration integration", () => {
   beforeEach(() => {

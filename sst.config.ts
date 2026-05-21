@@ -155,6 +155,10 @@ export default $config({
           actions: ["ses:SendEmail", "ses:SendRawEmail"],
           resources: ["*"],
         },
+        {
+          actions: ["cognito-idp:AdminUpdateUserAttributes"],
+          resources: ["arn:aws:cognito-idp:us-east-1:*:userpool/us-east-1_LItAcj2Aa"],
+        },
       ],
       environment: {
         JWT_SECRET: process.env.JWT_SECRET || "",

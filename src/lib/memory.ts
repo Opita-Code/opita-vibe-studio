@@ -2,13 +2,14 @@
  * Engram — Persistent Memory for Vibe Studio Agent.
  *
  * Provides project-scoped memory that survives across chat sessions.
- * Uses IndexedDB via idb-keyval for zero-dependency persistence.
+ * Integrated with @opita/memory-sdk for cloud sync (DynamoDB) and context decay.
  *
  * The agent can save decisions, patterns, bugfixes, and discoveries
  * and recall them in future sessions to maintain context continuity.
  */
 
-import * as idb from "idb-keyval";
+import { CloudBridge, WebStorageAdapter, SyncEngine, ContextDecayEngine } from "@opita/memory-sdk";
+import { useAuthStore } from "@/stores/auth";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -25,25 +26,59 @@ export interface MemoryEntry {
 
 // ─── Constants ─────────────────────────────────────────────────
 
-const STORAGE_KEY = "vibe-engram-memories";
+const MEMORIES_KEY = "sync:memories";
 const MAX_MEMORIES_PER_PROJECT = 100;
+
+// ─── SDK Initialization ────────────────────────────────────────
+
+const apiBaseUrl = import.meta.env.VITE_DEV_API_URL || "https://api.opitacode.com";
+const getAuthToken = async () => useAuthStore.getState().session?.token || null;
+const serviceName = "vibe-studio";
+
+export const cloudBridge = new CloudBridge({
+  apiBaseUrl,
+  getAuthToken,
+  serviceName,
+});
+
+export const storageBackend = new WebStorageAdapter(serviceName);
+
+export const decayEngine = new ContextDecayEngine();
+
+export const syncEngine = new SyncEngine({
+  storage: storageBackend,
+  cloudBridge,
+  decayEngine,
+});
 
 // ─── Internal Helpers ──────────────────────────────────────────
 
-/** Load all memories from IndexedDB. */
+/** Load all memories from storage. */
 async function loadAll(): Promise<MemoryEntry[]> {
   try {
-    const raw = await idb.get<string>(STORAGE_KEY);
+    const raw = await storageBackend.get<string>(MEMORIES_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as MemoryEntry[];
-  } catch {
+    // WebStorageAdapter might return parsed object or string depending on env
+    const entry = typeof raw === "string" ? JSON.parse(raw) : (raw as any);
+    return Array.isArray(entry?.value) ? entry.value : [];
+  } catch (err) {
+    console.error("Error loading memories from storage:", err);
     return [];
   }
 }
 
-/** Persist all memories to IndexedDB. */
+/** Persist all memories to storage and trigger background sync. */
 async function persistAll(entries: MemoryEntry[]): Promise<void> {
-  await idb.set(STORAGE_KEY, JSON.stringify(entries));
+  const timestamp = Date.now();
+  await storageBackend.set(MEMORIES_KEY, JSON.stringify({ value: entries, timestamp }));
+  
+  // Trigger background sync if authenticated
+  const userId = useAuthStore.getState().user?.id;
+  if (userId) {
+    syncEngine.push(userId).catch((err) => {
+      console.warn("Background memories sync failed:", err);
+    });
+  }
 }
 
 /** Generate a unique ID. */
@@ -77,7 +112,7 @@ const STOP_WORDS_ES = new Set([
   "este", "esta", "ese", "esa", "esto", "eso", "estos", "esas",
   "lo", "le", "les", "nos", "se", "su", "sus", "mi", "mis", "tu", "tus",
   // Verbos comunes
-  "es", "son", "ser", "fue", "hay", "tiene", "tiene", "hacer", "puede",
+  "es", "son", "ser", "fue", "hay", "tiene", "hacer", "puede",
   "está", "era", "han", "sido",
   // Adverbios
   "no", "si", "ya", "más", "muy", "también", "solo", "bien", "mal",

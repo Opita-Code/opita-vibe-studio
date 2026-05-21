@@ -9,6 +9,7 @@
   "dependencies": {
     "@ai-sdk/google": "^3.0.71",
     "@ai-sdk/openai": "^3.0.63",
+    "@aws-sdk/client-cognito-identity-provider": "^3.1045.0",
     "@aws-sdk/client-dynamodb": "^3.1045.0",
     "@aws-sdk/client-s3": "^3.1045.0",
     "@aws-sdk/client-ses": "^3.1045.0",
