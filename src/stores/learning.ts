@@ -1,5 +1,39 @@
 import { create } from "zustand";
 import type { LearningTip, LearningEvent } from "@/lib/types";
+import { storageBackend, syncEngine } from "@/lib/memory";
+import { useAuthStore } from "@/stores/auth";
+
+// ─── Persistence Helpers ────────────────────────────────────────
+
+async function persistLearningEvents(events: LearningEvent[]) {
+  try {
+    const timestamp = Date.now();
+    await storageBackend.set("sync:events", JSON.stringify({ value: events, timestamp }));
+    const userId = useAuthStore.getState().user?.id;
+    if (userId) {
+      syncEngine.push(userId).catch((err) => {
+        console.warn("Background learning events sync failed:", err);
+      });
+    }
+  } catch (err) {
+    console.error("Failed to persist learning events:", err);
+  }
+}
+
+async function persistShownTips(shownTips: string[]) {
+  try {
+    const timestamp = Date.now();
+    await storageBackend.set("sync:shownTips", JSON.stringify({ value: shownTips, timestamp }));
+    const userId = useAuthStore.getState().user?.id;
+    if (userId) {
+      syncEngine.push(userId).catch((err) => {
+        console.warn("Background shown tips sync failed:", err);
+      });
+    }
+  } catch (err) {
+    console.error("Failed to persist shown tips:", err);
+  }
+}
 
 // ─── State ─────────────────────────────────────────────────────
 
@@ -20,6 +54,7 @@ interface LearningActions {
   markTipShown: (tipId: string) => void;
   addEvent: (event: LearningEvent) => void;
   hasTipBeenShown: (tipId: string) => boolean;
+  hydrateLearningStore: (events: LearningEvent[], shownTips: string[]) => void;
 }
 
 // ─── Store ─────────────────────────────────────────────────────
@@ -50,12 +85,14 @@ export const useLearningStore = create<LearningStore>((set, get) => ({
     // Find first unshown tip in queue
     const tip = tipQueue.find((t) => !shownTips.includes(t.id));
     if (tip) {
+      const nextShownTips = [...shownTips, tip.id];
       set({
         currentTip: tip,
         isVisible: true,
-        shownTips: [...shownTips, tip.id],
+        shownTips: nextShownTips,
         tipQueue: tipQueue.filter((t) => t.id !== tip.id),
       });
+      persistShownTips(nextShownTips).catch(console.error);
     }
   },
 
@@ -70,15 +107,20 @@ export const useLearningStore = create<LearningStore>((set, get) => ({
     }
   },
 
-  markTipShown: (tipId) =>
-    set((state) => ({
-      shownTips: [...state.shownTips, tipId],
-    })),
+  markTipShown: (tipId) => {
+    const nextShownTips = [...get().shownTips, tipId];
+    set({ shownTips: nextShownTips });
+    persistShownTips(nextShownTips).catch(console.error);
+  },
 
-  addEvent: (event) =>
-    set((state) => ({
-      learningEvents: [...state.learningEvents, event],
-    })),
+  addEvent: (event) => {
+    const nextEvents = [...get().learningEvents, event];
+    set({ learningEvents: nextEvents });
+    persistLearningEvents(nextEvents).catch(console.error);
+  },
 
   hasTipBeenShown: (tipId) => get().shownTips.includes(tipId),
+
+  hydrateLearningStore: (events, shownTips) =>
+    set({ learningEvents: events, shownTips }),
 }));

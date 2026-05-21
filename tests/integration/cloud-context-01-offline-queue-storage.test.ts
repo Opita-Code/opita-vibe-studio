@@ -10,8 +10,7 @@
  * full lifecycle: add → persist → reload → dequeue → TTL evict.
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { OfflineQueue } from "../../packages/opita-cloud-context/src/sync/offline-queue";
-import { MemoryStorageAdapter } from "../../packages/opita-cloud-context/src/storage/memory-storage";
+import { OfflineQueue, MemoryStorageAdapter } from "@opita/memory-sdk";
 
 // ──────────────────────────────────────────────
 // MemoryStorageAdapter + OfflineQueue integration

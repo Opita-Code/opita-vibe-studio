@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { StatusBar } from "@/components/layout/StatusBar";
 import { ActionBar } from "@/components/layout/ActionBar";
 import { LoginScreen } from "@/components/auth/LoginScreen";
-import { OnboardingFlow } from "@/components/auth/OnboardingFlow";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { BugReportModal } from "@/components/layout/BugReportModal";
 import { FileWatcher } from "@/components/editor/FileWatcher";
@@ -324,7 +323,6 @@ function Workspace() {
 
 export default function App() {
   const authMode = useAuthStore((s) => s.authMode);
-  const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);
   const sessionDetected = useAuthStore((s) => s.sessionDetected);
   const detectSession = useAuthStore((s) => s.detectSession);
   const loginModalOpen = useAuthStore((s) => s.loginModalOpen);
@@ -393,41 +391,13 @@ export default function App() {
   }, [sessionDetected, authMode, setLoginModalOpen]);
 
   if (isMobile) {
-    // Authenticated mobile: full mobile layout
-    if (authMode === "authenticated" || hasCompletedOnboarding) {
-      return <MobileLayout />;
-    }
-    // Unauthenticated mobile: show onboarding (falls through to onboarding below)
+    return <MobileLayout />;
   }
 
   if (!sessionDetected) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-obsidian-900">
         <div className="w-8 h-8 rounded-full border-2 border-aura-cyan border-t-transparent animate-spin"></div>
-      </div>
-    );
-  }
-
-  if (!hasCompletedOnboarding && authMode === "unauthenticated") {
-    return (
-      <div className="flex flex-col h-full w-full">
-        <div className="flex-1 relative">
-          <OnboardingFlow 
-            onEnterGuest={() => useAuthStore.getState().completeOnboarding()}
-            onLogin={() => setLoginModalOpen(true)} 
-          />
-        </div>
-        {loginModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
-            <LoginScreen 
-              onClose={() => setLoginModalOpen(false)} 
-              onAuthenticated={() => {
-                useAuthStore.getState().completeOnboarding();
-                setLoginModalOpen(false);
-              }}
-            />
-          </div>
-        )}
       </div>
     );
   }
@@ -455,7 +425,6 @@ export default function App() {
             <LoginScreen 
               onClose={() => setLoginModalOpen(false)} 
               onAuthenticated={() => {
-                useAuthStore.getState().completeOnboarding();
                 setLoginModalOpen(false);
               }}
             />

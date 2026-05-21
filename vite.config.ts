@@ -46,7 +46,7 @@ export default defineConfig({
           editor: ["@codemirror/state", "@codemirror/view", "@codemirror/language"],
           preview: ["@codesandbox/sandpack-react"],
           ui: ["framer-motion", "lucide-react"],
-          core: ["@tauri-apps/api", "idb-keyval", "jose"]
+          core: ["@tauri-apps/api", "jose"]
         },
       },
     },

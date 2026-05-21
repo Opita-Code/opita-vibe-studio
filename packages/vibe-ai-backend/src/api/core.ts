@@ -1,6 +1,7 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand, UpdateCommand, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { CognitoIdentityProviderClient, AdminUpdateUserAttributesCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { Resource as SSTResource } from "sst";
 import { z } from "zod";
 import * as jose from "jose";
@@ -115,6 +116,7 @@ const awsConfig = process.env.LOCALSTACK_ENDPOINT ? {
 const sesClient = new SESClient(awsConfig);
 const ddbClient = new DynamoDBClient(awsConfig);
 const docClient = DynamoDBDocumentClient.from(ddbClient);
+const cognitoClient = new CognitoIdentityProviderClient(awsConfig);
 
 // ─── Email Sender Config (single source of truth) ───────────────
 // RULES:
@@ -759,6 +761,117 @@ export const handler = async (event: any) => {
       } catch (e) {
         return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Invalid session" }) };
       }
+    }
+
+    if (path === "/auth/claim-trial" && method === "POST") {
+      const email = await extractAuthEmail(event);
+      if (!email) {
+        return {
+          statusCode: 401,
+          headers: getCorsHeaders(event),
+          body: JSON.stringify({ error: "Sesión inválida o expirada" })
+        };
+      }
+
+      // Check if user exists in Users table
+      const userResult = await docClient.send(new GetCommand({
+        TableName: Resource.Users.name,
+        Key: { email }
+      }));
+
+      if (!userResult.Item) {
+        return {
+          statusCode: 404,
+          headers: getCorsHeaders(event),
+          body: JSON.stringify({ error: "Usuario no encontrado" })
+        };
+      }
+
+      const user = userResult.Item;
+
+      // Check if they already have Pro plan active
+      if (user.plan === "pro") {
+        return {
+          statusCode: 400,
+          headers: getCorsHeaders(event),
+          body: JSON.stringify({ error: "Esta cuenta ya tiene el plan Vibe Pro activo." })
+        };
+      }
+
+      // Check if they already claimed the trial (trial_start exists)
+      if (user.trial_start) {
+        return {
+          statusCode: 400,
+          headers: getCorsHeaders(event),
+          body: JSON.stringify({ error: "Esta cuenta ya reclamó su prueba gratuita de Vibe Pro." })
+        };
+      }
+
+      const trialStart = new Date().toISOString();
+      const trialExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      // 1. Update DynamoDB Users table atomically to prevent race conditions and double claims
+      try {
+        await docClient.send(new UpdateCommand({
+          TableName: Resource.Users.name,
+          Key: { email },
+          UpdateExpression: "SET plan = :plan, trial_start = :start, trial_expires_at = :expires",
+          ConditionExpression: "attribute_not_exists(trial_start) AND plan <> :planVal",
+          ExpressionAttributeValues: {
+            ":plan": "pro",
+            ":planVal": "pro",
+            ":start": trialStart,
+            ":expires": trialExpiresAt
+          }
+        }));
+      } catch (dbErr: any) {
+        if (dbErr.name === "ConditionalCheckFailedException") {
+          return {
+            statusCode: 400,
+            headers: getCorsHeaders(event),
+            body: JSON.stringify({ error: "La prueba gratuita ya ha sido reclamada o la cuenta ya tiene el plan Pro activo." })
+          };
+        }
+        throw dbErr;
+      }
+
+      // 2. Update Cognito custom:plan attribute
+      const COGNITO_POOL_ID = "us-east-1_LItAcj2Aa";
+      try {
+        await cognitoClient.send(new AdminUpdateUserAttributesCommand({
+          UserPoolId: COGNITO_POOL_ID,
+          Username: email,
+          UserAttributes: [
+            { Name: "custom:plan", Value: "pro" }
+          ]
+        }));
+      } catch (cognitoErr: any) {
+        console.error(`[claim-trial] WARNING: Failed to update Cognito custom:plan for ${email}:`, cognitoErr.message || cognitoErr);
+        // Do not fail the request if Cognito fails, since DynamoDB state is primary.
+      }
+
+      // 3. Issue legacy opita_session cookie so they are logged in instantly as Pro on Vibe Studio
+      const sessionToken = signJWT(
+        { email, role: "authenticated" },
+        process.env.JWT_SECRET || "",
+        7 * 24 * 60
+      );
+
+      const isLocalhost = (event.requestContext?.domainName || "").includes("localhost");
+      const cookieDomain = isLocalhost ? "" : "Domain=.opitacode.com;";
+      const cookieAttrs = isLocalhost
+        ? "Path=/; HttpOnly; SameSite=Lax"
+        : `Path=/; ${cookieDomain} HttpOnly; Secure; SameSite=None`;
+      const setCookie = `opita_session=${sessionToken}; ${cookieAttrs}; Max-Age=${7 * 24 * 60 * 60}`;
+
+      return {
+        statusCode: 200,
+        headers: {
+          ...getCorsHeaders(event),
+          "Set-Cookie": setCookie,
+        },
+        body: JSON.stringify({ success: true, message: "Prueba Vibe Pro activada con éxito!" })
+      };
     }
 
     if (path === "/auth/logout" && method === "POST") {

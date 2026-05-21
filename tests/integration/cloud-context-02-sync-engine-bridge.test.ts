@@ -12,40 +12,8 @@
  * 5. Respects push watermark to avoid re-pushing
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { SyncEngine } from "../../packages/opita-cloud-context/src/sync/sync-engine";
-import { CloudBridge } from "../../packages/opita-cloud-context/src/sync/cloud-bridge";
-import { MemoryStorageAdapter } from "../../packages/opita-cloud-context/src/storage/memory-storage";
-import type { StorageBackend } from "../../packages/opita-cloud-context/src/types";
-
-// ──────────────────────────────────────────────
-// Helpers
-// ──────────────────────────────────────────────
-
-/**
- * Create a mock Supabase query builder that returns the given response.
- */
-function mockChain(response: unknown) {
-  const chain: Record<string, unknown> = {
-    select: vi.fn(() => chain),
-    eq: vi.fn(() => chain),
-    maybeSingle: vi.fn(() => Promise.resolve(response)),
-    single: vi.fn(() => Promise.resolve(response)),
-    order: vi.fn(() => Promise.resolve(response)),
-    upsert: vi.fn(() => chain),
-    insert: vi.fn(() => chain),
-    update: vi.fn(() => chain),
-    limit: vi.fn(() => chain),
-  };
-  return chain;
-}
-
-/**
- * Create an upsert chain that supports .select().single() chaining.
- */
-function makeUpsertChain(response: unknown) {
-  const selectAfterUpsert = vi.fn(() => Promise.resolve(response));
-  return { select: vi.fn(() => ({ single: selectAfterUpsert })) };
-}
+import { SyncEngine, CloudBridge, MemoryStorageAdapter } from "@opita/memory-sdk";
+import type { StorageBackend } from "@opita/memory-sdk";
 
 // ──────────────────────────────────────────────
 // SyncEngine + CloudBridge Integration Tests
@@ -53,14 +21,19 @@ function makeUpsertChain(response: unknown) {
 
 describe("SyncEngine + CloudBridge integration", () => {
   let storage: StorageBackend;
-  let mockFrom: ReturnType<typeof vi.fn>;
+  let fetchMock: ReturnType<typeof vi.fn>;
   let bridge: CloudBridge;
   let engine: SyncEngine;
 
   beforeEach(() => {
     storage = new MemoryStorageAdapter();
-    mockFrom = vi.fn(() => mockChain({ data: null, error: null }));
-    bridge = new CloudBridge({ from: mockFrom });
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    bridge = new CloudBridge({
+      apiBaseUrl: "https://api.opitacode.local",
+      getAuthToken: async () => "mock-token",
+      serviceName: "vibe-studio",
+    });
     engine = new SyncEngine({ storage, cloudBridge: bridge });
   });
 
@@ -69,26 +42,32 @@ describe("SyncEngine + CloudBridge integration", () => {
   // ──────────────────────────────────────────
 
   it("should pull cloud data and store it locally via CloudBridge", async () => {
-    const mockData = {
-      data: [{ context_key: "theme" }, { context_key: "sidebarWidth" }],
-      error: null,
-    };
-    const listChain = mockChain(mockData);
-    listChain.order = vi.fn(() => Promise.resolve(mockData));
-    mockFrom.mockReturnValueOnce(listChain);
-
-    const themeData = {
-      data: { context_key: "theme", context_value: { value: "dark", timestamp: 2000 } },
-      error: null,
-    };
-    const sidebarData = {
-      data: { context_key: "sidebarWidth", context_value: { value: 300, timestamp: 3000 } },
-      error: null,
-    };
-
-    mockFrom
-      .mockReturnValueOnce(mockChain(themeData))
-      .mockReturnValueOnce(mockChain(sidebarData));
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("/trabajos/context?service=vibe-studio&key=theme")) {
+        return {
+          ok: true,
+          json: async () => ({ value: "dark", timestamp: 2000 }),
+        };
+      }
+      if (url.includes("/trabajos/context?service=vibe-studio&key=sidebarWidth")) {
+        return {
+          ok: true,
+          json: async () => ({ value: 300, timestamp: 3000 }),
+        };
+      }
+      if (url.includes("/trabajos/context?service=vibe-studio")) {
+        return {
+          ok: true,
+          json: async () => ({
+            context: {
+              theme: { value: "dark", timestamp: 2000 },
+              sidebarWidth: { value: 300, timestamp: 3000 },
+            },
+          }),
+        };
+      }
+      return { ok: false, status: 404 };
+    });
 
     await engine.pull("user-123");
 
@@ -104,10 +83,10 @@ describe("SyncEngine + CloudBridge integration", () => {
   });
 
   it("should do nothing when cloud has no data for user", async () => {
-    const mockData = { data: [], error: null };
-    const chain = mockChain(mockData);
-    chain.order = vi.fn(() => Promise.resolve(mockData));
-    mockFrom.mockReturnValue(chain);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ context: {} }),
+    });
 
     await engine.pull("user-456");
 
@@ -119,16 +98,18 @@ describe("SyncEngine + CloudBridge integration", () => {
   it("should apply LWW — cloud wins when cloud timestamp is newer", async () => {
     await storage.set("sync:theme", JSON.stringify({ value: "light", timestamp: 1000 }));
 
-    const mockData = { data: [{ context_key: "theme" }], error: null };
-    const listChain = mockChain(mockData);
-    listChain.order = vi.fn(() => Promise.resolve(mockData));
-    const readData = {
-      data: { context_key: "theme", context_value: { value: "dark", timestamp: 5000 } },
-      error: null,
-    };
-    mockFrom
-      .mockReturnValueOnce(listChain)
-      .mockReturnValueOnce(mockChain(readData));
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("key=theme")) {
+        return {
+          ok: true,
+          json: async () => ({ value: "dark", timestamp: 5000 }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({ context: { theme: { value: "dark", timestamp: 5000 } } }),
+      };
+    });
 
     await engine.pull("user-123");
 
@@ -139,16 +120,18 @@ describe("SyncEngine + CloudBridge integration", () => {
   it("should apply LWW — local wins when local timestamp is newer", async () => {
     await storage.set("sync:theme", JSON.stringify({ value: "light", timestamp: 5000 }));
 
-    const mockData = { data: [{ context_key: "theme" }], error: null };
-    const listChain = mockChain(mockData);
-    listChain.order = vi.fn(() => Promise.resolve(mockData));
-    const readData = {
-      data: { context_key: "theme", context_value: { value: "dark", timestamp: 1000 } },
-      error: null,
-    };
-    mockFrom
-      .mockReturnValueOnce(listChain)
-      .mockReturnValueOnce(mockChain(readData));
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("key=theme")) {
+        return {
+          ok: true,
+          json: async () => ({ value: "dark", timestamp: 1000 }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({ context: { theme: { value: "dark", timestamp: 1000 } } }),
+      };
+    });
 
     await engine.pull("user-123");
 
@@ -156,13 +139,9 @@ describe("SyncEngine + CloudBridge integration", () => {
     expect(JSON.parse(raw!).value).toBe("light");
   });
 
-  it("should throw when CloudBridge encounters a Supabase error during pull", async () => {
-    const listData = { data: null, error: new Error("Supabase connection failed") };
-    const chain = mockChain(listData);
-    chain.order = vi.fn(() => Promise.resolve(listData));
-    mockFrom.mockReturnValue(chain);
-
-    await expect(engine.pull("user-123")).rejects.toThrow("Supabase connection failed");
+  it("should handle API gateway error during pull gracefully", async () => {
+    fetchMock.mockRejectedValue(new Error("Network timeout"));
+    await expect(engine.pull("user-123")).resolves.not.toThrow();
   });
 
   // ──────────────────────────────────────────
@@ -173,51 +152,48 @@ describe("SyncEngine + CloudBridge integration", () => {
     await storage.set("sync:theme", JSON.stringify({ value: "dark", timestamp: 1000 }));
     await storage.set("sync:sidebarWidth", JSON.stringify({ value: 300, timestamp: 2000 }));
 
-    const upsertResponse = { data: null, error: null };
-    const upsertChain = mockChain(upsertResponse);
-    upsertChain.upsert = vi.fn(() => makeUpsertChain(upsertResponse));
-    mockFrom.mockReturnValue(upsertChain);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
 
     await engine.push("user-123");
 
-    expect(upsertChain.upsert).toHaveBeenCalledTimes(2);
-    expect(upsertChain.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: "user-123", context_key: "theme" }),
-      { onConflict: "user_id, context_key" },
-    );
-    expect(upsertChain.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: "user-123", context_key: "sidebarWidth" }),
-      { onConflict: "user_id, context_key" },
-    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const calls = fetchMock.mock.calls;
+    const body1 = JSON.parse(calls[0][1].body);
+    const body2 = JSON.parse(calls[1][1].body);
+
+    expect(calls[0][0]).toContain("/trabajos/context");
+    expect(calls[0][1].method).toBe("POST");
+    expect(calls[1][0]).toContain("/trabajos/context");
+    expect(calls[1][1].method).toBe("POST");
+
+    const sentKeys = [body1.key, body2.key].sort();
+    expect(sentKeys).toEqual(["sidebarWidth", "theme"]);
   });
 
   it("should skip entries that were already pushed (watermark)", async () => {
     await storage.set("sync:theme", JSON.stringify({ value: "dark", timestamp: 1000 }));
 
-    const upsertResponse = { data: null, error: null };
-    const upsertChain1 = mockChain(upsertResponse);
-    upsertChain1.upsert = vi.fn(() => makeUpsertChain(upsertResponse));
-    mockFrom.mockReturnValue(upsertChain1);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
 
     await engine.push("user-123");
-    expect(upsertChain1.upsert).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    const upsertChain2 = mockChain(upsertResponse);
-    upsertChain2.upsert = vi.fn(() => makeUpsertChain(upsertResponse));
-    mockFrom.mockReturnValue(upsertChain2);
+    fetchMock.mockClear();
 
     await engine.push("user-123");
-    expect(upsertChain2.upsert).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("should push nothing when there are no local sync entries", async () => {
-    const upsertResponse = { data: null, error: null };
-    const upsertChain = mockChain(upsertResponse);
-    upsertChain.upsert = vi.fn(() => makeUpsertChain(upsertResponse));
-    mockFrom.mockReturnValue(upsertChain);
-
     await engine.push("user-123");
-    expect(upsertChain.upsert).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   // ──────────────────────────────────────────
@@ -227,48 +203,54 @@ describe("SyncEngine + CloudBridge integration", () => {
   it("should perform full bidirectional sync: pull cloud data, push local changes", async () => {
     await storage.set("sync:localPref", JSON.stringify({ value: "local-value", timestamp: 5000 }));
 
-    const listData = { data: [{ context_key: "cloudPref" }], error: null };
-    const listChain = mockChain(listData);
-    listChain.order = vi.fn(() => Promise.resolve(listData));
-    const readData = {
-      data: { context_key: "cloudPref", context_value: { value: "cloud-value", timestamp: 3000 } },
-      error: null,
-    };
-
-    const upsertResponse = { data: null, error: null };
-    const upsertChain = mockChain(upsertResponse);
-    upsertChain.upsert = vi.fn(() => makeUpsertChain(upsertResponse));
-
-    mockFrom
-      .mockReturnValueOnce(listChain)
-      .mockReturnValueOnce(mockChain(readData))
-      .mockReturnValueOnce(upsertChain);
+    fetchMock.mockImplementation(async (url: string, options?: RequestInit) => {
+      if (options?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({ success: true }),
+        };
+      }
+      if (url.includes("key=cloudPref")) {
+        return {
+          ok: true,
+          json: async () => ({ value: "cloud-value", timestamp: 3000 }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({ context: { cloudPref: { value: "cloud-value", timestamp: 3000 } } }),
+      };
+    });
 
     await engine.sync("user-123");
 
     const cloudLocal = await storage.get<string>("sync:cloudPref");
     expect(JSON.parse(cloudLocal!).value).toBe("cloud-value");
 
-    expect(upsertChain.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ context_key: "localPref" }),
-      { onConflict: "user_id, context_key" },
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/trabajos/context"),
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"key":"localPref"'),
+      }),
     );
   });
 
   it("should update push watermark after full sync", async () => {
     await storage.set("sync:pref", JSON.stringify({ value: "val", timestamp: 1000 }));
 
-    const listData = { data: [], error: null };
-    const listChain = mockChain(listData);
-    listChain.order = vi.fn(() => Promise.resolve(listData));
-
-    const upsertResponse = { data: null, error: null };
-    const upsertChain = mockChain(upsertResponse);
-    upsertChain.upsert = vi.fn(() => makeUpsertChain(upsertResponse));
-
-    mockFrom
-      .mockReturnValueOnce(listChain)
-      .mockReturnValueOnce(upsertChain);
+    fetchMock.mockImplementation(async (url: string, options?: RequestInit) => {
+      if (options?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({ success: true }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({ context: {} }),
+      };
+    });
 
     await engine.sync("user-123");
 

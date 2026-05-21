@@ -4,12 +4,23 @@
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-// Mock idb-keyval before importing memory module
-const mockStore = new Map<string, string>();
-vi.mock("idb-keyval", () => ({
-  get: vi.fn(async (key: string) => mockStore.get(key) || null),
-  set: vi.fn(async (key: string, value: string) => { mockStore.set(key, value); }),
-  del: vi.fn(async (key: string) => { mockStore.delete(key); }),
+// Mock @opita/memory-sdk before importing memory module
+const mockStorageStore = new Map<string, string>();
+
+vi.mock("@opita/memory-sdk", () => ({
+  CloudBridge: vi.fn().mockImplementation(() => ({})),
+  WebStorageAdapter: vi.fn().mockImplementation(() => ({
+    get: vi.fn(async (key: string) => mockStorageStore.get(key) || null),
+    set: vi.fn(async (key: string, value: string) => { mockStorageStore.set(key, value); }),
+    remove: vi.fn(async (key: string) => { mockStorageStore.delete(key); }),
+    clear: vi.fn(async () => { mockStorageStore.clear(); }),
+  })),
+  ContextDecayEngine: vi.fn().mockImplementation(() => ({})),
+  SyncEngine: vi.fn().mockImplementation(() => ({
+    push: vi.fn(async () => {}),
+    pull: vi.fn(async () => {}),
+    sync: vi.fn(async () => {}),
+  })),
 }));
 
 import {
@@ -27,7 +38,7 @@ import type { MemoryEntry } from "../memory";
 
 describe("Engram Memory Store", () => {
   beforeEach(() => {
-    mockStore.clear();
+    mockStorageStore.clear();
   });
 
   // ─── extractKeywords ───────────────────────────────────────

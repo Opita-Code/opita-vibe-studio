@@ -1,4 +1,4 @@
-﻿/**
+/**
  * End-to-End Integration Test: Guest â†’ Learn â†’ Login â†’ Migrate â†’ Sync
  *
  * Simulates the full user journey:
@@ -15,8 +15,7 @@
  * to verify the integration between all layers.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { migrateGuestData } from "../../packages/opita-cloud-context/src/sync/migration";
-import { MemoryStorageAdapter } from "../../packages/opita-cloud-context/src/storage/memory-storage";
+import { migrateGuestData, MemoryStorageAdapter } from "@opita/memory-sdk";
 import { useAuthStore } from "../../src/stores/auth";
 import { useConsentStore } from "../../src/stores/consent";
 import { useLearningStore } from "../../src/stores/learning";
@@ -248,7 +247,7 @@ describe("E2E: Guest â†’ Learn â†’ Login â†’ Migrate â†’ Syn
       listContextKeys: vi.fn(async () => Array.from(cloudStored.keys())),
     };
 
-    const { SyncEngine } = await import("../../packages/opita-cloud-context/src/sync/sync-engine");
+    const { SyncEngine } = await import("@opita/memory-sdk");
     const engine = new SyncEngine({ storage: syncStorage, cloudBridge: mockBridge });
     await engine.pull("user-123");
 
@@ -357,7 +356,7 @@ describe("E2E: Guest â†’ Learn â†’ Login â†’ Migrate â†’ Syn
     };
 
     const freshLocalStore = new MemoryStorageAdapter();
-    const { SyncEngine } = await import("../../packages/opita-cloud-context/src/sync/sync-engine");
+    const { SyncEngine } = await import("@opita/memory-sdk");
     const engine = new SyncEngine({ storage: freshLocalStore, cloudBridge: readBridge });
     await engine.pull("google-uid-456");
 
