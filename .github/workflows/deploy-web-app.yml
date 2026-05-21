@@ -12,6 +12,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Checkout SDK Monorepo
+        uses: actions/checkout@v4
+        with:
+          repository: Opita-Code/opita-core-sdk
+          path: ../opita-core-sdk
+          token: ${{ secrets.GH_PAT_PACKAGES }}
+          sparse-checkout: |
+            packages/memory-sdk
+          sparse-checkout-cone-mode: false
+
       - name: Show Deploy Info
         run: |
           echo "🚀 Web App Deploy"

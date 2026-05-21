@@ -61,7 +61,7 @@ async function loadAll(): Promise<MemoryEntry[]> {
     // WebStorageAdapter might return parsed object or string depending on env
     const entry = typeof raw === "string" ? JSON.parse(raw) : (raw as any);
     return Array.isArray(entry?.value) ? entry.value : [];
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Error loading memories from storage:", err);
     return [];
   }
@@ -75,7 +75,7 @@ async function persistAll(entries: MemoryEntry[]): Promise<void> {
   // Trigger background sync if authenticated
   const userId = useAuthStore.getState().user?.id;
   if (userId) {
-    syncEngine.push(userId).catch((err) => {
+    syncEngine.push(userId).catch((err: unknown) => {
       console.warn("Background memories sync failed:", err);
     });
   }

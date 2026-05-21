@@ -11,11 +11,11 @@ async function persistLearningEvents(events: LearningEvent[]) {
     await storageBackend.set("sync:events", JSON.stringify({ value: events, timestamp }));
     const userId = useAuthStore.getState().user?.id;
     if (userId) {
-      syncEngine.push(userId).catch((err) => {
+      syncEngine.push(userId).catch((err: unknown) => {
         console.warn("Background learning events sync failed:", err);
       });
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Failed to persist learning events:", err);
   }
 }
@@ -26,11 +26,11 @@ async function persistShownTips(shownTips: string[]) {
     await storageBackend.set("sync:shownTips", JSON.stringify({ value: shownTips, timestamp }));
     const userId = useAuthStore.getState().user?.id;
     if (userId) {
-      syncEngine.push(userId).catch((err) => {
+      syncEngine.push(userId).catch((err: unknown) => {
         console.warn("Background shown tips sync failed:", err);
       });
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Failed to persist shown tips:", err);
   }
 }

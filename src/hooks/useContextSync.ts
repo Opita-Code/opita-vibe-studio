@@ -40,7 +40,7 @@ export function useContextSync() {
             await hydrateFromStorage();
           }
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           console.warn("Initial context sync failed, trying local fallback hydration:", err);
           hydrateFromStorage();
         });
@@ -53,7 +53,7 @@ export function useContextSync() {
               await hydrateFromStorage();
             }
           })
-          .catch((err) => {
+          .catch((err: unknown) => {
             console.warn("Periodic context sync failed:", err);
           });
       }, 5 * 60 * 1000);
@@ -66,7 +66,7 @@ export function useContextSync() {
             useLearningStore.getState().hydrateLearningStore([], []);
           }
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           console.error("Error clearing local storage on logout:", err);
         });
     } else {
