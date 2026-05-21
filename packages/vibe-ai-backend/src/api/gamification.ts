@@ -233,17 +233,37 @@ export async function getProfile(email: string, plan: string): Promise<XPProfile
 
 async function saveProfile(email: string, profile: Omit<XPProfile, "effectiveDailyQuota">): Promise<void> {
   const pk = `user#${email}`;
-  await docClient.send(new PutCommand({
+  
+  // Create an update expression dynamically based on the profile properties
+  let updateExpr = "SET ";
+  const expAttrNames: Record<string, string> = {};
+  const expAttrVals: Record<string, any> = {};
+
+  const fields = ["totalXp", "level", "streakDays", "lastActiveDate", "earnedQuota"];
+  const updates: string[] = [];
+
+  for (const field of fields) {
+    if ((profile as any)[field] !== undefined) {
+      updates.push(`#${field} = :${field}`);
+      expAttrNames[`#${field}`] = field;
+      expAttrVals[`:${field}`] = (profile as any)[field];
+    }
+  }
+
+  // Si no hay nada que actualizar, no hacemos la llamada
+  if (updates.length === 0) return;
+
+  updateExpr += updates.join(", ");
+
+  await docClient.send(new UpdateCommand({
     TableName: Resource.TokenUsage.name,
-    Item: {
+    Key: {
       pk,
       sk: "xp#profile",
-      totalXp: profile.totalXp,
-      level: profile.level,
-      streakDays: profile.streakDays,
-      lastActiveDate: profile.lastActiveDate,
-      earnedQuota: profile.earnedQuota,
     },
+    UpdateExpression: updateExpr,
+    ExpressionAttributeNames: expAttrNames,
+    ExpressionAttributeValues: expAttrVals,
   }));
 }
 

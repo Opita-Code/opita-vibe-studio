@@ -77,7 +77,8 @@ export async function exportProjectAsZip(
     onProgress?.({ current: i + 1, total });
 
     try {
-      const content = await backend.readFile(entry.path);
+      // P2 Fix: Read as binary (true) so JSZip receives Uint8Array, preventing corruption of images/binary assets
+      const content = await backend.readFile(entry.path, true);
       zip.file(entry.relativePath, content);
     } catch {
       // Skip file on read error — continue with remaining files

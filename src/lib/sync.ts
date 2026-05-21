@@ -200,7 +200,8 @@ export class SyncEngine {
       if (entry.dir) {
         await backend.createDirectory(entry.name);
       } else {
-        const content = await entry.async("string");
+        // P2 Fix: Extract as uint8array to prevent corrupting binary files (images, assets) during Cloud Sync
+        const content = await entry.async("uint8array");
         await backend.writeFile(entry.name, content);
         count++;
       }
