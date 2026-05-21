@@ -2,6 +2,7 @@ name: Deploy Web App
 
 on:
   push:
+    branches: [main]
     tags: ['web/v*']
   workflow_dispatch:
 
@@ -15,7 +16,7 @@ jobs:
       - name: Show Deploy Info
         run: |
           echo "🚀 Web App Deploy"
-          echo "   Tag: ${{ github.ref_name }}"
+          echo "   Ref: ${{ github.ref_name }}"
           echo "   SHA: ${{ github.sha }}"
 
       - name: Setup Node.js
