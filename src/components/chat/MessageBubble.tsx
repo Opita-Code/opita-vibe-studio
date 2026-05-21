@@ -249,7 +249,7 @@ function StepItem({ step }: { step: import("@/lib/types").SubagentStep }) {
       <Icon size={14} className="mt-0.5 opacity-70 shrink-0" />
       <div className="flex flex-col">
         <span className="opacity-90">{step.phrase}</span>
-        {step.target && <span className="opacity-60 truncate max-w-[300px]">{step.target}</span>}
+        {step.target && <span className="opacity-60 truncate max-w-[200px] md:max-w-[300px]">{step.target}</span>}
       </div>
     </div>
   );
@@ -429,7 +429,7 @@ export function MessageBubble({ message, isThinking = false, onCancel, onEdit }:
     // Agent-aware path: show execution dashboard even without text
     if (hasAgentExecution) {
       return (
-        <div className="mb-4 flex justify-start pr-12 animate-fade-in">
+        <div className="mb-4 flex justify-start pr-3 md:pr-12 animate-fade-in">
           <div className="rounded-2xl rounded-tl-sm bg-obsidian-900/60 border border-white/5 text-white/80 backdrop-blur-3xl px-4 py-3 shadow-xl relative overflow-hidden w-full max-w-full">
             <div className="absolute inset-0 bg-aura-purple/5 animate-pulse mix-blend-screen pointer-events-none" />
             <div className="relative z-10">
@@ -465,7 +465,7 @@ export function MessageBubble({ message, isThinking = false, onCancel, onEdit }:
         <ReasoningAccordion steps={message.subagentSteps} thinkContent={thinkContent} isStreaming={reasoningIsLive} />
       ) : null}
 
-      <div className={`mb-4 flex group ${isUser ? "justify-end pl-12" : "justify-start pr-12"} animate-fade-in`}>
+      <div className={`mb-4 flex group ${isUser ? "justify-end pl-3 md:pl-12" : "justify-start pr-3 md:pr-12"} animate-fade-in`}>
         {isUser && (
         <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button

@@ -11,7 +11,7 @@ export function SidebarSlot() {
   if (views.length === 0) return null;
 
   return (
-    <div className="flex flex-col h-full bg-obsidian-900/90 backdrop-blur-3xl border-r border-white/5">
+    <div className="flex flex-col h-full bg-obsidian-900/90 backdrop-blur-3xl md:border-r border-white/5">
       {views.map(View => (
         <View.component key={View.id} />
       ))}

@@ -262,7 +262,7 @@ export function SettingsPanel() {
                             </div>
                           </div>
 
-                          <div className="p-5 bg-white/[0.02] rounded-xl border border-white/5">
+                          <div className="hidden md:block p-5 bg-white/[0.02] rounded-xl border border-white/5">
                             <h3 className="text-sm font-semibold text-slate-200 mb-2">Posición del Asistente</h3>
                             <p className="text-xs text-slate-400 mb-4 leading-relaxed">
                               Elige dónde anclar el panel de Vibe AI en tu entorno de trabajo.
@@ -293,7 +293,7 @@ export function SettingsPanel() {
                             </div>
                           </div>
 
-                          <div className="p-5 bg-white/[0.02] rounded-xl border border-white/5">
+                          <div className="hidden md:block p-5 bg-white/[0.02] rounded-xl border border-white/5">
                             <div className="flex items-center justify-between mb-2">
                               <h3 className="text-sm font-semibold text-slate-200">Ancho Base del Panel</h3>
                               {Math.round(chatWidth) !== 400 && (

@@ -182,7 +182,7 @@ function MissionCompleteToast({ mission, onDismiss }: { mission: Mission; onDism
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -10, scale: 0.95 }}
       transition={{ type: "spring", stiffness: 300, damping: 25 }}
-      className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[100]"
+      className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[100] max-w-[calc(100vw-2rem)] w-auto"
     >
       <div className="bg-obsidian-900/95 backdrop-blur-xl border border-aura-cyan/30 rounded-2xl px-5 py-3 shadow-[0_0_40px_rgba(6,182,212,0.2)] flex items-center gap-3">
         <motion.div
@@ -288,11 +288,11 @@ export function MissionPanel() {
 
             {/* Panel */}
             <motion.aside
-              initial={{ x: -320, opacity: 0 }}
+              initial={{ x: "-100%", opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -320, opacity: 0 }}
+              exit={{ x: "-100%", opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed left-12 top-0 bottom-0 w-80 bg-obsidian-900/95 backdrop-blur-xl border-r border-white/5 z-[85] flex flex-col overflow-hidden"
+              className="fixed inset-y-0 left-0 w-[85vw] max-w-80 md:left-12 md:w-80 bg-obsidian-900/95 backdrop-blur-xl border-r border-white/5 z-[85] flex flex-col overflow-hidden"
             >
               {/* Header with Progress Ring */}
               <div className="p-4 border-b border-white/5 flex-shrink-0">

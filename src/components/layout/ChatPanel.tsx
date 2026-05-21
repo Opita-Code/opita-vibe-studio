@@ -110,12 +110,12 @@ export function ChatPanel({ width }: ChatPanelProps) {
 
   return (
     <aside
-      className={`flex flex-col bg-obsidian-950/80 backdrop-blur-xl overflow-hidden shrink-0 h-full w-full ${
+      className={`flex flex-col bg-obsidian-950/80 backdrop-blur-xl overflow-hidden h-full w-full ${
         chatFullscreen
           ? "border-0"
-          : "border-l border-white/10 shadow-[-4px_0_15px_rgba(0,0,0,0.5)]"
+          : "md:border-l border-white/10 md:shadow-[-4px_0_15px_rgba(0,0,0,0.5)] md:shrink-0"
       }`}
-      style={{ width }}
+      style={width ? { width } : undefined}
     >
       <div className={`flex items-center justify-between border-b border-white/10 px-4 shrink-0 bg-transparent ${
         chatFullscreen ? "py-2" : "py-3"
@@ -140,7 +140,7 @@ export function ChatPanel({ width }: ChatPanelProps) {
           {!chatFullscreen && (
             <button
               onClick={() => useUIStore.getState().toggleChatPosition()}
-              className="text-slate-500 hover:text-white p-1.5 rounded-md hover:bg-white/10 transition-all duration-200"
+              className="hidden md:block text-slate-500 hover:text-white p-1.5 rounded-md hover:bg-white/10 transition-all duration-200"
               title="Cambiar de lado"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -149,10 +149,9 @@ export function ChatPanel({ width }: ChatPanelProps) {
               </svg>
             </button>
           )}
-          {/* VibeLens preview toggle */}
-          <button
-            onClick={toggleFullscreenPreview}
-            className={`p-1.5 rounded-md transition-all duration-200 ${
+            <button
+             onClick={toggleFullscreenPreview}
+             className={`hidden md:block p-1.5 rounded-md transition-all duration-200 ${
               fullscreenPreviewVisible
                 ? "text-aura-cyan bg-aura-cyan/10"
                 : "text-slate-500 hover:text-white hover:bg-white/10"
@@ -168,7 +167,7 @@ export function ChatPanel({ width }: ChatPanelProps) {
           </button>
           <button
           onClick={toggleChatFullscreen}
-          className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-white/5 transition-all duration-200 ease-out hover:scale-[1.02] active:scale-[0.98]"
+          className="hidden md:block text-slate-400 hover:text-white p-1 rounded-md hover:bg-white/5 transition-all duration-200 ease-out hover:scale-[1.02] active:scale-[0.98]"
           title={chatFullscreen ? "Contraer" : "Pantalla completa"}
           aria-label={chatFullscreen ? "Contraer panel de chat" : "Expandir panel de chat a pantalla completa"}
         >
