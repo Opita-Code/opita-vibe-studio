@@ -11,7 +11,7 @@
  */
 
 import * as jose from "jose";
-import { streamText, tool } from "ai";
+import { streamText, tool, stepCountIs } from "ai";
 import { z } from "zod";
 import { getModel } from "./chat.js";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
@@ -116,20 +116,20 @@ Usa las herramientas para consultar y modificar datos. NO inventes datos — sie
 // ─── Admin Tools Definition ─────────────────────────────────────
 
 function getAdminTools(ctx: AdminContext) {
-  const tools: Record<string, ReturnType<typeof tool>> = {};
+  const tools: Record<string, any> = {};
 
   // ── Read-only tools (all admin roles) ──────────────────────
 
   tools.list_users = tool({
     description: "Lista usuarios de la plataforma con filtros opcionales. Devuelve email, nombre, plan, última conexión, y fechas de trial/suscripción.",
-    parameters: z.object({
+    inputSchema: z.object({
       plan_filter: z.enum(["all", "free", "estudiante", "pro"]).optional().default("all"),
       limit: z.number().optional().default(25),
       search: z.string().optional().describe("Buscar por email o nombre (parcial)"),
     }),
     execute: async ({ plan_filter, limit, search }) => {
       const params: Record<string, unknown> = {
-        TableName: Resource.Users.name,
+        TableName: process.env.USERS_TABLE_NAME,
         Limit: Math.min(limit, 100),
       };
 
@@ -170,12 +170,12 @@ function getAdminTools(ctx: AdminContext) {
 
   tools.get_user = tool({
     description: "Obtiene el detalle completo de un usuario por su email. Incluye plan, fechas, uso de tokens, y estado de sesión.",
-    parameters: z.object({
+    inputSchema: z.object({
       email: z.string().email().describe("Email del usuario a consultar"),
     }),
     execute: async ({ email }) => {
       const result = await docClient.send(
-        new GetCommand({ TableName: Resource.Users.name, Key: { email } })
+        new GetCommand({ TableName: process.env.USERS_TABLE_NAME, Key: { email } })
       );
 
       if (!result.Item) return { error: `Usuario ${email} no encontrado.` };
@@ -199,7 +199,7 @@ function getAdminTools(ctx: AdminContext) {
 
   tools.get_usage_overview = tool({
     description: "Muestra un resumen del uso de tokens de la plataforma o de un usuario específico.",
-    parameters: z.object({
+    inputSchema: z.object({
       email: z.string().optional().describe("Email del usuario (omitir para overview global)"),
     }),
     execute: async ({ email }) => {
@@ -231,7 +231,7 @@ function getAdminTools(ctx: AdminContext) {
 
       // Global overview: count users by plan
       const scanResult = await docClient.send(new ScanCommand({
-        TableName: Resource.Users.name,
+        TableName: process.env.USERS_TABLE_NAME,
         ProjectionExpression: "#p",
         ExpressionAttributeNames: { "#p": "plan" },
       }));
@@ -251,7 +251,7 @@ function getAdminTools(ctx: AdminContext) {
 
   tools.list_transactions = tool({
     description: "Lista las transacciones de pago registradas.",
-    parameters: z.object({
+    inputSchema: z.object({
       limit: z.number().optional().default(20),
     }),
     execute: async ({ limit }) => {
@@ -277,15 +277,24 @@ function getAdminTools(ctx: AdminContext) {
 
   tools.system_health = tool({
     description: "Muestra métricas de salud del sistema: conteo de tablas, items, y estado general.",
-    parameters: z.object({}),
+    inputSchema: z.object({}),
     execute: async () => {
       const tables = ["Users", "Projects", "Conversations", "Transactions", "TokenUsage", "UserKeys"];
       const counts: Record<string, number> = {};
 
       for (const table of tables) {
         try {
+          let tableName = "";
+          if (table === "Users") {
+            tableName = process.env.USERS_TABLE_NAME || "";
+          } else if (table === "UserKeys") {
+            tableName = process.env.USER_KEYS_TABLE_NAME || "";
+          } else {
+            tableName = (Resource as any)[table]?.name || "";
+          }
+          if (!tableName) continue;
           const result = await docClient.send(new ScanCommand({
-            TableName: (Resource as any)[table]?.name,
+            TableName: tableName,
             Select: "COUNT",
           }));
           counts[table] = result.Count || 0;
@@ -307,7 +316,7 @@ function getAdminTools(ctx: AdminContext) {
   if (ctx.role === "superadmin" || ctx.role === "product_admin") {
     tools.update_user_plan = tool({
       description: "Cambia el plan de un usuario. SIEMPRE confirma con el admin antes de ejecutar.",
-      parameters: z.object({
+      inputSchema: z.object({
         email: z.string().email(),
         new_plan: z.enum(["free", "estudiante", "pro"]),
         trial_days: z.number().optional().describe("Si se establece, configura un trial de N días"),
@@ -328,7 +337,7 @@ function getAdminTools(ctx: AdminContext) {
         }
 
         await docClient.send(new UpdateCommand({
-          TableName: Resource.Users.name,
+          TableName: process.env.USERS_TABLE_NAME,
           Key: { email },
           UpdateExpression: `SET ${updateExpr.join(", ")}`,
           ExpressionAttributeNames: exprNames,
@@ -348,10 +357,10 @@ function getAdminTools(ctx: AdminContext) {
 
     tools.set_admin_role = tool({
       description: "Asigna o revoca un rol de administrador a un usuario. Solo superadmin puede usar esto.",
-      parameters: z.object({
+      inputSchema: z.object({
         email: z.string().email(),
         role: z.enum(["superadmin", "product_admin", "support", "viewer"]).nullable()
-          .describe("El rol a asignar. null para revocar."),
+          .describe("El role a asignar. null para revocar."),
       }),
       execute: async ({ email, role }) => {
         if (ctx.role !== "superadmin") {
@@ -360,7 +369,7 @@ function getAdminTools(ctx: AdminContext) {
 
         if (role) {
           await docClient.send(new UpdateCommand({
-            TableName: Resource.Users.name,
+            TableName: process.env.USERS_TABLE_NAME,
             Key: { email },
             UpdateExpression: "SET admin_role = :role",
             ExpressionAttributeValues: { ":role": role },
@@ -368,7 +377,7 @@ function getAdminTools(ctx: AdminContext) {
           }));
         } else {
           await docClient.send(new UpdateCommand({
-            TableName: Resource.Users.name,
+            TableName: process.env.USERS_TABLE_NAME,
             Key: { email },
             UpdateExpression: "REMOVE admin_role",
             ConditionExpression: "attribute_exists(email)",
@@ -473,7 +482,7 @@ export const handler = awslambda.streamifyResponse(
 
     // ── Resolve admin role ──
     const userResult = await docClient.send(
-      new GetCommand({ TableName: Resource.Users.name, Key: { email: identity.email } })
+      new GetCommand({ TableName: process.env.USERS_TABLE_NAME, Key: { email: identity.email } })
     );
     const role = resolveAdminRole(identity.email, userResult.Item as any);
 
@@ -537,7 +546,7 @@ export const handler = awslambda.streamifyResponse(
           system: getSyncSystemPrompt(adminCtx),
           messages,
           tools: adminTools,
-          maxSteps: 5, // Allow multi-turn tool execution
+          stopWhen: stepCountIs(5), // Allow multi-turn tool execution
         });
 
         for await (const chunk of result.fullStream) {

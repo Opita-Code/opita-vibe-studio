@@ -336,7 +336,7 @@ export async function awardXP(
             quotaBoost: m.quotaBoost,
           },
           ConditionExpression: "attribute_not_exists(pk)",
-        }).catch(() => { /* already unlocked */ }));
+        })).catch(() => { /* already unlocked */ });
         milestoneQuotaBoost += m.quotaBoost;
         // Report the highest milestone for UI toast
         newMilestone = { level: m.level, badge: m.badge, label: m.label };

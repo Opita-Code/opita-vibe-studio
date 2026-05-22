@@ -4,8 +4,10 @@ import { createHmac, timingSafeEqual } from "crypto";
 import * as jose from "jose";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { CognitoIdentityProviderClient, AdminUpdateUserAttributesCommand, ListUsersCommand } from "@aws-sdk/client-cognito-identity-provider";
 
 const Resource = SSTResource as any;
+const cognitoClient = new CognitoIdentityProviderClient({});
 
 // ─── Auth Helper (mirrors core.ts pattern) ──────────────────────
 
@@ -108,6 +110,25 @@ const PRODUCTS: Record<string, { name: string; amountInCents: number; currency: 
   VIBE_PRO: { name: "Vibe Studio Pro", amountInCents: 4990000, currency: "COP" },
 };
 
+async function getCognitoUsername(userId: string): Promise<string> {
+  const COGNITO_POOL_ID = "us-east-1_LItAcj2Aa";
+  if (userId.includes('@')) {
+    try {
+      const listResponse = await cognitoClient.send(new ListUsersCommand({
+        UserPoolId: COGNITO_POOL_ID,
+        Filter: `email = "${userId}"`,
+        Limit: 1
+      }));
+      if (listResponse.Users && listResponse.Users.length > 0) {
+        return listResponse.Users[0].Username || userId;
+      }
+    } catch (e) {
+      console.error('Error resolving email to UUID:', e);
+    }
+  }
+  return userId;
+}
+
 export async function handler(event: any) {
   const method = event.requestContext.http.method;
 
@@ -176,12 +197,6 @@ export async function handler(event: any) {
       }
     }
 
-    // ── AUTH: JWT preferred, query-string userId fallback ──
-    // Vibe Studio app sends JWT cookie → extractAuthEmail works.
-    // Account portal (cuenta.opitacode.com) sends userId in query string
-    // with credentials: "omit" (different domain, no shared cookies).
-    // Checkout signature is NOT a security risk — Wompi webhook validates
-    // actual payment completion before plan upgrade happens.
     const authenticatedEmail = await extractAuthEmail(event);
 
     const params = event.queryStringParameters || {};
@@ -197,7 +212,6 @@ export async function handler(event: any) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Producto inválido" }) };
     }
 
-    // Strip BOM (U+FEFF) and whitespace — env vars from GitHub Secrets can carry invisible chars
     const publicKey = (process.env.WOMPI_PUBLIC_KEY || "").replace(/^\uFEFF/, "").trim();
     const integritySecret = (process.env.WOMPI_INTEGRITY_SECRET || "").replace(/^\uFEFF/, "").trim();
 
@@ -208,7 +222,6 @@ export async function handler(event: any) {
 
     const reference = `${productKey}::${userId}::${Date.now()}`;
 
-    // Wompi integrity: SHA256(reference + amountInCents + currency + integritySecret)
     const concatenation = `${reference}${product.amountInCents}${product.currency}${integritySecret}`;
     const signature = crypto.createHash("sha256").update(concatenation).digest("hex");
 
@@ -253,8 +266,6 @@ export async function handler(event: any) {
     const { signature, data } = body;
     const tx = data.transaction;
 
-    // Generar string para el checksum
-    // Según doc de Wompi, el string concatena los valores de las properties + timestamp + secret
     let signatureString = "";
     for (const prop of signature.properties) {
       const parts = prop.split('.');
@@ -276,78 +287,117 @@ export async function handler(event: any) {
 
     // 2. Procesar el evento
     if (body.event === "transaction.updated" && tx.status === "APPROVED") {
-      let productId = "VIBE_STUDENT";
+      let productId = "";
       let userId = "";
 
-      // New format uses :: as delimiter (safe for emails with underscores)
       if (tx.reference.includes("::")) {
         const refParts = tx.reference.split("::");
-        if (refParts.length >= 3) {
-          productId = refParts[0];
-          userId = refParts[1];
-          // refParts[2] is the timestamp
-        } else if (refParts.length === 2) {
+        if (refParts.length >= 2) {
           productId = refParts[0];
           userId = refParts[1];
         }
       } else {
-        // Legacy format: VIBE_STUDENT_{userId}_{timestamp}
         const refParts = tx.reference.split("_");
-        if (refParts.length >= 3) {
+        if (tx.reference.startsWith("TRABAJOS_") && refParts.length >= 4) {
+          productId = `${refParts[0]}_${refParts[1]}`;
+          userId = refParts.slice(2, -1).join('_');
+        } else if (tx.reference.startsWith("VIBE_") && refParts.length >= 3) {
           userId = refParts[refParts.length - 2];
-          const prefixParts = refParts.slice(0, refParts.length - 2);
-          productId = prefixParts.join("_");
-        } else if (refParts.length === 2) {
+          productId = refParts.slice(0, refParts.length - 2).join('_');
+        } else if (refParts.length === 3) {
           productId = refParts[0];
           userId = refParts[1];
         } else {
           console.error("Referencia no reconocible, ignorando:", tx.reference);
+          return { statusCode: 200, headers: corsHeaders, body: "OK (unrecognized reference)" };
         }
       }
 
+      const isTrabajosProduct = productId.startsWith("TRABAJOS_");
+      const isVibeProduct = productId.startsWith("VIBE_");
+
+      if (!isTrabajosProduct && !isVibeProduct) {
+        console.error("Unknown product class in reference:", productId);
+        return { statusCode: 200, headers: corsHeaders, body: "OK (unknown product class)" };
+      }
+
       try {
-        // A) Registrar transacción (idempotent — reject duplicates)
-        try {
-          await docClient.send(new PutCommand({
-            TableName: Resource.Transactions.name,
-            Item: {
-              id: tx.id,
-              user_id: userId,
-              product_id: productId,
-              amount_in_cents: tx.amount_in_cents,
-              currency: tx.currency,
-              status: tx.status,
-              created_at: new Date().toISOString()
-            },
-            ConditionExpression: "attribute_not_exists(id)",
-          }));
-        } catch (dupErr: any) {
-          if (dupErr.name === "ConditionalCheckFailedException") {
-            console.info(`Webhook duplicado ignorado para tx ${tx.id}`);
-            return { statusCode: 200, headers: corsHeaders, body: "OK (duplicate)" };
+        const COGNITO_POOL_ID = "us-east-1_LItAcj2Aa";
+        const cognitoUsername = await getCognitoUsername(userId);
+
+        // 1. Update Cognito for Both Stacks
+        let attributeName = "";
+        let attributeValue = "";
+
+        if (isTrabajosProduct) {
+          const planMap: Record<string, string> = {
+            TRABAJOS_STARTER: "starter",
+            TRABAJOS_PRO: "pro",
+            TRABAJOS_SPRINT: "sprint"
+          };
+          const plan = planMap[productId];
+          if (plan) {
+            attributeName = "custom:trabajos_plan";
+            attributeValue = plan;
           }
-          throw dupErr;
+        } else if (isVibeProduct) {
+          attributeName = "custom:plan";
+          attributeValue = productId === "VIBE_STUDENT" ? "estudiante" : "pro";
         }
 
-        // B) Actualizar perfil del usuario
-        if (productId === "VIBE_PRO" || productId === "VIBE_STUDENT") {
+        if (attributeName && attributeValue) {
+          try {
+            await cognitoClient.send(new AdminUpdateUserAttributesCommand({
+              UserPoolId: COGNITO_POOL_ID,
+              Username: cognitoUsername,
+              UserAttributes: [{ Name: attributeName, Value: attributeValue }]
+            }));
+            console.info(`Cognito updated: ${cognitoUsername} → ${attributeName} = ${attributeValue}`);
+          } catch (cognitoErr: any) {
+            console.error(`Error updating Cognito attribute for ${cognitoUsername}:`, cognitoErr.message || cognitoErr);
+          }
+        }
+
+        // 2. DynamoDB updates for Vibe Products ONLY
+        if (isVibeProduct) {
+          try {
+            await docClient.send(new PutCommand({
+              TableName: Resource.Transactions.name,
+              Item: {
+                id: tx.id,
+                user_id: userId,
+                product_id: productId,
+                amount_in_cents: tx.amount_in_cents,
+                currency: tx.currency,
+                status: tx.status,
+                created_at: new Date().toISOString()
+              },
+              ConditionExpression: "attribute_not_exists(id)",
+            }));
+          } catch (dupErr: any) {
+            if (dupErr.name === "ConditionalCheckFailedException") {
+              console.info(`Webhook duplicado ignorado para tx ${tx.id}`);
+              return { statusCode: 200, headers: corsHeaders, body: "OK (duplicate)" };
+            }
+            throw dupErr;
+          }
+
           const newPlan = productId === "VIBE_STUDENT" ? "estudiante" : "pro";
           await docClient.send(new UpdateCommand({
-            TableName: Resource.Users.name,
+            TableName: process.env.USERS_TABLE_NAME,
             Key: { email: userId },
             UpdateExpression: "SET #plan = :plan, updated_at = :updated_at",
-            ExpressionAttributeNames: {
-              "#plan": "plan"
-            },
+            ExpressionAttributeNames: { "#plan": "plan" },
             ExpressionAttributeValues: {
               ":plan": newPlan,
               ":updated_at": new Date().toISOString()
             }
           }));
-          console.info(`Plan actualizado: ${userId} → ${newPlan} (tx: ${tx.id})`);
+          console.info(`Plan actualizado en DB Vibe: ${userId} → ${newPlan} (tx: ${tx.id})`);
         } else {
-          console.warn(`Producto desconocido en referencia: ${productId} (tx: ${tx.reference})`);
+          console.info(`Cross-Stack Trabajos webhook procesado exitosamente para ${userId}`);
         }
+
       } catch (dbError) {
         console.error("Error actualizando base de datos:", dbError);
         return { statusCode: 500, body: "Error interno de base de datos" };
@@ -362,4 +412,3 @@ export async function handler(event: any) {
     return { statusCode: 500, headers: corsHeaders, body: "Error procesando el webhook" };
   }
 }
-

@@ -340,7 +340,7 @@ interface ChatPayload {
 type ContentPart =
   | { type: "text"; text: string }
   | { type: "image"; image: string }
-  | { type: "file"; data: string | URL; mimeType: string };
+  | { type: "file"; data: string | URL; mimeType: string; mediaType: string };
 
 interface StreamChunk {
   type: string;
@@ -504,7 +504,7 @@ export const handler = awslambda.streamifyResponse(
       try {
         const encryptedKey = encrypt(apiKeyToSave);
         await docClient.send(new PutCommand({
-          TableName: Resource.UserKeys.name,
+          TableName: process.env.USER_KEYS_TABLE_NAME,
           Item: {
             id: `${userId}#${providerId}`,
             encryptedKey: encryptedKey,
@@ -538,7 +538,7 @@ export const handler = awslambda.streamifyResponse(
       if (activeKey === "aws-managed") {
         try {
           const result = await docClient.send(new GetCommand({
-            TableName: Resource.UserKeys.name,
+            TableName: process.env.USER_KEYS_TABLE_NAME,
             Key: {
               id: `${userId}#${providerId}`
             }
@@ -572,7 +572,7 @@ export const handler = awslambda.streamifyResponse(
               imageAttachments.push(att);
             } else if (att.data.startsWith("http")) {
               // Es una URL de S3 (archivo grande subido)
-              contentParts.push({ type: "file", data: new URL(att.data), mimeType: att.contentType });
+              contentParts.push({ type: "file", data: new URL(att.data), mimeType: att.contentType, mediaType: att.contentType });
             } else {
               textContent = `\n--- Archivo adjunto: ${att.name} ---\n\`\`\`\n${att.data}\n\`\`\`\n` + textContent;
             }
@@ -665,10 +665,14 @@ export const handler = awslambda.streamifyResponse(
         return;
       }
 
+      let selectedSystemPrompt = FALLBACK_SYSTEM_PROMPT;
+      let cleanMessages: any[] = [];
+      let tools: Record<string, unknown> = {};
+
       try {
         // System prompt: the frontend composes and sends it as the first system message.
         // We only use a fallback if no system message is present in the conversation.
-        let selectedSystemPrompt = FALLBACK_SYSTEM_PROMPT;
+        selectedSystemPrompt = FALLBACK_SYSTEM_PROMPT;
         
         // AI SDK v6: system messages MUST go in the `system` param, not messages[].
         // Extract the frontend-composed system message and promote it to the system param.
@@ -696,7 +700,7 @@ export const handler = awslambda.streamifyResponse(
         // can return results in a follow-up request.
 
         // ── Base tools (all plans) ──────────────────────────────────────
-        const tools: Record<string, unknown> = {
+        tools = {
           read_file: {
             description: 'Lee un archivo del proyecto para analizarlo. Retorna el contenido completo del archivo.',
             inputSchema: jsonSchema({
@@ -799,7 +803,7 @@ export const handler = awslambda.streamifyResponse(
           const today = new Date().toISOString().split("T")[0];
           try {
             const userResult = await docClient.send(new GetCommand({
-              TableName: Resource.Users.name,
+              TableName: process.env.USERS_TABLE_NAME,
               Key: { email: userId }
             }));
             const userData = userResult.Item || { daily_subagent_count: 0, subagent_reset_date: today };
@@ -814,7 +818,7 @@ export const handler = awslambda.streamifyResponse(
               return;
             }
             await docClient.send(new UpdateCommand({
-              TableName: Resource.Users.name,
+              TableName: process.env.USERS_TABLE_NAME,
               Key: { email: userId },
               UpdateExpression: "SET daily_subagent_count = :count, subagent_reset_date = :date",
               ExpressionAttributeValues: {
@@ -843,7 +847,7 @@ export const handler = awslambda.streamifyResponse(
         // AI SDK v6: system messages MUST go in the `system` param, not in messages[].
         // Filter them out to prevent InvalidPromptError and double-system conflicts.
         // Also filter empty assistant messages from stale conversation history.
-        const cleanMessages = messages.filter(
+        cleanMessages = messages.filter(
           (m: { role: string; content: unknown }) =>
             m.role !== "system" &&
             !(m.role === "assistant" && (!m.content || m.content === ""))

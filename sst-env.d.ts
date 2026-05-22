@@ -6,6 +6,10 @@
 
 declare module "sst" {
   export interface Resource {
+    "AnalyticsEvents": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
     "BillingAPI": {
       "name": string
       "type": "sst.aws.Function"
@@ -24,6 +28,14 @@ declare module "sst" {
       "name": string
       "type": "sst.aws.Function"
       "url": string
+    }
+    "CreateAuthChallenge": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
+    "DefineAuthChallenge": {
+      "name": string
+      "type": "sst.aws.Function"
     }
     "Projects": {
       "name": string
@@ -54,6 +66,10 @@ declare module "sst" {
     "Users": {
       "name": string
       "type": "sst.aws.Dynamo"
+    }
+    "VerifyAuthChallenge": {
+      "name": string
+      "type": "sst.aws.Function"
     }
     "VibeRouter": {
       "type": "sst.aws.Router"

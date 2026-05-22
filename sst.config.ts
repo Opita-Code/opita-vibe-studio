@@ -21,28 +21,30 @@ export default $config({
         process.env[key] = val.slice(1).trim();
       }
     }
+    const aws = await import("@pulumi/aws");
+
+    // Read external table names and API URL from SSM
+    const usersTableNameParam = await aws.ssm.getParameter({
+      name: `/opita-account/${$app.stage}/users-table-name`,
+    });
+    const usersTableName = usersTableNameParam.value;
+
+    const userKeysTableNameParam = await aws.ssm.getParameter({
+      name: `/opita-account/${$app.stage}/user-keys-table-name`,
+    });
+    const userKeysTableName = userKeysTableNameParam.value;
+
+    const authApiUrlParam = await aws.ssm.getParameter({
+      name: `/opita-account/${$app.stage}/auth-api-url`,
+    });
+    const authApiUrl = authApiUrlParam.value;
+
     // 1.2 Crear tabla DynamoDB (Conversations)
     const table = new sst.aws.Dynamo("Conversations", {
       fields: {
         id: "string",
       },
       primaryIndex: { hashKey: "id" },
-    });
-
-    // 1.2b Crear tabla para llaves BYOK cifradas
-    const keysTable = new sst.aws.Dynamo("UserKeys", {
-      fields: {
-        id: "string",
-      },
-      primaryIndex: { hashKey: "id" },
-    });
-
-    // 1.2c Crear tabla de Usuarios (Para Auth Custom)
-    const usersTable = new sst.aws.Dynamo("Users", {
-      fields: {
-        email: "string", // Usaremos el email como clave principal para simplicidad
-      },
-      primaryIndex: { hashKey: "email" },
     });
 
     // 1.2d Crear tabla de Proyectos (Migración de Supabase)
@@ -84,6 +86,14 @@ export default $config({
       ttl: "expiresAt",
     });
 
+    const externalDynamoPermissions = {
+      actions: ["dynamodb:*"],
+      resources: [
+        `arn:aws:dynamodb:us-east-1:*:table/${usersTableName}`,
+        `arn:aws:dynamodb:us-east-1:*:table/${userKeysTableName}`,
+      ],
+    };
+
     // 1.3 Endpoint Dummy Streaming
     const api = new sst.aws.Function("ChatStreamAPI", {
       url: {
@@ -95,7 +105,8 @@ export default $config({
         },
       },
       handler: "packages/vibe-ai-backend/src/api/chat.handler",
-      link: [table, keysTable, usersTable, tokenUsageTable], // Grants IAM permissions automatically
+      link: [table, tokenUsageTable], // Grants IAM permissions automatically
+      permissions: [externalDynamoPermissions],
       environment: {
         JWT_SECRET: process.env.JWT_SECRET || "",
         DEEP_SEEK_KEY: process.env.DEEP_SEEK_KEY || "",
@@ -104,6 +115,8 @@ export default $config({
         AI_STUDIO_GOOGLE: process.env.AI_STUDIO_GOOGLE || "",
         GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
         OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
+        USERS_TABLE_NAME: usersTableName,
+        USER_KEYS_TABLE_NAME: userKeysTableName,
       },
       streaming: true, // Crucial for 15-minute connection and real-time response
     });
@@ -136,12 +149,15 @@ export default $config({
     const billingApi = new sst.aws.Function("BillingAPI", {
       url: { cors: false },
       handler: "packages/vibe-ai-backend/src/api/billing.handler",
-      link: [transactionsTable, usersTable],
+      link: [transactionsTable],
+      permissions: [externalDynamoPermissions],
       environment: {
         WOMPI_WEBHOOK_SECRET: process.env.WOMPI_WEBHOOK_SECRET || "",
         WOMPI_PUBLIC_KEY: process.env.WOMPI_PUBLIC_KEY || "",
         WOMPI_INTEGRITY_SECRET: process.env.WOMPI_INTEGRITY_SECRET || "",
         JWT_SECRET: process.env.JWT_SECRET || "",
+        USERS_TABLE_NAME: usersTableName,
+        USER_KEYS_TABLE_NAME: userKeysTableName,
       },
     });
 
@@ -149,31 +165,32 @@ export default $config({
     const coreApi = new sst.aws.Function("CoreAPI", {
       url: { cors: false },
       handler: "packages/vibe-ai-backend/src/api/core.handler",
-      link: [usersTable, projectsTable, tokenUsageTable, keysTable, analyticsTable],
+      link: [projectsTable, tokenUsageTable, analyticsTable],
       permissions: [
         {
           actions: ["ses:SendEmail", "ses:SendRawEmail"],
           resources: ["*"],
         },
         {
-          actions: ["cognito-idp:AdminUpdateUserAttributes"],
+          actions: [
+            "cognito-idp:AdminUpdateUserAttributes",
+            "cognito-idp:AdminInitiateAuth",
+            "cognito-idp:AdminRespondToAuthChallenge",
+            "cognito-idp:AdminCreateUser",
+          ],
           resources: ["arn:aws:cognito-idp:us-east-1:*:userpool/us-east-1_LItAcj2Aa"],
         },
+        externalDynamoPermissions,
       ],
       environment: {
         JWT_SECRET: process.env.JWT_SECRET || "",
         FRONTEND_URL: process.env.FRONTEND_URL || ($app.stage === "prod" ? "https://vibe.opitacode.com" : "http://localhost:3000"),
         SES_FROM_EMAIL: process.env.SES_FROM_EMAIL || "noreply@opitacode.com",
         OPITA_LINKS_API_KEY: process.env.OPITA_LINKS_API_KEY || "",
-        // Stable Router domain for magic link verify URLs.
-        // Without this, verify URLs point to the raw Lambda Function URL which:
-        // (a) bypasses the Router, (b) sets cookies on the wrong domain, (c) rotates on deploy.
-        // Always use production Router because auth is shared infrastructure
-        // (same JWT_SECRET, same Cognito, same DynamoDB Users table).
         STABLE_API_DOMAIN: "api.opitacode.com",
-        // Comma-separated list of emails allowed to authenticate from dev.opitacode.com.
-        // Empty string = whitelist disabled (blocks nobody). Set via GitHub Secret: STAGING_WHITELIST.
         STAGING_WHITELIST: process.env.STAGING_WHITELIST || "",
+        USERS_TABLE_NAME: usersTableName,
+        USER_KEYS_TABLE_NAME: userKeysTableName,
       },
     });
 
@@ -193,13 +210,16 @@ export default $config({
         },
       },
       handler: "packages/vibe-ai-backend/src/api/admin.handler",
-      link: [usersTable, transactionsTable, tokenUsageTable, keysTable, projectsTable, table, analyticsTable],
+      link: [transactionsTable, tokenUsageTable, projectsTable, table, analyticsTable],
+      permissions: [externalDynamoPermissions],
       environment: {
         JWT_SECRET: process.env.JWT_SECRET || "",
         API_GOOGLE_CLOUD: process.env.API_GOOGLE_CLOUD || "",
         AI_STUDIO_GOOGLE: process.env.AI_STUDIO_GOOGLE || "",
         GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
         ADMIN_EMAILS: process.env.ADMIN_EMAILS || "",
+        USERS_TABLE_NAME: usersTableName,
+        USER_KEYS_TABLE_NAME: userKeysTableName,
       },
       streaming: true,
     });
@@ -210,6 +230,7 @@ export default $config({
         "/sync/*": syncApi.url,
         "/billing/*": billingApi.url,
         "/chat/*": api.url,
+        "/core/auth/*": authApiUrl,
         "/core/*": coreApi.url,
         "/storage/*": storageApi.url,
       },
