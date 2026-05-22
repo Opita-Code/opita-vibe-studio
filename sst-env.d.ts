@@ -29,14 +29,6 @@ declare module "sst" {
       "type": "sst.aws.Function"
       "url": string
     }
-    "CreateAuthChallenge": {
-      "name": string
-      "type": "sst.aws.Function"
-    }
-    "DefineAuthChallenge": {
-      "name": string
-      "type": "sst.aws.Function"
-    }
     "Projects": {
       "name": string
       "type": "sst.aws.Dynamo"
@@ -58,18 +50,6 @@ declare module "sst" {
     "Transactions": {
       "name": string
       "type": "sst.aws.Dynamo"
-    }
-    "UserKeys": {
-      "name": string
-      "type": "sst.aws.Dynamo"
-    }
-    "Users": {
-      "name": string
-      "type": "sst.aws.Dynamo"
-    }
-    "VerifyAuthChallenge": {
-      "name": string
-      "type": "sst.aws.Function"
     }
     "VibeRouter": {
       "type": "sst.aws.Router"

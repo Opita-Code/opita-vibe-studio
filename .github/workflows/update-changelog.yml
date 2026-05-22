@@ -17,6 +17,8 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     # Don't run if the commit message is a changelog update (avoid loops)
     if: "!contains(github.event.head_commit.message, 'docs(changelog)')"
     steps:
