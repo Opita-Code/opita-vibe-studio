@@ -1,5 +1,40 @@
 [
   {
+    "version": "0.4.1",
+    "date": "2026-05-22",
+    "title": "Migrate auth backend to accounts stack and bump to v0.4.1",
+    "components": [
+      {
+        "name": "Backend",
+        "tag": "backend/v0.4.1"
+      },
+      {
+        "name": "Landing",
+        "tag": "landing/v0.4.1"
+      }
+    ],
+    "highlights": [
+      "Migrate auth backend to accounts stack and bump to v0.4.1",
+      "Auto-generate changelog on tag push",
+      "Grant write permissions to changelog workflow"
+    ],
+    "details": {
+      "Web App": [
+        "🐛 grant write permissions to changelog workflow",
+        "✨ migrate auth backend to accounts stack and bump to v0.4.1",
+        "🐛 use wildcard subdomain matching for *.opitacode.com",
+        "🐛 polish mobile layout animations and fix chatgpt validate endpoint",
+        "🐛 resolve P2 backend data race and cloud sync binary corruption",
+        "🐛 resolve P1 backend security and frontend performance bottlenecks",
+        "🐛 responsive mobile layout for MissionPanel, ChatPanel, MessageBubble, SettingsPanel, SidebarSlot",
+        "✨ auto-generate changelog on tag push"
+      ],
+      "Landing": [
+        "🐛 fix bento grid layout — reorder features, full-width multiplatform card, update hero to v0.4.0"
+      ]
+    }
+  },
+  {
     "version": "0.4.0",
     "date": "2026-05-21",
     "title": "Memory SDK — Arquitectura unificada AWS",
