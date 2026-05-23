@@ -58,6 +58,8 @@ interface ChatState {
   chainingSteps: number;
   /** Errores consecutivos en la cadena autónoma */
   chainingErrors: number;
+  /** Habilita compartir el contexto del archivo activo */
+  shareActiveFileContext: boolean;
 }
 
 // Transient state (not persisted)
@@ -92,6 +94,7 @@ interface ChatActions {
   setUseSubagent: (use: boolean) => void;
   setSubagentInstructions: (instructions: string) => void;
   setActiveMode: (mode: string) => void;
+  setShareActiveFileContext: (share: boolean) => void;
   setExecutionMode: (mode: "interactive" | "automatic") => void;
   setDeliveryStrategy: (strategy: DeliveryStrategy) => void;
   setPendingConfirmation: (confirmation: { phase: string; plan: string } | null) => void;
@@ -190,6 +193,7 @@ export const useChatStore = create<ChatStore>()(
       pendingConfirmation: null,
       chainingSteps: 0,
       chainingErrors: 0,
+      shareActiveFileContext: true,
 
       // Transient State
       abortController: null,
@@ -386,6 +390,7 @@ export const useChatStore = create<ChatStore>()(
       setUseSubagent: (use) => set({ useSubagent: use }),
       setSubagentInstructions: (instructions) => set({ subagentInstructions: instructions }),
       setActiveMode: (mode) => set({ activeMode: mode }),
+      setShareActiveFileContext: (share) => set({ shareActiveFileContext: share }),
       setExecutionMode: (mode) => set({ executionMode: mode }),
       setDeliveryStrategy: (strategy) => set({ deliveryStrategy: strategy }),
       setPendingConfirmation: (confirmation) => set({ pendingConfirmation: confirmation }),
@@ -593,6 +598,7 @@ export const useChatStore = create<ChatStore>()(
         executionMode: state.executionMode,
         useSubagent: state.useSubagent,
         subagentInstructions: state.subagentInstructions,
+        shareActiveFileContext: state.shareActiveFileContext,
       }),
       // Sanitizar mensajes pending al rehidratar:
       // Si el browser se cerró durante la grace window, el mensaje
