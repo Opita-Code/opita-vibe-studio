@@ -114,8 +114,17 @@ export default $config({
     // 1.2i Stream Processor — archives DynamoDB events to S3
     const streamProcessor = new sst.aws.Function("TelemetryStreamProcessor", {
       handler: "packages/vibe-ai-backend/src/api/telemetry-stream.handler",
-      link: [dataLakeBucket],
+      link: [dataLakeBucket, analyticsTable],
       timeout: "60 seconds",
+      permissions: [{
+        actions: [
+          "dynamodb:GetRecords",
+          "dynamodb:GetShardIterator",
+          "dynamodb:DescribeStream",
+          "dynamodb:ListStreams",
+        ],
+        resources: ["*"],
+      }],
     });
     analyticsTable.subscribe(streamProcessor);
 
