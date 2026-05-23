@@ -91,10 +91,11 @@ export async function ensureChatOpen(page: Page) {
   const aside = page.locator('aside');
   await expect(aside.first()).toBeAttached({ timeout: 15000 });
 
-  // 2. Wait for either the guest CTA or the pro textarea to be in the DOM
+  // 2. Wait for either the guest CTA or the pro textarea to be in the DOM.
+  //    Use .first() to avoid strict mode violation when both exist.
   const chatContent = page.locator('text="Despierta a Vibe AI para potenciar tu código"');
   const textarea = page.locator('textarea');
-  await expect(chatContent.or(textarea.first())).toBeAttached({ timeout: 10000 });
+  await expect(chatContent.or(textarea).first()).toBeAttached({ timeout: 10000 });
 }
 
 /** Abre el panel de explorador */

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { mockGuestAuth, mockProAuth, mockChatResponse, enterAsGuest, waitForWorkspace, ensureChatOpen, openSettings, selectTemplate } from './helpers/setup';
+import { mockGuestAuth, mockProAuth, mockChatResponse, enterAsGuest, waitForWorkspace, ensureChatOpen, openSettings } from './helpers/setup';
 
 // ═══════════════════════════════════════════════════════════════════
 // Accessibility E2E — validates ARIA attributes across all components
@@ -156,25 +156,17 @@ test.describe('A11y — ViewTabs', () => {
     await page.goto('/app/');
     await enterAsGuest(page);
 
-    // In chat-first layout, ViewTabs only appears after a file/template is opened.
-    // Scaffold a template to populate editor tabs.
-    await selectTemplate(page, 'Landing React');
-    await page.waitForTimeout(1000);
-
     const tablist = page.locator('[role="tablist"][aria-label*="Editor"]');
     await expect(tablist).toBeAttached({ timeout: 10000 });
 
     const tabs = page.locator('[role="tab"]');
     const count = await tabs.count();
-    expect(count).toBeGreaterThanOrEqual(1);
+    expect(count).toBeGreaterThanOrEqual(2);
   });
 
   test('ViewTabs: active tab has aria-selected=true', async ({ page }) => {
     await page.goto('/app/');
     await enterAsGuest(page);
-
-    await selectTemplate(page, 'Landing React');
-    await page.waitForTimeout(1000);
 
     const selectedTab = page.locator('[role="tab"][aria-selected="true"]');
     await expect(selectedTab).toBeAttached({ timeout: 10000 });

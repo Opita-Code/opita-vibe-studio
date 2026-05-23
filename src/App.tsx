@@ -13,6 +13,7 @@ import { useKeybindings } from "@/lib/useKeybindings";
 import { AppLifecycle } from "./renderer/AppLifecycle";
 import { SidebarSlot } from "./renderer/layouts/SidebarSlot";
 import { EditorSlot } from "./renderer/layouts/EditorSlot";
+import { ViewTabs } from "@/components/layout/ViewTabs";
 import { useUIStore } from "@/stores/ui";
 import { ResizeHandle } from "@/components/layout/ResizeHandle";
 import { ActivityBar } from "@/components/layout/ActivityBar";
@@ -162,6 +163,7 @@ function Workspace() {
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
           >
+            <ViewTabs />
             <EditorSlot />
           </motion.div>
         )}
