@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.5.1",
+    "date": "2026-05-23",
+    "title": "Agregar productos al whitelist de ingesta",
+    "components": [
+      {
+        "name": "Backend",
+        "tag": "backend/v0.5.1"
+      }
+    ],
+    "highlights": [
+      "Add v1.0.1",
+      "Agregar productos al whitelist de ingesta",
+      "Fase 1c - ActivityBar simplificada de 9 a 5 items"
+    ],
+    "details": {
+      "Web App": [
+        "🐛 agregar permisos DynamoDB Stream a TelemetryStreamProcessor",
+        "✨ agregar productos al whitelist de ingesta",
+        "✨ fase 1c - ActivityBar simplificada de 9 a 5 items",
+        "📝 add v1.0.1"
+      ]
+    }
+  },
+  {
     "version": "1.0.1",
     "date": "2026-05-23",
     "title": "Estandarizar recolección de datos con data lake S3 y SDK unificado",
