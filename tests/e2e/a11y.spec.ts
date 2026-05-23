@@ -35,7 +35,6 @@ test.describe('A11y — ActivityBar & Navigation', () => {
 
     // Core buttons should have aria-labels
     await expect(page.locator('button[aria-label="Explorador de Archivos"]')).toBeAttached();
-    await expect(page.locator('button[aria-label="Modo Enfoque Multi-Chat"]')).toBeAttached();
     await expect(page.locator('button[aria-label="Configuración"]')).toBeAttached();
   });
 
@@ -43,10 +42,10 @@ test.describe('A11y — ActivityBar & Navigation', () => {
     await page.goto('/app/');
     await enterAsGuest(page);
 
-    const chatBtn = page.locator('button[aria-label="Modo Enfoque Multi-Chat"]');
-    // Chat sidebar starts open, so button should be pressed
-    const pressed = await chatBtn.getAttribute('aria-pressed');
-    expect(pressed).toBeTruthy();
+    const explorerBtn = page.locator('button[aria-label="Explorador de Archivos"]');
+    const pressed = await explorerBtn.getAttribute('aria-pressed');
+    // Explorer button should expose aria-pressed as 'true' or 'false'
+    expect(pressed).not.toBeNull();
   });
 });
 

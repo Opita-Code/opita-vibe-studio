@@ -87,25 +87,10 @@ export async function waitForWorkspace(page: Page) {
  */
 export async function ensureChatOpen(page: Page) {
   // Chat-first layout: chat is always visible
-  // Just wait for the chat content to be present
+  // Wait for the guest CTA or the pro textarea to appear
   const chatContent = page.locator('text="Despierta a Vibe AI para potenciar tu código"');
   const textarea = page.locator('textarea');
-  
-  // Either the guest CTA or the pro textarea should be visible
-  try {
-    await expect(chatContent.or(textarea.first())).toBeVisible({ timeout: 5000 });
-  } catch {
-    // Chat might need toggling via focus mode
-    const focusBtn = page.locator('[aria-label="Modo Enfoque Multi-Chat"]');
-    if (await focusBtn.isVisible()) {
-      // We might be in fullscreen, try to exit
-      const exitBtn = page.locator('[aria-label="Salir de modo enfoque"]');
-      if (await exitBtn.isVisible()) {
-        await exitBtn.click();
-        await page.waitForTimeout(500);
-      }
-    }
-  }
+  await expect(chatContent.or(textarea.first())).toBeVisible({ timeout: 8000 });
 }
 
 /** Abre el panel de explorador */

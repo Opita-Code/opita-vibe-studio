@@ -22,8 +22,8 @@ test.describe('Guest Desktop — Flujo completo de invitado', () => {
 
     // Activity Bar completo visible
     await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeVisible();
-    await expect(page.locator('[aria-label="Modo Enfoque Multi-Chat"]')).toBeVisible();
     await expect(page.locator('[aria-label="Configuración"]')).toBeVisible();
+    await expect(page.locator('[aria-label="Iniciar sesión"]')).toBeVisible();
   });
 
   // ─── Chat Gate ─────────────────────────────────────────────────

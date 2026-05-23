@@ -28,6 +28,7 @@ export function SettingsPanel() {
   const fileRefClickMode = useUIStore((s) => s.fileRefClickMode);
   const setFileRefClickMode = useUIStore((s) => s.setFileRefClickMode);
   
+  const setBugReportVisible = useUIStore((s) => s.setBugReportVisible);
   const authMode = useAuthStore((s) => s.authMode);
   const plan = useAuthStore((s) => s.plan);
   const isAuthenticated = authMode === "authenticated";
@@ -144,6 +145,24 @@ export function SettingsPanel() {
                   );
                 })}
               </nav>
+
+              {/* Bug Report — moved from ActivityBar */}
+              <div className="px-4 pb-4">
+                <button
+                  onClick={() => {
+                    setSettingsVisible(false);
+                    setBugReportVisible(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-500 hover:text-red-400 hover:bg-red-500/5 transition-colors"
+                  aria-label="Reportar Bug o Feedback"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                  Reportar Bug o Feedback
+                </button>
+              </div>
             </div>
 
             {/* Content Area */}

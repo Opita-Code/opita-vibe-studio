@@ -8,24 +8,18 @@ import { XPBar } from "@/components/gamification/XPBar";
 import { requiresTier, getPlanName } from "@/lib/plan-registry";
 
 export const ActivityBar = React.memo(function ActivityBar() {
-  const { 
-    activeSidebar, 
-    setActiveSidebar, 
-    activityBarVisible, 
+  const {
+    activeSidebar,
+    setActiveSidebar,
+    activityBarVisible,
     setSettingsVisible,
     settingsVisible,
-    setBugReportVisible,
-    chatFullscreen,
-    toggleChatFullscreen,
   } = useUIStore(useShallow((state) => ({
     activeSidebar: state.activeSidebar,
     setActiveSidebar: state.setActiveSidebar,
     activityBarVisible: state.activityBarVisible,
     setSettingsVisible: state.setSettingsVisible,
     settingsVisible: state.settingsVisible,
-    setBugReportVisible: state.setBugReportVisible,
-    chatFullscreen: state.chatFullscreen,
-    toggleChatFullscreen: state.toggleChatFullscreen,
   })));
 
   const { authMode, user } = useAuthStore(useShallow((state) => ({
@@ -48,7 +42,7 @@ export const ActivityBar = React.memo(function ActivityBar() {
     if (authMode === "authenticated") {
       fetchProfile();
     }
-  }, [authMode]);
+  }, [authMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -67,17 +61,17 @@ export const ActivityBar = React.memo(function ActivityBar() {
   if (!activityBarVisible) return null;
 
   return (
-    <div 
+    <div
       className="hidden md:flex w-12 h-full bg-obsidian-950 border-r border-white/5 flex-col items-center py-3 flex-shrink-0 z-50 select-none"
       role="toolbar"
       aria-label="Barra de actividad principal"
     >
       {/* Top: Logo / Branding */}
       <div className="mb-6 mt-1 cursor-pointer group flex justify-center items-center" title="Vibe Studio">
-        <img 
-          src={vibeLogoUrl} 
-          alt="Vibe Studio" 
-          className="w-8 h-8 object-contain pointer-events-none drop-shadow-md group-hover:scale-110 transition-transform opacity-90 group-hover:opacity-100" 
+        <img
+          src={vibeLogoUrl}
+          alt="Vibe Studio"
+          className="w-8 h-8 object-contain pointer-events-none drop-shadow-md group-hover:scale-110 transition-transform opacity-90 group-hover:opacity-100"
         />
       </div>
 
@@ -101,29 +95,7 @@ export const ActivityBar = React.memo(function ActivityBar() {
           </svg>
         </button>
 
-
-        {/* Vibe AI — Toggle Multi-Chat Focus */}
-        <button
-          onClick={toggleChatFullscreen}
-          className={`w-full flex justify-center py-2 relative group transition-colors ${
-            chatFullscreen ? "text-aura-purple" : "text-slate-500 hover:text-aura-purple/70"
-          }`}
-          title={chatFullscreen ? "Salir de modo enfoque (Ctrl+L)" : "Modo Enfoque Multi-Chat (Ctrl+L)"}
-          aria-label={chatFullscreen ? "Salir de modo enfoque" : "Modo Enfoque Multi-Chat"}
-          aria-pressed={chatFullscreen}
-        >
-          {chatFullscreen && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-aura-purple shadow-[0_0_8px_rgba(168,85,247,0.6)]" aria-hidden="true"></div>
-          )}
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            <path d="M8 10h.01"></path>
-            <path d="M12 10h.01"></path>
-            <path d="M16 10h.01"></path>
-          </svg>
-        </button>
-
-        {/* Missions */}
+        {/* Missions — authenticated users only */}
         {authMode === "authenticated" && (
           <button
             onClick={() => setMissionPanelOpen(!missionPanelOpen)}
@@ -151,19 +123,6 @@ export const ActivityBar = React.memo(function ActivityBar() {
 
       {/* Bottom: Settings & User */}
       <div className="flex flex-col gap-4 w-full items-center" role="group" aria-label="Configuración y cuenta">
-        {/* Bug Report */}
-        <button
-          onClick={() => setBugReportVisible(true)}
-          className="w-full flex justify-center py-2 relative group transition-colors text-slate-500 hover:text-red-400"
-          title="Reportar Bug o Feedback"
-          aria-label="Reportar Bug o Feedback"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 20h9"></path>
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-          </svg>
-        </button>
-
         {/* Settings */}
         <button
           onClick={() => setSettingsVisible(!settingsVisible)}
@@ -182,20 +141,6 @@ export const ActivityBar = React.memo(function ActivityBar() {
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
           </svg>
         </button>
-
-        {/* Landing / Precios */}
-        <a
-          href="/"
-          className="w-full flex justify-center py-2 relative group transition-colors text-slate-500 hover:text-aura-cyan"
-          title="Ir a la Landing — Planes y Precios"
-          aria-label="Ir a la Landing"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="2" y1="12" x2="22" y2="12"></line>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-          </svg>
-        </a>
 
         {/* XP Bar — only for authenticated users */}
         {authMode === "authenticated" && (
@@ -223,8 +168,8 @@ export const ActivityBar = React.memo(function ActivityBar() {
               <button
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${
-                  showProfileMenu 
-                    ? "bg-aura-purple/40 border-aura-purple text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]" 
+                  showProfileMenu
+                    ? "bg-aura-purple/40 border-aura-purple text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]"
                     : "bg-aura-purple/20 border-aura-purple/30 text-aura-purple hover:bg-aura-purple/30 hover:text-white"
                 }`}
                 title="Perfil y Cuenta"
@@ -244,8 +189,8 @@ export const ActivityBar = React.memo(function ActivityBar() {
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-white/50">Plan:</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium tracking-wide ${
-                        requiresTier(user?.plan ?? 'free', 1) 
-                          ? 'bg-gradient-to-r from-aura-cyan to-aura-purple text-white' 
+                        requiresTier(user?.plan ?? 'free', 1)
+                          ? 'bg-gradient-to-r from-aura-cyan to-aura-purple text-white'
                           : 'bg-white/10 text-white/70'
                       }`}>
                         {getPlanName(user?.plan ?? 'free')}
@@ -283,7 +228,7 @@ export const ActivityBar = React.memo(function ActivityBar() {
                       </svg>
                       Gestionar cuenta
                     </a>
-                    
+
                     <button
                       onClick={async () => {
                         setShowProfileMenu(false);

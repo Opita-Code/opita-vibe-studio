@@ -228,15 +228,12 @@ test.describe('08 — Activity Bar', () => {
     await mockGuestAuth(page);
   });
 
-  test('Todos los botones de navegación visibles para guest', async ({ page }) => {
+  test('Botones core del ActivityBar visibles para guest', async ({ page }) => {
     await page.goto('/app/');
     await enterAsGuest(page);
 
     await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeVisible();
-    await expect(page.locator('[aria-label="Buscar en Archivos"]')).toBeVisible();
     await expect(page.locator('[aria-label="Configuración"]')).toBeVisible();
-    await expect(page.locator('[aria-label="Reportar Bug o Feedback"]')).toBeVisible();
-    await expect(page.locator('[aria-label="Ir a la Landing"]')).toBeVisible();
     await expect(page.locator('[aria-label="Iniciar sesión"]')).toBeVisible();
   });
 
@@ -258,19 +255,19 @@ test.describe('08 — Activity Bar', () => {
     await page.goto('/app/');
     await enterAsGuest(page);
 
-    // Enter fullscreen chat mode
-    await page.locator('[aria-label="Modo Enfoque Multi-Chat"]').click();
+    // Enter fullscreen chat mode via keyboard (button was moved to ChatPanel header)
+    await page.keyboard.press('Control+l');
     await page.waitForTimeout(500);
 
     // ActivityBar is UNMOUNTED in fullscreen, so verify ActivityBar is gone
     await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeHidden();
 
-    // Exit via Ctrl+L (only way since ActivityBar is gone)
+    // Exit via Ctrl+L
     await page.keyboard.press('Control+l');
     await page.waitForTimeout(500);
 
     // ActivityBar should return
-    await expect(page.locator('[aria-label="Modo Enfoque Multi-Chat"]')).toBeVisible();
+    await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeVisible();
   });
 
   test.skip('Pro user ve avatar, no botón login', async ({ page }) => {
@@ -512,9 +509,13 @@ test.describe('14 — Bug Report', () => {
     await mockGuestAuth(page);
   });
 
-  test('Click en bug report abre modal/dialog', async ({ page }) => {
+  test('Click en bug report (desde settings) abre modal/dialog', async ({ page }) => {
     await page.goto('/app/');
     await enterAsGuest(page);
+
+    // Bug Report was moved from ActivityBar to Settings sidebar
+    await page.locator('[aria-label="Configuración"]').click();
+    await page.waitForTimeout(300);
 
     await page.locator('[aria-label="Reportar Bug o Feedback"]').click();
     await page.waitForTimeout(500);

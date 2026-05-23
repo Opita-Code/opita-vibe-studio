@@ -196,9 +196,7 @@ test.describe('🛠️ Workspace (Guest)', () => {
 
   test('ActivityBar: todos los botones core visibles', async ({ page }) => {
     await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeVisible();
-    await expect(page.locator('[aria-label="Buscar en Archivos"]')).toBeVisible();
     await expect(page.locator('[aria-label="Configuración"]')).toBeVisible();
-    await expect(page.locator('[aria-label="Reportar Bug o Feedback"]')).toBeVisible();
   });
 
   test('Guest ve CTA de login en el chat, NO textarea', async ({ page }) => {
