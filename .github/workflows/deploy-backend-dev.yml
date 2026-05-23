@@ -55,21 +55,24 @@ jobs:
           echo "  DEV POST-DEPLOY VERIFICATION"
           echo "═══════════════════════════════════════════════"
           
-          echo "🌐 Checking DNS resolution for api-dev.opitacode.com..."
+          echo "🌐 Waiting for api-dev.opitacode.com to be reachable..."
           DNS_OK=false
-          for i in {1..20}; do
-            if nslookup api-dev.opitacode.com >/dev/null 2>&1; then
-              echo "  ✅ DNS resolved successfully!"
+          for i in {1..25}; do
+            # Try to curl the endpoint. If it resolves and connects, curl returns HTTP status (non-000).
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://api-dev.opitacode.com/core/auth/me || echo "000")
+            if [ "$HTTP_CODE" != "000" ]; then
+              echo "  ✅ api-dev.opitacode.com is reachable! (HTTP: $HTTP_CODE)"
               DNS_OK=true
               break
             fi
-            echo "  [Attempt $i/20] api-dev.opitacode.com not resolved yet. Waiting 10s..."
-            sleep 10
+            echo "  [Attempt $i/25] api-dev.opitacode.com not reachable yet. Waiting 12s..."
+            sleep 12
           done
 
           if [ "$DNS_OK" = "false" ]; then
-            echo "  ❌ WARNING: DNS resolution timed out for api-dev.opitacode.com."
-            echo "  Wait for AWS Route53 propagation and trigger workflow again."
+            echo "  ❌ ERROR: api-dev.opitacode.com failed to become reachable after 5 minutes."
+            echo "  This is likely because CNAME records are hosted on Cloudflare and api-dev.opitacode.com"
+            echo "  needs to be manually added in the Cloudflare DNS panel as a CNAME to the dev CloudFront router."
             exit 1
           fi
 
