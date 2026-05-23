@@ -1,5 +1,94 @@
 [
   {
+    "version": "1.0.1",
+    "date": "2026-05-23",
+    "title": "Estandarizar recolección de datos con data lake S3 y SDK unificado",
+    "components": [
+      {
+        "name": "Landing",
+        "tag": "landing/v1.0.1"
+      }
+    ],
+    "highlights": [
+      "Agregar regla de sincronizacion de tests E2E como parte del deploy",
+      "Agregar especificaciones y diseno del panel de administracion",
+      "Archivar cambios completados de chat-ux-nocode y dev-stage-e2e-tdd"
+    ],
+    "details": {
+      "Web App": [
+        "✨ estandarizar recolección de datos con data lake S3 y SDK unificado",
+        "✨ fase 1a y 1b - extraccion VibeLensToolbar y WelcomeScreen chat-first",
+        "📝 agregar regla de sincronizacion de tests E2E como parte del deploy",
+        "🐛 corregir URLs hardcodeadas que ignoraban el env de staging",
+        "🐛 corregido fallback de codigo de estado en verificacion de despliegue dev",
+        "🐛 robustecida la verificacion de API de dev usando curl en lugar de nslookup",
+        "✨ integrar landing page y changelog en flujos de despliegue y agregar manifiesto opita-ops",
+        "🐛 implementar fallbacks resilientes para parametros SSM en sst.config.ts",
+        "📝 agregar especificaciones y diseno del panel de administracion",
+        "archivar cambios completados de chat-ux-nocode y dev-stage-e2e-tdd",
+        "📝 agregar politica de aislamiento de rutas para staging compartido",
+        "✨ configurar stage backend dev, pipelines de CD aislados y tests E2E con TDD",
+        "🐛 solucionar switchSession duplicado y mock arrayBuffer en tests OPFS",
+        "✨ inyectar contexto de archivo activo y agregar salvaguarda para archivos grandes",
+        "✨ implementar barra de acciones rapidas de IA en el editor",
+        "✨ registrar modelos deepseek v4 y gemini pro con restricciones dinamicas por plan",
+        "📝 add v0.4.1",
+        "🐛 grant write permissions to changelog workflow",
+        "✨ migrate auth backend to accounts stack and bump to v0.4.1",
+        "🐛 use wildcard subdomain matching for *.opitacode.com",
+        "🐛 polish mobile layout animations and fix chatgpt validate endpoint",
+        "🐛 resolve P2 backend data race and cloud sync binary corruption",
+        "🐛 resolve P1 backend security and frontend performance bottlenecks",
+        "🐛 responsive mobile layout for MissionPanel, ChatPanel, MessageBubble, SettingsPanel, SidebarSlot",
+        "✨ auto-generate changelog on tag push",
+        "🐛 vendor memory-sdk source, remove external repo dependency",
+        "🐛 restore idb-keyval, add SDK checkout to web deploy, type-annotate catches",
+        "♻️ migrate from opita-cloud-context to @opita/memory-sdk (#5)",
+        "🐛 redirect opita-code a cuenta.opitacode.com en vez de /projects inexistente",
+        "🐛 forgot-password envía Opita Link en vez de código de 6 dígitos",
+        "✨ indentWithTab, drawSelection, rectangularSelection, highlightSpecialChars",
+        "🐛 reemplazar manualChunks de Monaco por CodeMirror",
+        "✨ syntax highlighting JSX/TSX y stack de lenguajes completo",
+        "✨ file references clickables con navegación a línea y highlight temporal",
+        "🐛 eliminar contador de tokens del footer",
+        "🐛 alinear dropdown de PersonaSelector al borde derecho para evitar clipping",
+        "✨ montar PersonaSelector en el footer del ChatInput",
+        "📝 agregar artefactos SDD para chat-ux-nocode (explore, proposal, spec, design, tasks)",
+        "✨ sistema de personas con prompt addons, selector UI, y tests unitarios",
+        "✨ acumular eventos del agente como secciones tipadas en streaming",
+        "✨ agregar modelo de secciones para mensajes y componentes base (ThinkingChip, NoticeSection, SectionRenderer)",
+        "🐛 usar XML tags para tool messages y evitar que el LLM los repita al usuario",
+        "🐛 reemplazar mensaje genérico 'Error de red' con instrucciones accionables",
+        "🐛 fallback graceful con aviso al usuario cuando un proveedor falla",
+        "🐛 actualizar modelo Gemini de 2.0-flash a 2.5-flash (quota 0 en Free Tier)",
+        "🐛 add DeepSeek fallback when Gemini API is blocked",
+        "🐛 add Origin to CloudFront whitelist to restore CORS",
+        "📝 add prominent warning about CloudFront headerBehavior tradeoffs",
+        "🐛 forward Authorization header through CloudFront and add health check endpoint",
+        "✨ v0.3.0 production hardening, auth robustness, and analytics telemetry layer"
+      ],
+      "Backend": [
+        "✨ agregar model swap de R1 y fallback reciproco a gemini",
+        "🐛 allow query-string userId fallback for account portal checkout"
+      ],
+      "Landing": [
+        "🐛 fix bento grid layout — reorder features, full-width multiplatform card, update hero to v0.4.0",
+        "🐛 placeholder seguro para tokenizer, invalidación de cache",
+        "🐛 tokenizer-based syntax highlighter, previene corrupción entre regexes",
+        "🐛 cache-buster en mockup.js para invalidar CloudFront",
+        "🐛 eliminar regex de números que corrompía spans HTML en syntax highlighting",
+        "✨ mockup animado con typing progresivo, IntersectionObserver, input funcional",
+        "✨ mockup dinámico con escenarios aleatorios, input funcional, changelog por componente",
+        "🐛 inline style text-align, overflow por panel, rounded-corners correctos",
+        "🐛 alineación de código en mockup, hover labels inline, tooltip CSS refinado",
+        "✨ mockup interactivo, changelog auto-renderizado, hover en features",
+        "✨ SEO completo + features actualizadas v0.3.5",
+        "🐛 alinear texto a la izquierda en todas las pricing cards",
+        "🐛 quitar mención a Tauri y actualizar badge a v0.3.5"
+      ]
+    }
+  },
+  {
     "version": "0.4.1",
     "date": "2026-05-22",
     "title": "Migrate auth backend to accounts stack and bump to v0.4.1",
