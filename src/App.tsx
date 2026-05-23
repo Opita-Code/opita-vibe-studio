@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { StatusBar } from "@/components/layout/StatusBar";
 import { ActionBar } from "@/components/layout/ActionBar";
 import { LoginScreen } from "@/components/auth/LoginScreen";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
@@ -14,7 +13,6 @@ import { useKeybindings } from "@/lib/useKeybindings";
 import { AppLifecycle } from "./renderer/AppLifecycle";
 import { SidebarSlot } from "./renderer/layouts/SidebarSlot";
 import { EditorSlot } from "./renderer/layouts/EditorSlot";
-import { StatusbarSlot } from "./renderer/layouts/StatusbarSlot";
 import { useUIStore } from "@/stores/ui";
 import { ResizeHandle } from "@/components/layout/ResizeHandle";
 import { ActivityBar } from "@/components/layout/ActivityBar";
@@ -387,12 +385,6 @@ export default function App() {
           />
         )}
         {/* MobileNavBar is now inside MobileLayout for mobile viewports */}
-        
-        {/* We keep the legacy StatusBar and inject the new slot next to it for now */}
-        <div className="flex flex-col">
-          <StatusbarSlot />
-          <StatusBar />
-        </div>
       </div>
     </Suspense>
     </ErrorBoundary>
