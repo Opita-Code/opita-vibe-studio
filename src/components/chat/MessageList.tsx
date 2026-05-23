@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import { MAX_CONTEXT_MESSAGES, getContextCount } from "@/stores/chat";
+import { useGamificationStore } from "@/stores/gamification";
+import { useAuthStore } from "@/stores/auth";
 import type { Message } from "@/lib/types";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import vibeLogoUrl from "@/assets/vibe-logo.svg";
@@ -40,6 +42,13 @@ export function MessageList({ messages, isStreaming, onSuggestionClick, onNewCha
     { icon: "🏗️", text: "Crea un componente con TypeScript y tests" },
     { icon: "📖", text: "Lee mi package.json y explícame las dependencias" },
   ];
+
+  // Gamification: show active mission in empty state for authenticated users
+  const authMode = useAuthStore((s) => s.authMode);
+  const missions = useGamificationStore((s) => s.missions);
+  const setMissionPanelOpen = useGamificationStore((s) => s.setMissionPanelOpen);
+  const activeMission = missions.find((m) => !m.completed) ?? null;
+  const isAuthenticated = authMode === "authenticated";
 
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-smooth" role="log" aria-live="polite" aria-label="Mensajes del chat">
@@ -103,6 +112,37 @@ export function MessageList({ messages, isStreaming, onSuggestionClick, onNewCha
               </button>
             ))}
           </div>
+
+          {/* Active mission card (only for authenticated users with missions) */}
+          {isAuthenticated && activeMission && (
+            <button
+              onClick={() => setMissionPanelOpen(true)}
+              className="w-full mt-2 flex items-center gap-3 p-3 rounded-xl bg-aura-purple/[0.05] border border-aura-purple/10 hover:border-aura-purple/30 hover:bg-aura-purple/[0.08] transition-all duration-300 group text-left"
+              aria-label={`Misión activa: ${activeMission.title}`}
+              data-testid="active-mission-card"
+            >
+              <div className="w-8 h-8 rounded-lg bg-aura-purple/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                <span className="text-sm">
+                  {activeMission.type === "aprender" ? "📚" : activeMission.type === "construir" ? "🔨" : "🧭"}
+                </span>
+              </div>
+              <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                <span className="text-[10px] font-mono text-aura-purple/50 uppercase tracking-widest">Misión activa</span>
+                <span className="text-xs font-medium text-white/70 truncate group-hover:text-aura-purple/90 transition-colors">{activeMission.title}</span>
+                {typeof activeMission.progress === "number" && (
+                  <div className="w-full h-1 rounded-full bg-white/5 mt-1 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-aura-purple/60 to-aura-cyan/60 transition-all duration-500"
+                      style={{ width: `${Math.min(activeMission.progress, 100)}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+              <svg className="w-3.5 h-3.5 text-white/20 group-hover:text-aura-purple/50 shrink-0 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
         </div>
       ) : (
         <div className={`p-4 ${centered ? "max-w-3xl mx-auto w-full" : ""}`}>
