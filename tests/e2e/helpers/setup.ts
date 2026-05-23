@@ -65,12 +65,8 @@ export async function mockChatResponse(page: Page, content = 'Respuesta de prueb
 
 // ─── Navigation Helpers ────────────────────────────────────────
 
-/** Completa el onboarding como invitado clicando "Comenzar sin cuenta" */
+/** Navega al workspace como invitado — el workspace carga directamente sin onboarding gate */
 export async function enterAsGuest(page: Page) {
-  const guestBtn = page.locator('button:has-text("Comenzar sin cuenta")');
-  await expect(guestBtn).toBeVisible({ timeout: 10000 });
-  await guestBtn.click();
-  // Esperar a que el workspace cargue (ActivityBar visible)
   await waitForWorkspace(page);
 }
 

@@ -9,14 +9,12 @@ test.describe('Pro Desktop — Flujo completo de usuario autenticado', () => {
 
   // ─── Auth & Workspace ──────────────────────────────────────────
 
-  test('Pro user salta onboarding y carga workspace directo', async ({ page }) => {
+  test('Pro user carga workspace directo sin onboarding', async ({ page }) => {
     await page.goto('/app/');
     await waitForWorkspace(page);
 
-    // OnboardingFlow NO visible
-    await expect(page.locator('text="Comenzar sin cuenta"')).toBeHidden();
-    // Workspace SÍ visible
-    await expect(page.locator('button[title*="Explorador"]')).toBeVisible();
+    // Workspace visible for Pro
+    await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeVisible();
   });
 
   test('Activity Bar muestra avatar/logout, NO link a landing', async ({ page }) => {

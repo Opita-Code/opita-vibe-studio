@@ -30,27 +30,19 @@ import {
 // 1. ONBOARDING FLOW
 // ═══════════════════════════════════════════════════════════════
 
-test.describe('01 — Onboarding Flow', () => {
+test.describe('01 — Workspace Inicial (Guest)', () => {
   test.beforeEach(async ({ page }) => {
     await mockGuestAuth(page);
   });
 
-  test('Heading "Vibecodea en español" existe en el DOM', async ({ page }) => {
+  test('WelcomeScreen muestra "Comienza con un template" y 3 cards', async ({ page }) => {
     await page.goto('/app/');
-    // The h1 has animate-fade-up (opacity:0 initial), so use toBeAttached
-    const heading = page.locator('h1:has-text("Vibecodea en español")');
-    await expect(heading).toBeAttached({ timeout: 10000 });
+    await enterAsGuest(page);
+    // WelcomeScreen is the first thing a guest sees after the workspace loads
+    await expect(page.locator('text="Comienza con un template"')).toBeAttached({ timeout: 10000 });
   });
 
-  test('Botones "Comenzar sin cuenta" e "Iniciar sesión" visibles', async ({ page }) => {
-    await page.goto('/app/');
-    // Wait for animation to complete
-    await page.waitForTimeout(1000);
-    await expect(page.locator('button:has-text("Comenzar sin cuenta")')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('button:has-text("Iniciar sesión")')).toBeVisible();
-  });
-
-  test('Click "Comenzar sin cuenta" lleva al workspace', async ({ page }) => {
+  test('Workspace carga el ActivityBar completo para invitado', async ({ page }) => {
     await page.goto('/app/');
     await enterAsGuest(page);
     await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeVisible({ timeout: 5000 });

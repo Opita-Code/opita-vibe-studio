@@ -98,32 +98,11 @@ test.describe('🌐 Landing Page', () => {
 // 2. APP ONBOARDING — Guest Flow (NO mocks)
 // ═══════════════════════════════════════════════════════════════════
 
-test.describe('🚀 App Onboarding (Guest)', () => {
-  test('App carga onboarding con heading "Vibecodea en español"', async ({ page }) => {
+test.describe('🚀 App Workspace (Guest)', () => {
+  test('App carga workspace directamente para invitados', async ({ page }) => {
     await page.goto(PROD_APP);
 
-    const heading = page.locator('h1');
-    await expect(heading).toBeVisible({ timeout: 15000 });
-    const text = await heading.textContent();
-    expect(text).toContain('Vibecodea en español');
-  });
-
-  test('Botones "Comenzar sin cuenta" e "Iniciar sesión" visibles', async ({ page }) => {
-    await page.goto(PROD_APP);
-    await page.waitForTimeout(2000); // Wait for animation
-
-    await expect(page.locator('button:has-text("Comenzar sin cuenta")')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('button:has-text("Iniciar sesión")')).toBeVisible();
-  });
-
-  test('Click "Comenzar sin cuenta" carga workspace', async ({ page }) => {
-    await page.goto(PROD_APP);
-
-    const guestBtn = page.locator('button:has-text("Comenzar sin cuenta")');
-    await expect(guestBtn).toBeVisible({ timeout: 10000 });
-    await guestBtn.click();
-
-    // Wait for workspace (ActivityBar visible)
+    // Workspace renders directly — no onboarding gate
     await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeVisible({ timeout: 15000 });
   });
 
@@ -211,9 +190,7 @@ test.describe('🔐 Auth Flows', () => {
 test.describe('🛠️ Workspace (Guest)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(PROD_APP);
-    const guestBtn = page.locator('button:has-text("Comenzar sin cuenta")');
-    await expect(guestBtn).toBeVisible({ timeout: 10000 });
-    await guestBtn.click();
+    // Workspace loads directly for unauthenticated users
     await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeVisible({ timeout: 15000 });
   });
 
@@ -342,7 +319,6 @@ test.describe('👑 Pro User (Authenticated)', () => {
 
     // Should skip onboarding, land on workspace
     await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeVisible({ timeout: 15000 });
-    await expect(page.locator('text="Comenzar sin cuenta"')).toBeHidden();
   });
 
   test('Pro user ve textarea de chat (no CTA)', async ({ page }) => {

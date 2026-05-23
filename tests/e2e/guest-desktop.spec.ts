@@ -8,12 +8,12 @@ test.describe('Guest Desktop — Flujo completo de invitado', () => {
 
   // ─── Onboarding ────────────────────────────────────────────────
 
-  test('Onboarding muestra heading y ambos botones', async ({ page }) => {
+  test('Workspace se carga directamente para usuarios invitados', async ({ page }) => {
     await page.goto('/app/');
-
-    await expect(page.locator('h1:has-text("Vibecodea en español")')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('button:has-text("Comenzar sin cuenta")')).toBeVisible();
-    await expect(page.locator('button:has-text("Iniciar sesión")').first()).toBeVisible();
+    await enterAsGuest(page);
+    // Workspace loads directly for unauthenticated users — no onboarding gate
+    await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[aria-label="Configuración"]')).toBeVisible();
   });
 
   test('Entrada como invitado carga el workspace', async ({ page }) => {

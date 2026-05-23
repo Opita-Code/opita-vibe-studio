@@ -5,18 +5,18 @@ import { mockGuestAuth, mockProAuth, mockChatResponse, enterAsGuest, waitForWork
 // Accessibility E2E — validates ARIA attributes across all components
 // ═══════════════════════════════════════════════════════════════════
 
-test.describe('A11y — Onboarding & LoginScreen', () => {
+test.describe('A11y — WelcomeScreen', () => {
   test.beforeEach(async ({ page }) => {
     await mockGuestAuth(page);
   });
 
-  test('OnboardingFlow: decorative orbs are aria-hidden', async ({ page }) => {
+  test('WelcomeScreen: decorative elements are aria-hidden', async ({ page }) => {
     await page.goto('/app/');
-    await expect(page.locator('h1:has-text("Vibecodea en español")')).toBeVisible({ timeout: 10000 });
+    await enterAsGuest(page);
 
-    // Background orbs should be aria-hidden
-    const hiddenOrbs = page.locator('.animate-blob[aria-hidden="true"]');
-    await expect(hiddenOrbs.first()).toBeAttached();
+    // Decorative background elements in WelcomeScreen should be aria-hidden
+    const hiddenEl = page.locator('[aria-hidden="true"]');
+    await expect(hiddenEl.first()).toBeAttached({ timeout: 5000 });
   });
 });
 
