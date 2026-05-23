@@ -3,7 +3,7 @@
 // Handles session tracking, automatic metadata capture, event batching,
 // and delivery to the centralized /core/events/ingest endpoint.
 
-export type ProductId = "vibe-studio" | "opitacode-web" | "opita-barber";
+export type ProductId = "vibe-studio" | "opitacode-web" | "opita-barber" | "opita-account" | "opita-developer" | "opita-live-deck" | "opita-trabajos";
 
 export interface TelemetryConfig {
   /** Which product is sending the events */

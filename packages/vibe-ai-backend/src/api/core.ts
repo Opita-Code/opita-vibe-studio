@@ -185,7 +185,7 @@ export const handler = async (event: any) => {
         "contact_submitted", "session_identify",
       ]);
       const VALID_SOURCES = new Set(["landing", "app"]);
-      const VALID_PRODUCTS = new Set(["vibe-studio", "opitacode-web", "opita-barber"]);
+      const VALID_PRODUCTS = new Set(["vibe-studio", "opitacode-web", "opita-barber", "opita-account", "opita-developer", "opita-live-deck", "opita-trabajos"]);
       const MAX_EVENTS_PER_BATCH = 25; // DynamoDB BatchWrite limit
       const TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
 
