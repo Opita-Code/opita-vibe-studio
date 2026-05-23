@@ -241,7 +241,7 @@
     <!-- Tagline -->
     <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 mb-8 animate-fade-in-up" style="animation-delay: 0.1s;">
       <span class="w-2 h-2 rounded-full bg-aura-cyan animate-pulse"></span>
-      <span class="text-xs font-medium tracking-wider uppercase text-white/70">v0.4.0 — Memory SDK & Arquitectura AWS</span>
+      <span id="latest-version-badge" class="text-xs font-medium tracking-wider uppercase text-white/70">Cargando versión...</span>
     </div>
 
     <!-- Main Headline -->
@@ -633,6 +633,27 @@
       document.addEventListener("visibilitychange", function() { if (document.visibilityState === "hidden") flush(); });
       window.addEventListener("pagehide", flush);
     })();
+  </script>
+
+  <script>
+    async function loadLatestVersion() {
+      try {
+        const res = await fetch('/changelog.json');
+        if (res.ok) {
+          const changelog = await res.json();
+          if (changelog && changelog.length > 0) {
+            const latest = changelog[0];
+            const badge = document.getElementById('latest-version-badge');
+            if (badge) {
+              badge.textContent = `v${latest.version} — ${latest.title}`;
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error al cargar la última versión:", e);
+      }
+    }
+    loadLatestVersion();
   </script>
 
   <script src="/mockup.js?v=0.4.5" defer></script>

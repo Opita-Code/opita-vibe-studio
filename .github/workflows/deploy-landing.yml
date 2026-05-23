@@ -2,7 +2,7 @@ name: Deploy Landing
 
 on:
   push:
-    tags: ['landing/v*']
+    tags: ['landing/v*', 'web/v*', 'v*']
   workflow_dispatch:
 
 jobs:

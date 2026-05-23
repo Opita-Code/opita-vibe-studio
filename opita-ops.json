@@ -1,0 +1,34 @@
+{
+  "projectId": "vibe-studio",
+  "name": "Vibe Studio",
+  "description": "IDE con IA para estudiantes y principiantes en español",
+  "resources": {
+    "usersTableParam": "/opita-account/${stage}/users-table-name",
+    "tokenUsageTable": "TokenUsage",
+    "transactionsTable": "Transactions"
+  },
+  "capabilities": [
+    {
+      "name": "list_users",
+      "description": "Lista los usuarios de Vibe Studio filtrados por plan",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "plan": { "type": "string", "enum": ["free", "estudiante", "pro"] }
+        }
+      }
+    },
+    {
+      "name": "update_user_plan",
+      "description": "Modifica el plan de suscripción de un usuario en Vibe Studio",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "new_plan": { "type": "string", "enum": ["free", "estudiante", "pro"] }
+        },
+        "required": ["email", "new_plan"]
+      }
+    }
+  ]
+}

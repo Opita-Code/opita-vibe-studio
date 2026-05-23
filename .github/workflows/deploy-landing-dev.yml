@@ -1,0 +1,57 @@
+name: Deploy Landing Dev
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'landing/**'
+      - '.github/workflows/deploy-landing-dev.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-dev:
+    name: Deploy Landing to Dev Staging S3
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Show Deploy Info
+        run: |
+          echo "🚀 Landing Dev Deploy"
+          echo "   Ref: ${{ github.ref_name }}"
+          echo "   SHA: ${{ github.sha }}"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # CRITICAL: --exclude options protect the web app, trabajos, and cuenta.
+      # The landing lives at the S3 bucket root of dev.opitacode.com.
+      - name: Deploy Landing to Dev S3 (exclude apps)
+        run: |
+          aws s3 sync landing/ s3://dev.opitacode.com/ \
+            --delete \
+            --exclude "app/*" \
+            --exclude "trabajos/*" \
+            --exclude "cuenta/*"
+
+      - name: Invalidate Dev CloudFront Cache (Landing)
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id EHQLGHNKD091K \
+            --paths "/" "/index.html" "/install.html" "/changelog.html" "/changelog.json" "/assets/*" "/vibe-logo.svg"
+
+      - name: Verify Deployment
+        run: |
+          sleep 5
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://dev.opitacode.com/)
+          echo "  Dev Landing returned: $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Dev Landing deployed and reachable"
+          else
+            echo "⚠️ Dev Landing returned $HTTP_CODE"
+          fi

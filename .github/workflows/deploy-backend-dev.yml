@@ -54,18 +54,37 @@ jobs:
           echo "═══════════════════════════════════════════════"
           echo "  DEV POST-DEPLOY VERIFICATION"
           echo "═══════════════════════════════════════════════"
+          
+          echo "🌐 Checking DNS resolution for api-dev.opitacode.com..."
+          DNS_OK=false
+          for i in {1..20}; do
+            if nslookup api-dev.opitacode.com >/dev/null 2>&1; then
+              echo "  ✅ DNS resolved successfully!"
+              DNS_OK=true
+              break
+            fi
+            echo "  [Attempt $i/20] api-dev.opitacode.com not resolved yet. Waiting 10s..."
+            sleep 10
+          done
+
+          if [ "$DNS_OK" = "false" ]; then
+            echo "  ❌ WARNING: DNS resolution timed out for api-dev.opitacode.com."
+            echo "  Wait for AWS Route53 propagation and trigger workflow again."
+            exit 1
+          fi
+
           FAILURES=0
 
           # 1. Core API reachable
           echo ""
           echo "── 1/3 Core API (Dev) ──"
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://api-dev.opitacode.com/core/auth/me)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://api-dev.opitacode.com/core/auth/me || echo "000")
           echo "  /core/auth/me → $HTTP_CODE"
-          if [ "$HTTP_CODE" = "000" ]; then
-            echo "  ❌ FAIL: Dev Core API unreachable"
+          if [ "$HTTP_CODE" = "000" ] || [ "$HTTP_CODE" = "404" ] || [ "$HTTP_CODE" = "502" ]; then
+            echo "  ❌ FAIL: Dev Core API returned $HTTP_CODE"
             FAILURES=$((FAILURES + 1))
           else
-            echo "  ✅ Dev Core API reachable"
+            echo "  ✅ Dev Core API reachable (Status: $HTTP_CODE)"
           fi
 
           # 2. Chat health check — verifies providers have valid keys
@@ -74,7 +93,7 @@ jobs:
           CHAT_RESPONSE=$(curl -s -X POST https://api-dev.opitacode.com/chat/ \
             -H "Content-Type: application/json" \
             -H "Origin: https://dev.opitacode.com" \
-            -d '{"action":"health_check"}')
+            -d '{"action":"health_check"}' || echo '{"status":"error"}')
           echo "  Response: $CHAT_RESPONSE"
 
           # Parse provider status
@@ -105,13 +124,13 @@ jobs:
           # 3. Billing API reachable
           echo ""
           echo "── 3/3 Billing API (Dev) ──"
-          BILL_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://api-dev.opitacode.com/billing/sign?product=VIBE_STUDENT&userId=health-check")
+          BILL_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://api-dev.opitacode.com/billing/sign?product=VIBE_STUDENT&userId=health-check" || echo "000")
           echo "  /billing/sign → $BILL_CODE"
-          if [ "$BILL_CODE" = "000" ]; then
-            echo "  ❌ FAIL: Dev Billing API unreachable"
+          if [ "$BILL_CODE" = "000" ] || [ "$BILL_CODE" = "502" ]; then
+            echo "  ❌ FAIL: Dev Billing API unreachable or returned $BILL_CODE"
             FAILURES=$((FAILURES + 1))
           else
-            echo "  ✅ Dev Billing API reachable"
+            echo "  ✅ Dev Billing API reachable (Status: $BILL_CODE)"
           fi
 
           # Final verdict

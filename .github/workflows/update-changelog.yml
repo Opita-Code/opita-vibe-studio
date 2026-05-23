@@ -2,7 +2,7 @@ name: Update Changelog
 
 on:
   push:
-    tags: ['web/v*', 'backend/v*', 'landing/v*']
+    tags: ['web/v*', 'backend/v*', 'landing/v*', 'v*']
   workflow_dispatch:
     inputs:
       tag_name:
