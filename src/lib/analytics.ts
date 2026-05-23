@@ -12,6 +12,8 @@
  *   analytics.track("chat_message_sent", { model_id: "gemini-2.5-flash", message_length: 42 });
  */
 
+import { EVENTS_API_URL } from "@/lib/api-config";
+
 // ─── Types ──────────────────────────────────────────────────────
 
 export type EventType =
@@ -54,7 +56,7 @@ interface AnalyticsConfig {
 // ─── Constants ──────────────────────────────────────────────────
 
 const DEFAULT_CONFIG: AnalyticsConfig = {
-  endpoint: "https://api.opitacode.com/core/events/ingest",
+  endpoint: EVENTS_API_URL,
   batchSize: 15,
   flushIntervalMs: 30_000, // 30 seconds
   withCredentials: true,

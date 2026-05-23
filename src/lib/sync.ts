@@ -3,7 +3,7 @@ import { exportProjectAsZip } from "./export";
 import type { FileNode } from "./types";
 import type { FileSystemBackend } from "./fs-backend/types";
 import { useAuthStore } from "@/stores/auth";
-import { buildAuthHeaders } from "@/lib/api-config";
+import { buildAuthHeaders, STORAGE_API_URL } from "@/lib/api-config";
 import { STORAGE_LIMITS } from "./tokens";
 import { usePurchaseIntentStore } from "@/hooks/usePurchaseIntent";
 
@@ -12,8 +12,7 @@ import { usePurchaseIntentStore } from "@/hooks/usePurchaseIntent";
  * and sending it to the cloud, as well as downloading and extracting it.
  */
 
-// Use the dynamic Vite environment variable
-const API_BASE_URL = "https://api.opitacode.com/storage/";
+const API_BASE_URL = STORAGE_API_URL;
 
 export class SyncEngine {
   /**

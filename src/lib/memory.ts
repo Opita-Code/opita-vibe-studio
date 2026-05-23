@@ -31,7 +31,7 @@ const MAX_MEMORIES_PER_PROJECT = 100;
 
 // ─── SDK Initialization ────────────────────────────────────────
 
-const apiBaseUrl = import.meta.env.VITE_DEV_API_URL || "https://api.opitacode.com";
+const apiBaseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_DEV_API_URL || "https://api.opitacode.com";
 const getAuthToken = async () => useAuthStore.getState().session?.token || null;
 const serviceName = "vibe-studio";
 

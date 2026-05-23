@@ -1,8 +1,9 @@
 import { useProjectStore } from "@/stores/project";
+import { MCP_API_URL } from "@/lib/api-config";
 
 // ─── Config ────────────────────────────────────────────────────
 
-const AWS_API_URL = "https://api.opitacode.com/chat/mcp";
+const AWS_API_URL = MCP_API_URL;
 
 /** Check if we're running inside Tauri (IPC available). */
 function isTauriEnv(): boolean {

@@ -7,6 +7,8 @@
 // Las keys NUNCA se exponen en texto plano al frontend después
 // de ser guardadas — solo se muestra la versión enmascarada.
 
+import { CHAT_API_URL } from "@/lib/api-config";
+
 // ─── Constants ──────────────────────────────────────────────────
 
 const STORAGE_PREFIX = "vibe-byok-";
@@ -181,7 +183,7 @@ export async function saveProviderKey(
   let finalKey = key;
 
   try {
-      const AWS_API_URL = "https://api.opitacode.com/chat/";
+      const AWS_API_URL = CHAT_API_URL;
       
       const res = await fetch(AWS_API_URL, {
         method: "POST",

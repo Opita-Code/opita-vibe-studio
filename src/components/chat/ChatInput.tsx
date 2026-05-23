@@ -9,6 +9,7 @@ import { ChevronDown, CheckCircle2, Zap, Lock } from "lucide-react";
 import { ModeButtons } from "./ModeButtons";
 import { PersonaSelector } from "./PersonaSelector";
 import { getPlan, getPlanName } from "@/lib/plan-registry";
+import { STORAGE_API_URL } from "@/lib/api-config";
 import { analytics } from "@/lib/analytics";
 
 // ─── Constants ─────────────────────────────────────────────────
@@ -111,7 +112,7 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
         const token = localStorage.getItem("auth-token") || "";
         // El Storage API endpoint (dummy URL local por ahora o usar backend URL de AuthStore si existiera, pero podemos apuntar a /api/storage/presign si tenemos un proxy, u obtener el host del backend de la store)
         // Por ahora lo haremos de forma simple:
-        const backendHost = "https://api.opitacode.com/storage"; // Storage API for presigned URLs
+        const backendHost = STORAGE_API_URL.replace(/\/$/, ""); // Storage API for presigned URLs
         
         const res = await fetch(`${backendHost}/presign`, {
           method: "POST",

@@ -4,6 +4,7 @@ import { useAuthStore } from "@/stores/auth";
 import { X, Loader2, Zap } from "lucide-react";
 import { getPlan, getPlanName } from "@/lib/plan-registry";
 import { analytics } from "@/lib/analytics";
+import { BILLING_API_URL } from "@/lib/api-config";
 
 export function WompiModal() {
   const { isModalOpen, closeModal, plan } = usePurchaseIntent();
@@ -33,7 +34,7 @@ export function WompiModal() {
       
       try {
         const token = useAuthStore.getState().session?.token;
-        const backendHost = "https://api.opitacode.com/billing";
+        const backendHost = BILLING_API_URL.replace(/\/$/, "");
         
         const headers: Record<string, string> = {};
         // Only send Bearer when we have a real JWT (not the cookie placeholder)
