@@ -871,8 +871,15 @@ export const handler = awslambda.streamifyResponse(
           return;
         }
 
+        let finalModelId = modelId;
+        const hasTools = tools && Object.keys(tools).length > 0;
+        if (providerId === "deepseek" && finalModelId === "deepseek-reasoner" && hasTools) {
+          console.warn("[MODEL SWAP] deepseek-reasoner does not support tools. Swapping to deepseek-v4-pro.");
+          finalModelId = "deepseek-v4-pro";
+        }
+
         const result = streamText({
-          model: getModel(providerId, activeKey, modelId),
+          model: getModel(providerId, activeKey, finalModelId),
           system: selectedSystemPrompt,
           messages: cleanMessages,
           allowSystemInMessages: false,
@@ -943,22 +950,17 @@ export const handler = awslambda.streamifyResponse(
         const errorMsg = err instanceof Error ? err.message : "Error desconocido";
         
         // ─── GRACEFUL PROVIDER FALLBACK ───
-        // When the primary provider fails, transparently switch to the
-        // best available alternative. The user sees a brief notice, then
-        // gets their answer — the chat NEVER goes blank.
-        if (providerId !== "deepseek" && HAS_DEEPSEEK) {
-          const providerLabel = providerId === "gemini" ? "Gemini" : providerId;
-          console.warn(`[FALLBACK] ${providerLabel} failed: ${errorMsg}. Switching to Opita Flash.`);
+        if (providerId === "deepseek" && HAS_GOOGLE_AI) {
+          console.warn(`[FALLBACK] DeepSeek failed: ${errorMsg}. Switching to Gemini Flash.`);
           
-          // Send a brief, friendly notice — not an error
           const notice = JSON.stringify({ 
-            content: `> ℹ️ *${providerLabel} no disponible temporalmente. Respondiendo con Opita Flash.*\n\n` 
+            content: `> ℹ️ *Opita AI no disponible temporalmente. Respondiendo con Gemini Flash.*\n\n` 
           });
           responseStream.write(`data: ${notice}\n\n`);
 
           try {
             const fallbackResult = streamText({
-              model: getModel("deepseek", undefined, "deepseek-chat"),
+              model: getModel("gemini", undefined, "gemini-2.5-flash"),
               system: selectedSystemPrompt,
               messages: cleanMessages,
               allowSystemInMessages: false,
@@ -981,7 +983,56 @@ export const handler = awslambda.streamifyResponse(
                 if (totalTokens > 0) {
                   try { await recordUsage(userId, totalTokens); } catch (e) { console.error("Error registrando uso:", e); }
                 }
-                console.info(JSON.stringify({ type: "VIBE_METRICS", action, providerId: "deepseek", modelId: "deepseek-chat", userId, plan, totalTokens, fallback: true, originalProvider: providerId }));
+                console.info(JSON.stringify({ type: "VIBE_METRICS", action, providerId: "gemini", modelId: "gemini-2.5-flash", userId, plan, totalTokens, fallback: true, originalProvider: providerId }));
+              }
+            }
+            responseStream.write(`data: [DONE]\n\n`);
+            responseStream.end();
+            return;
+          } catch (fallbackErr) {
+            const fbMsg = fallbackErr instanceof Error ? fallbackErr.message : "Error desconocido";
+            console.error(`[FALLBACK] Gemini also failed: ${fbMsg}`);
+            const payload = JSON.stringify({ content: `\n\n⚠️ **Todos los proveedores de IA están temporalmente fuera de servicio.** Por favor intenta de nuevo en unos minutos. Si el problema persiste, puedes usar tu propia API key en Configuración > Proveedores.` });
+            responseStream.write(`data: ${payload}\n\n`);
+            responseStream.write(`data: [DONE]\n\n`);
+            responseStream.end();
+            return;
+          }
+        } else if (providerId !== "deepseek" && HAS_DEEPSEEK) {
+          const providerLabel = providerId === "gemini" ? "Gemini" : providerId;
+          console.warn(`[FALLBACK] ${providerLabel} failed: ${errorMsg}. Switching to Opita Flash.`);
+          
+          const notice = JSON.stringify({ 
+            content: `> ℹ️ *${providerLabel} no disponible temporalmente. Respondiendo con Opita Flash.*\n\n` 
+          });
+          responseStream.write(`data: ${notice}\n\n`);
+
+          try {
+            const fallbackResult = streamText({
+              model: getModel("deepseek", undefined, "deepseek-v4-flash"),
+              system: selectedSystemPrompt,
+              messages: cleanMessages,
+              allowSystemInMessages: false,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              tools: tools as any,
+            });
+
+            for await (const rawChunk of fallbackResult.fullStream) {
+              const chunk = rawChunk as unknown as StreamChunk;
+              if (chunk.type === 'text-delta') {
+                responseStream.write(`data: ${JSON.stringify({ content: chunk.textDelta || chunk.text || "" })}\n\n`);
+              } else if (chunk.type === 'reasoning') {
+                responseStream.write(`data: ${JSON.stringify({ type: "reasoning", content: chunk.textDelta || chunk.text || chunk.reasoning || "" })}\n\n`);
+              } else if (chunk.type === 'tool-call') {
+                const tcChunk = chunk as unknown as { toolCallId?: string; toolName?: string; input?: unknown };
+                responseStream.write(`data: ${JSON.stringify({ type: "mcp_tool_request", tool: tcChunk.toolName, toolCallId: tcChunk.toolCallId || `call-${Date.now()}`, args: tcChunk.input })}\n\n`);
+              } else if (chunk.type === 'finish') {
+                const usage = (chunk.totalUsage || chunk.usage) as { totalTokens?: number; promptTokens?: number; completionTokens?: number } | undefined;
+                const totalTokens = usage?.totalTokens || ((usage?.promptTokens || 0) + (usage?.completionTokens || 0));
+                if (totalTokens > 0) {
+                  try { await recordUsage(userId, totalTokens); } catch (e) { console.error("Error registrando uso:", e); }
+                }
+                console.info(JSON.stringify({ type: "VIBE_METRICS", action, providerId: "deepseek", modelId: "deepseek-v4-flash", userId, plan, totalTokens, fallback: true, originalProvider: providerId }));
               }
             }
             responseStream.write(`data: [DONE]\n\n`);
