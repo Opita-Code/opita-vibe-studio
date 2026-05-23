@@ -82,6 +82,20 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
     }
   }, [injectText, onTextChange]);
 
+  // Handle prefill from WelcomeScreen textarea (vibe:prefill-chat event)
+  useEffect(() => {
+    function handlePrefill(e: Event) {
+      const { message } = (e as CustomEvent<{ message: string }>).detail;
+      if (message) {
+        setText(message);
+        onTextChange?.(message);
+        setTimeout(() => textareaRef.current?.focus(), 50);
+      }
+    }
+    window.addEventListener("vibe:prefill-chat", handlePrefill);
+    return () => window.removeEventListener("vibe:prefill-chat", handlePrefill);
+  }, [onTextChange]);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {

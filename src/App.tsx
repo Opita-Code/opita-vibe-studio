@@ -8,6 +8,7 @@ import { BugReportModal } from "@/components/layout/BugReportModal";
 import { FileWatcher } from "@/components/editor/FileWatcher";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { WompiModal } from "@/components/usage/WompiModal";
+import { VibeLensToolbar } from "@/components/preview/VibeLensToolbar";
 import { useAuthStore } from "@/stores/auth";
 import { useKeybindings } from "@/lib/useKeybindings";
 import { AppLifecycle } from "./renderer/AppLifecycle";
@@ -186,38 +187,7 @@ function Workspace() {
               exit={{ opacity: 0, width: 0 }}
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] as const }}
             >
-              {/* Toolbar mínimo */}
-              <div className="flex items-center justify-between px-3 py-2 shrink-0 bg-obsidian-900/80 border-b border-white/5">
-                <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-aura-cyan animate-pulse" />
-                  <span className="text-[10px] font-bold tracking-widest uppercase text-white/50">
-                    VibeLens
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setPreviewVersion((v) => v + 1)}
-                    className="p-1 text-slate-500 hover:text-white hover:bg-white/10 rounded transition-colors"
-                    title="Recargar vista previa"
-                    aria-label="Recargar vista previa"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path d="M23 4v6h-6M1 20v-6h6" />
-                      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => useUIStore.getState().toggleFullscreenPreview()}
-                    className="p-1 text-slate-500 hover:text-red-400 hover:bg-white/10 rounded transition-colors"
-                    title="Cerrar vista previa"
-                    aria-label="Cerrar vista previa"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+              <VibeLensToolbar onRefresh={() => setPreviewVersion((v) => v + 1)} />
               {/* Preview iframe */}
               <div className="flex-1 overflow-hidden bg-obsidian-950">
                 <Suspense fallback={
@@ -272,38 +242,7 @@ function Workspace() {
               exit={{ opacity: 0, width: 0 }}
               transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] as const }}
             >
-              {/* Toolbar mínimo */}
-              <div className="flex items-center justify-between px-3 py-2 shrink-0 bg-obsidian-900/80 border-b border-white/5">
-                <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-aura-cyan animate-pulse" />
-                  <span className="text-[10px] font-bold tracking-widest uppercase text-white/50">
-                    VibeLens
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setPreviewVersion((v) => v + 1)}
-                    className="p-1 text-slate-500 hover:text-white hover:bg-white/10 rounded transition-colors"
-                    title="Recargar vista previa"
-                    aria-label="Recargar vista previa"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path d="M23 4v6h-6M1 20v-6h6" />
-                      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => useUIStore.getState().toggleFullscreenPreview()}
-                    className="p-1 text-slate-500 hover:text-red-400 hover:bg-white/10 rounded transition-colors"
-                    title="Cerrar vista previa"
-                    aria-label="Cerrar vista previa"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+              <VibeLensToolbar onRefresh={() => setPreviewVersion((v) => v + 1)} />
               {/* Preview iframe */}
               <div className="flex-1 overflow-hidden bg-obsidian-950">
                 <Suspense fallback={

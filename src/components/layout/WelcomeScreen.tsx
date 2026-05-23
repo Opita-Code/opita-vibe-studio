@@ -1,92 +1,114 @@
-import { useCallback } from "react";
-import { useUIStore } from "@/stores/ui";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useProjectStore } from "@/stores/project";
+import { useUIStore } from "@/stores/ui";
 import { getFileSystemBackend } from "@/lib/fs-backend";
-import { PROJECT_TEMPLATES, type ProjectTemplate } from "@/lib/templates";
-import vibeLogoUrl from "@/assets/vibe-logo.svg";
-import {
-  Rocket,
-  User,
-  CheckSquare,
-  FolderOpen,
-  MessageCircle,
-  ExternalLink,
-} from "lucide-react";
+import { PROJECT_TEMPLATES } from "@/lib/templates";
+import { FolderOpen } from "lucide-react";
 
-// ─── Icon Map ───────────────────────────────────────────────────
+// ─── Suggestion Chips ───────────────────────────────────────────
 
-const ICON_MAP: Record<string, typeof Rocket> = {
-  Rocket,
-  User,
-  CheckSquare,
-};
-
-// ─── Template Card ──────────────────────────────────────────────
-
-function TemplateCard({
-  template,
-  onSelect,
-}: {
-  template: ProjectTemplate;
-  onSelect: (t: ProjectTemplate) => void;
-}) {
-  const Icon = ICON_MAP[template.icon] || Rocket;
-  const fileCount = Object.keys(template.files).length;
-
-  return (
-    <button
-      onClick={() => onSelect(template)}
-      className="group relative flex flex-col items-start gap-3 p-4 rounded-xl
-        bg-white/[0.02] border border-white/[0.06] backdrop-blur-sm
-        hover:border-white/15 hover:bg-white/[0.04]
-        transition-all duration-300 text-left w-full
-        hover:shadow-[0_0_30px_rgba(139,92,246,0.08)]
-        active:scale-[0.98]"
-    >
-      {/* Gradient accent bar */}
-      <div
-        className="absolute top-0 left-0 right-0 h-[2px] rounded-t-xl opacity-50 group-hover:opacity-100 transition-opacity"
-        style={{
-          background: `linear-gradient(90deg, ${template.gradient[0]}, ${template.gradient[1]})`,
-        }}
-      />
-
-      {/* Icon */}
-      <div
-        className="w-9 h-9 rounded-lg flex items-center justify-center"
-        style={{
-          background: `linear-gradient(135deg, ${template.gradient[0]}20, ${template.gradient[1]}20)`,
-        }}
-      >
-        <Icon
-          className="w-4.5 h-4.5"
-          style={{ color: template.gradient[0] }}
-        />
-      </div>
-
-      {/* Text */}
-      <div>
-        <h3 className="text-sm font-semibold text-white/90 mb-0.5 group-hover:text-white transition-colors">
-          {template.name}
-        </h3>
-        <p className="text-xs text-white/40 leading-relaxed">
-          {template.description}
-        </p>
-      </div>
-
-      {/* File count badge */}
-      <span className="text-[10px] font-mono text-white/25 uppercase tracking-wider">
-        {fileCount} archivo{fileCount !== 1 ? "s" : ""}
-      </span>
-    </button>
-  );
+interface Suggestion {
+  emoji: string;
+  label: string;
+  /** Prefills the chat with this prompt */
+  prompt: string;
+  /** Optional: loads a template into the editor first */
+  templateId?: string;
 }
 
-// ─── Welcome Screen ─────────────────────────────────────────────
+const SUGGESTIONS: Suggestion[] = [
+  {
+    emoji: "🌐",
+    label: "Landing page",
+    prompt: "Crea una landing page moderna y atractiva para un producto de software. Incluye hero, features y CTA.",
+    templateId: "react-landing",
+  },
+  {
+    emoji: "👤",
+    label: "Portfolio",
+    prompt: "Crea un portfolio personal profesional con secciones de experiencia, proyectos y contacto.",
+    templateId: "portfolio",
+  },
+  {
+    emoji: "✅",
+    label: "App de tareas",
+    prompt: "Crea una app de gestión de tareas con React. Debe tener agregar, completar y eliminar tareas.",
+    templateId: "todo-app",
+  },
+  {
+    emoji: "📊",
+    label: "Dashboard",
+    prompt: "Crea un dashboard con gráficas, cards de métricas y una tabla de datos. Usa colores modernos.",
+  },
+];
 
+// ─── Helper: dispatch to chat ───────────────────────────────────
+
+function sendToChat(prompt: string) {
+  window.dispatchEvent(
+    new CustomEvent("vibe:prefill-chat", { detail: { message: prompt } })
+  );
+  // Ensure chat sidebar is open
+  useUIStore.getState().setActiveSidebar("chat");
+}
+
+// ─── Component ──────────────────────────────────────────────────
+
+/**
+ * WelcomeScreen — Chat-first entry point.
+ *
+ * Shows when no file is open. The textarea is the hero:
+ * typing here prefills the chat and lets the AI take it from there.
+ * Templates are quick-action chips, not a gallery of cards.
+ */
 export function WelcomeScreen() {
   const openProject = useProjectStore((s) => s.openProject);
   const scaffoldTemplate = useProjectStore((s) => s.scaffoldTemplate);
+
+  const [value, setValue] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-focus on mount
+  useEffect(() => {
+    const t = setTimeout(() => textareaRef.current?.focus(), 100);
+    return () => clearTimeout(t);
+  }, []);
+
+  const handleSubmit = useCallback(() => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    sendToChat(trimmed);
+    setValue("");
+  }, [value]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmit();
+      }
+    },
+    [handleSubmit]
+  );
+
+  const handleSuggestion = useCallback(
+    (s: Suggestion) => {
+      if (s.templateId) {
+        const template = PROJECT_TEMPLATES.find((t) => t.id === s.templateId);
+        if (template) {
+          scaffoldTemplate(template);
+          useUIStore.getState().setActiveSidebar("explorer");
+          useUIStore.getState().setActiveView("split");
+          useUIStore.getState().setVibeLensEnabled(true);
+          import("@/lib/vibe-events").then(({ vibeEvents }) => {
+            vibeEvents.emit({ type: "template_used", templateId: template.id });
+          });
+        }
+      }
+      sendToChat(s.prompt);
+    },
+    [scaffoldTemplate]
+  );
 
   const handleOpenFolder = useCallback(async () => {
     try {
@@ -99,107 +121,98 @@ export function WelcomeScreen() {
         useUIStore.getState().setActiveView("editor");
       }
     } catch {
-      // User cancelled or error
+      // User cancelled
     }
   }, [openProject]);
 
-  const handleAskAI = () => {
-    useUIStore.getState().setActiveSidebar("chat");
-    const input = document.querySelector('textarea[placeholder*="mensaje"]');
-    if (input instanceof HTMLTextAreaElement) {
-      input.focus();
-    }
-  };
-
-  const handleSelectTemplate = useCallback(
-    (template: ProjectTemplate) => {
-      scaffoldTemplate(template);
-      import("@/lib/vibe-events").then(({ vibeEvents }) => {
-        vibeEvents.emit({ type: "template_used", templateId: template.id });
-      });
-      useUIStore.getState().setActiveSidebar("explorer");
-      useUIStore.getState().setActiveView("split");
-      useUIStore.getState().setVibeLensEnabled(true);
-    },
-    [scaffoldTemplate],
-  );
-
   return (
-    <div className="flex-1 flex flex-col items-center justify-center h-full p-4 relative overflow-hidden bg-obsidian-950">
-      {/* Subtle background orbs */}
+    <div className="flex-1 flex flex-col items-center justify-center h-full p-6 relative overflow-hidden bg-obsidian-950">
+      {/* Decorative orbs */}
       <div
-        className="absolute top-[-15%] right-[-10%] w-[40%] h-[40%] rounded-full bg-aura-purple/[0.03] blur-[80px] pointer-events-none"
+        className="absolute top-[-20%] right-[-10%] w-[45%] h-[45%] rounded-full bg-aura-purple/[0.04] blur-[90px] pointer-events-none"
         aria-hidden="true"
       />
       <div
-        className="absolute bottom-[-10%] left-[-5%] w-[30%] h-[30%] rounded-full bg-aura-cyan/[0.03] blur-[60px] pointer-events-none"
+        className="absolute bottom-[-15%] left-[-8%] w-[35%] h-[35%] rounded-full bg-aura-cyan/[0.04] blur-[70px] pointer-events-none"
         aria-hidden="true"
       />
 
-      <div className="flex flex-col items-center gap-8 max-w-lg w-full z-10">
-        {/* Logo + branding */}
-        <div className="flex flex-col items-center gap-3 opacity-80">
-          <img
-            src={vibeLogoUrl}
-            alt="Vibe Studio"
-            className="w-10 h-10 opacity-50 grayscale"
-          />
-          <p className="text-xs font-mono text-white/20 uppercase tracking-[0.2em]">
+      <div className="flex flex-col items-center gap-6 max-w-lg w-full z-10">
+        {/* Heading */}
+        <div className="text-center space-y-1">
+          <p className="text-[10px] font-mono text-white/20 uppercase tracking-[0.25em]">
             Vibe Studio
           </p>
+          <h1 className="text-xl font-semibold text-white/80 tracking-tight">
+            ¿Qué quieres construir hoy?
+          </h1>
         </div>
 
-        {/* Template gallery */}
+        {/* Hero textarea */}
+        <div className="w-full relative group">
+          <textarea
+            ref={textareaRef}
+            id="welcome-chat-input"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Descríbelo con tus palabras... la IA se encarga del código."
+            aria-label="Describe tu idea para que Vibe AI la construya"
+            rows={3}
+            className="w-full resize-none rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3.5 text-sm text-white/80 placeholder-white/25 outline-none transition-all duration-300
+              focus:border-aura-purple/40 focus:bg-white/[0.05] focus:ring-1 focus:ring-aura-purple/20
+              group-hover:border-white/12
+              shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+          />
+          {/* Send button — only visible when there's text */}
+          {value.trim() && (
+            <button
+              onClick={handleSubmit}
+              className="absolute right-3 bottom-3 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-aura-purple/80 hover:bg-aura-purple text-white text-xs font-medium transition-all duration-200 hover:scale-105 active:scale-95 shadow-[0_0_12px_rgba(139,92,246,0.4)]"
+              aria-label="Enviar idea a Vibe AI"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+              Construir
+            </button>
+          )}
+        </div>
+
+        {/* Suggestion chips */}
         <div className="w-full">
-          <p className="text-xs font-medium text-white/30 uppercase tracking-wider mb-3 text-center">
+          <p className="text-[10px] font-medium text-white/20 uppercase tracking-wider mb-2.5 text-center">
             Comienza con un template
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {PROJECT_TEMPLATES.map((t) => (
-              <TemplateCard
-                key={t.id}
-                template={t}
-                onSelect={handleSelectTemplate}
-              />
+          <div className="grid grid-cols-2 gap-2">
+            {SUGGESTIONS.map((s) => (
+              <button
+                key={s.label}
+                onClick={() => handleSuggestion(s)}
+                aria-label={`Sugerencia: ${s.label}`}
+                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl
+                  bg-white/[0.03] border border-white/[0.06] text-left
+                  hover:border-white/12 hover:bg-white/[0.06]
+                  transition-all duration-200 active:scale-[0.97]
+                  text-white/50 hover:text-white/80 text-xs font-medium group"
+              >
+                <span className="text-base leading-none group-hover:scale-110 transition-transform duration-200">
+                  {s.emoji}
+                </span>
+                {s.label}
+              </button>
             ))}
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="w-full flex items-center gap-3">
-          <div className="flex-1 h-px bg-white/5" />
-          <span className="text-[10px] text-white/15 uppercase tracking-widest">
-            o
-          </span>
-          <div className="flex-1 h-px bg-white/5" />
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-5 text-xs font-mono text-white/30 uppercase tracking-widest">
-          <button
-            onClick={handleOpenFolder}
-            className="flex items-center gap-1.5 hover:text-white/70 transition-colors"
-          >
-            <FolderOpen className="w-3.5 h-3.5" />
-            Abrir Carpeta
-          </button>
-          <span className="opacity-20">•</span>
-          <button
-            onClick={handleAskAI}
-            className="flex items-center gap-1.5 hover:text-aura-cyan/70 transition-colors"
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-            Preguntar a IA
-          </button>
-          <span className="opacity-20">•</span>
-          <a
-            href="/"
-            className="flex items-center gap-1.5 hover:text-aura-purple/70 transition-colors"
-          >
-            <ExternalLink className="w-3 h-3" />
-            Conoce Vibe Studio
-          </a>
-        </div>
+        {/* Secondary action */}
+        <button
+          onClick={handleOpenFolder}
+          className="flex items-center gap-2 text-[11px] font-mono text-white/20 hover:text-white/50 uppercase tracking-widest transition-colors duration-200"
+        >
+          <FolderOpen className="w-3.5 h-3.5" />
+          Abrir proyecto existente
+        </button>
       </div>
     </div>
   );
