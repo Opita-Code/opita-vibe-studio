@@ -41,6 +41,7 @@ vibe-studio/
 - **Config**: YAML-first, reversible changes
 - **Governance**: OpenSpec Spec-Driven Development
 - **Quality gates**: `npm test`, `npm run typecheck`, `npm run lint`, `npx tsc --noEmit` en packages/vibe-ai-backend
+- **Test contract**: los tests E2E reflejan el estado real del código — el código es la fuente de verdad, no los tests
 
 
 ## 🚫 Prohibited Actions
@@ -49,6 +50,7 @@ vibe-studio/
 - Making repos public (Opita Code repos are PRIVATE)
 - Force pushing to main
 - Skipping quality gates before commit
+- Committing or deploying with E2E tests that reference removed UI elements, deleted flows, or stale selectors
 - Routing tool-calling agents (explore-agent, build-agent) to `deepseek-reasoner` (DeepSeek-R1) since it does not support function calling and will crash.
 
 ## ✅ Required Patterns
@@ -58,6 +60,7 @@ vibe-studio/
 - Config-first, reversible changes
 - BYOK support in all tiers
 - Use official DeepSeek V4 model names (`deepseek-v4-pro`, `deepseek-v4-flash`) for DeepSeek integration; do not revert them to legacy or placeholder model IDs.
+- **E2E test sync (parte del deploy)**: ante cualquier cambio de UI, flujo, o comportamiento observable, actualizar los tests E2E afectados en el mismo commit o PR antes de desplegar. Si se elimina un elemento, se elimina su test. Si se cambia un selector, se actualiza el helper. Los tests stale bloquean CI y son deuda técnica.
 - Deployment: Use `vibe-aws-deploy` skill to build and deploy to S3/CloudFront
 - **Aislamiento en Staging (dev.opitacode.com)**:
   - Todo proyecto frontend que se testee en el dominio compartido de staging debe desplegarse en su prefijo de ruta asignado en S3 (ej. `/app/` para vibe-studio mediante `aws s3 sync dist/ s3://dev.opitacode.com/app/ --delete`).
