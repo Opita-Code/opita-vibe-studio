@@ -23,21 +23,42 @@ export default $config({
     }
     const aws = await import("@pulumi/aws");
 
-    // Read external table names and API URL from SSM
-    const usersTableNameParam = await aws.ssm.getParameter({
-      name: `/opita-account/${$app.stage}/users-table-name`,
-    });
-    const usersTableName = usersTableNameParam.value;
+    // Read external table names and API URL from SSM with stage-based fallbacks for robust local/dev deployments
+    let usersTableName: string;
+    try {
+      const usersTableNameParam = await aws.ssm.getParameter({
+        name: `/opita-account/${$app.stage}/users-table-name`,
+      });
+      usersTableName = usersTableNameParam.value;
+    } catch (e) {
+      if ($app.stage === "prod") throw e;
+      usersTableName = "opita-vibe-studio-dev-UsersTable-bofxhecu";
+      console.warn(`⚠️ SSM parameter users-table-name not found for stage ${$app.stage}. Falling back to ${usersTableName}`);
+    }
 
-    const userKeysTableNameParam = await aws.ssm.getParameter({
-      name: `/opita-account/${$app.stage}/user-keys-table-name`,
-    });
-    const userKeysTableName = userKeysTableNameParam.value;
+    let userKeysTableName: string;
+    try {
+      const userKeysTableNameParam = await aws.ssm.getParameter({
+        name: `/opita-account/${$app.stage}/user-keys-table-name`,
+      });
+      userKeysTableName = userKeysTableNameParam.value;
+    } catch (e) {
+      if ($app.stage === "prod") throw e;
+      userKeysTableName = "opita-vibe-studio-dev-UserKeysTable-bctnrwvd";
+      console.warn(`⚠️ SSM parameter user-keys-table-name not found for stage ${$app.stage}. Falling back to ${userKeysTableName}`);
+    }
 
-    const authApiUrlParam = await aws.ssm.getParameter({
-      name: `/opita-account/${$app.stage}/auth-api-url`,
-    });
-    const authApiUrl = authApiUrlParam.value;
+    let authApiUrl: string;
+    try {
+      const authApiUrlParam = await aws.ssm.getParameter({
+        name: `/opita-account/${$app.stage}/auth-api-url`,
+      });
+      authApiUrl = authApiUrlParam.value;
+    } catch (e) {
+      if ($app.stage === "prod") throw e;
+      authApiUrl = "https://dh7vsijy4ftdy7pek7vhhxc47i0nuapu.lambda-url.us-east-1.on.aws/";
+      console.warn(`⚠️ SSM parameter auth-api-url not found for stage ${$app.stage}. Falling back to ${authApiUrl}`);
+    }
 
     // 1.2 Crear tabla DynamoDB (Conversations)
     const table = new sst.aws.Dynamo("Conversations", {
