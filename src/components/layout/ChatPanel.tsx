@@ -1,7 +1,8 @@
-import { useCallback, useState, useMemo, useEffect } from "react";
+import { useCallback, useState, useMemo, useEffect, useRef } from "react";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui";
+import { useProjectStore } from "@/stores/project";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { AuraNudgeBar } from "@/components/chat/AuraNudgeBar";
@@ -29,6 +30,24 @@ export function ChatPanel({ width }: ChatPanelProps) {
 
   const authMode = useAuthStore((s) => s.authMode);
 
+  // ─── AI Context ─────────────────────────────────────────
+  const shareActiveFileContext = useChatStore((s) => s.shareActiveFileContext);
+  const setShareActiveFileContext = useChatStore((s) => s.setShareActiveFileContext);
+  const activeTab = useProjectStore((s) => s.activeTab);
+  const activeFilename = activeTab ? activeTab.split(/[\/\\]/).pop() ?? null : null;
+  const [contextPopoverOpen, setContextPopoverOpen] = useState(false);
+  const contextPopoverRef = useRef<HTMLDivElement>(null);
+
+  // Close popover on outside click
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (contextPopoverRef.current && !contextPopoverRef.current.contains(e.target as Node)) {
+        setContextPopoverOpen(false);
+      }
+    }
+    if (contextPopoverOpen) document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [contextPopoverOpen]);
 
   const chatFullscreen = useUIStore((s) => s.chatFullscreen);
   const toggleChatFullscreen = useUIStore((s) => s.toggleChatFullscreen);
@@ -190,6 +209,55 @@ export function ChatPanel({ width }: ChatPanelProps) {
         </div>
       </div>
 
+
+      {/* ─── Context Bar ─────────────────────────────────── */}
+      {shareActiveFileContext && activeFilename && (
+        <div className="relative shrink-0" ref={contextPopoverRef}>
+          <button
+            onClick={() => setContextPopoverOpen((v) => !v)}
+            className="w-full flex items-center gap-1.5 px-4 py-1.5 border-b border-white/5 bg-aura-cyan/[0.03] hover:bg-aura-cyan/[0.06] transition-colors duration-150 group"
+            aria-label="Ver archivos en contexto de la IA"
+            aria-expanded={contextPopoverOpen}
+          >
+            {/* File icon */}
+            <svg className="w-3 h-3 text-aura-cyan/60 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span className="text-[10px] text-white/30 font-mono uppercase tracking-widest shrink-0">ctx</span>
+            <span className="text-[11px] text-aura-cyan/70 font-mono truncate group-hover:text-aura-cyan transition-colors">
+              {activeFilename}
+            </span>
+            <svg className={`w-3 h-3 text-white/20 ml-auto shrink-0 transition-transform duration-150 ${contextPopoverOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* Popover */}
+          {contextPopoverOpen && (
+            <div className="absolute top-full left-0 right-0 z-50 bg-obsidian-900 border border-white/10 rounded-b-xl shadow-2xl p-3 flex flex-col gap-2 animate-fade-in-up origin-top">
+              <p className="text-[10px] font-medium text-white/30 uppercase tracking-widest">Archivo en contexto</p>
+              <div className="flex items-start gap-2 bg-white/[0.03] rounded-lg px-3 py-2">
+                <svg className="w-3.5 h-3.5 text-aura-cyan/50 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <span className="text-xs font-medium text-white/80 truncate">{activeFilename}</span>
+                  <span className="text-[10px] font-mono text-white/25 break-all leading-relaxed">{activeTab}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShareActiveFileContext(false); setContextPopoverOpen(false); }}
+                className="flex items-center gap-1.5 text-[10px] text-white/30 hover:text-red-400 transition-colors py-1 px-1 rounded"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Quitar archivo del contexto
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {isStreaming && (
         <div className="absolute bottom-24 left-0 right-0 flex justify-center z-20">
