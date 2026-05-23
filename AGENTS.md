@@ -59,4 +59,8 @@ vibe-studio/
 - BYOK support in all tiers
 - Use official DeepSeek V4 model names (`deepseek-v4-pro`, `deepseek-v4-flash`) for DeepSeek integration; do not revert them to legacy or placeholder model IDs.
 - Deployment: Use `vibe-aws-deploy` skill to build and deploy to S3/CloudFront
+- **Aislamiento en Staging (dev.opitacode.com)**:
+  - Todo proyecto frontend que se testee en el dominio compartido de staging debe desplegarse en su prefijo de ruta asignado en S3 (ej. `/app/` para vibe-studio mediante `aws s3 sync dist/ s3://dev.opitacode.com/app/ --delete`).
+  - La landing corporativa o proyecto raíz en S3 debe excluir explícitamente estos prefijos al sincronizarse para no borrarlos: `aws s3 sync dist/ s3://dev.opitacode.com/ --exclude "app/*" --exclude "trabajos/*" --exclude "cuenta/*" --delete`.
+  - Configurar correspondientemente el `base` path en Vite/React Router para cada aplicación (ej. `/app/` para Vibe Studio).
 
