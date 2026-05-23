@@ -35,7 +35,7 @@ const ANTHROPIC_MODELS: ModelConfig[] = [
 
 const DEEPSEEK_MODELS: ModelConfig[] = [
   {
-    id: "deepseek-chat",
+    id: "deepseek-v4-flash",
     name: "Opita Flash",
     providerId: "deepseek",
     maxTokens: 8192,
@@ -43,6 +43,18 @@ const DEEPSEEK_MODELS: ModelConfig[] = [
     costPer1kInput: 0,
     costPer1kOutput: 0,
     tier: "free",
+    requiredPlanTier: 1,
+  },
+  {
+    id: "deepseek-v4-pro",
+    name: "Opita Pro",
+    providerId: "deepseek",
+    maxTokens: 8192,
+    temperature: 0.7,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    tier: "free",
+    requiredPlanTier: 2,
   },
   {
     id: "deepseek-reasoner",
@@ -53,6 +65,7 @@ const DEEPSEEK_MODELS: ModelConfig[] = [
     costPer1kInput: 0,
     costPer1kOutput: 0,
     tier: "free",
+    requiredPlanTier: 2,
   },
 ];
 
@@ -66,6 +79,18 @@ const GEMINI_MODELS: ModelConfig[] = [
     costPer1kInput: 0,
     costPer1kOutput: 0,
     tier: "free",
+    requiredPlanTier: 0,
+  },
+  {
+    id: "gemini-2.5-pro",
+    name: "Gemini Pro",
+    providerId: "gemini",
+    maxTokens: 8192,
+    temperature: 0.7,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    tier: "free",
+    requiredPlanTier: 2,
   },
 ];
 

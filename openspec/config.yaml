@@ -27,11 +27,12 @@ testing:
       available: true
       tool: "@testing-library/react + jsdom"
     e2e:
-      available: false
-      tool: "-"
+      available: true
+      tool: "playwright"
+      command: "npx playwright test"
   coverage:
-    available: false
-    command: "-"
+    available: true
+    command: "npx vitest run --coverage"
   quality_tools:
     linter:
       available: true

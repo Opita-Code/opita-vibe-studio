@@ -4,7 +4,7 @@ import { isLimitReached, getUsagePercent } from "@/lib/tokens";
 import { getPlan, getPlanName } from "@/lib/plan-registry";
 import type { UserPlan } from "@/lib/types";
 
-export type IntentType = "token_warning" | "token_limit" | "pro_model" | "large_file" | "storage_limit" | null;
+export type IntentType = "token_warning" | "token_limit" | "pro_model" | "estudiante_model" | "large_file" | "storage_limit" | null;
 
 interface PurchaseIntentState {
   forcedIntent: IntentType;
@@ -67,6 +67,8 @@ export function getNudgeForIntent(intent: IntentType, plan: UserPlan) {
       return { message: `Has alcanzado tu límite de tokens. Actualiza a ${targetPlan} para continuar.`, type: "warning" as const };
     case "pro_model":
       return { message: "Este modelo avanzado requiere Vibe Pro.", type: "info" as const };
+    case "estudiante_model":
+      return { message: "Este modelo requiere el plan Vibe Estudiante.", type: "info" as const };
     case "large_file":
       return { message: "Subir archivos >5MB requiere Vibe Pro Storage.", type: "warning" as const };
     case "storage_limit":

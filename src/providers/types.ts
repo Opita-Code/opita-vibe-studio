@@ -17,6 +17,8 @@ export interface ModelConfig {
   costPer1kOutput: number;
   /** Categoría del modelo */
   tier: "free" | "byok";
+  /** Nivel de plan mínimo requerido para usar nativamente (0 = gratis, 1 = estudiante, 2 = pro) */
+  requiredPlanTier?: number;
 }
 
 // ─── Provider Info (para la UI) ─────────────────────────────────

@@ -56,7 +56,7 @@ const HIGH_COGNITIVE_PHASES = new Set([
 /** Default fallback when nothing else is available */
 const FALLBACK: Pick<ModelSelection, "providerId" | "modelId"> = {
   providerId: "deepseek",
-  modelId: "deepseek-chat",
+  modelId: "deepseek-v4-flash",
 };
 
 // ─── Router ────────────────────────────────────────────────────
@@ -122,8 +122,7 @@ export function selectModel(input: ModelRouterInput): ModelSelection {
       // Pro + high cognitive → premium model
       return {
         providerId: "deepseek",
-        // P0 fix: use actual registry model ID (was deepseek-v4-pro which doesn't exist)
-        modelId: "deepseek-reasoner",
+        modelId: "deepseek-v4-pro",
         byok: false,
       };
     }
@@ -156,8 +155,7 @@ function pickFlash(
     return { providerId: "gemini", modelId: "gemini-2.5-flash" };
   }
   if (hasDeepSeek) {
-    // P0 fix: use actual registry model ID (was deepseek-v4-flash which doesn't exist)
-    return { providerId: "deepseek", modelId: "deepseek-chat" };
+    return { providerId: "deepseek", modelId: "deepseek-v4-flash" };
   }
   return FALLBACK;
 }

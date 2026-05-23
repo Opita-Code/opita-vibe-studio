@@ -49,6 +49,7 @@ vibe-studio/
 - Making repos public (Opita Code repos are PRIVATE)
 - Force pushing to main
 - Skipping quality gates before commit
+- Routing tool-calling agents (explore-agent, build-agent) to `deepseek-reasoner` (DeepSeek-R1) since it does not support function calling and will crash.
 
 ## ✅ Required Patterns
 
@@ -56,4 +57,6 @@ vibe-studio/
 - SDD for substantial changes
 - Config-first, reversible changes
 - BYOK support in all tiers
+- Use official DeepSeek V4 model names (`deepseek-v4-pro`, `deepseek-v4-flash`) for DeepSeek integration; do not revert them to legacy or placeholder model IDs.
 - Deployment: Use `vibe-aws-deploy` skill to build and deploy to S3/CloudFront
+

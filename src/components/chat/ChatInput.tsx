@@ -13,7 +13,7 @@ import { analytics } from "@/lib/analytics";
 // ─── Constants ─────────────────────────────────────────────────
 
 const CHAR_LIMIT = 500000; // Frontier LLM limit
-const PRO_MODELS = ["deepseek-reasoner", "gemini-2.5-pro"];
+
 
 // ─── Props ─────────────────────────────────────────────────────
 
@@ -123,8 +123,9 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
           }
         ]);
         
-      } catch (err: any) {
-        setUploadError("Error al subir archivo: " + err.message);
+      } catch (err) {
+        const error = err as Error;
+        setUploadError("Error al subir archivo: " + error.message);
       } finally {
         setIsUploading(false);
       }
@@ -388,13 +389,15 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
                       {p.name} {p.tier === "free" ? "(Gratis)" : "(BYOK)"}
                     </div>
                     {p.models.map(m => {
-                      const isProLocked = plan !== "pro" && PRO_MODELS.includes(m.id);
+                      const userTier = getPlan(plan).tier;
+                      const requiredTier = m.requiredPlanTier ?? 0;
+                      const isLocked = p.tier === "free" && userTier < requiredTier;
                       return (
                         <button
                           key={m.id}
                           onClick={() => {
-                            if (isProLocked) {
-                              setIntent("pro_model");
+                            if (isLocked) {
+                              setIntent(requiredTier === 1 ? "estudiante_model" : "pro_model");
                               setIsModelDropdownOpen(false);
                             } else {
                               setActiveModelId(m.id);
@@ -406,9 +409,9 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
                             activeModelId === m.id ? "bg-aura-purple/20 text-aura-purple" : "text-white/70 hover:bg-white/5 hover:text-white"
                           }`}
                         >
-                          <span className={`flex items-center ${isProLocked ? "opacity-50" : ""}`}>
+                          <span className={`flex items-center ${isLocked ? "opacity-50" : ""}`}>
                             {m.name.includes("Opita") ? (
-                              <strong className={`flex items-center font-bold ${activeModelId === m.id || isProLocked ? "" : "text-aura-purple"}`}>
+                              <strong className={`flex items-center font-bold ${activeModelId === m.id || isLocked ? "" : "text-aura-purple"}`}>
                                 <Zap className="w-3 h-3 mr-1" />
                                 {m.name}
                               </strong>
@@ -416,7 +419,7 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
                               m.name
                             )}
                           </span>
-                          {isProLocked ? (
+                          {isLocked ? (
                             <Lock className="w-3 h-3 text-aura-purple opacity-50" />
                           ) : activeModelId === m.id ? (
                             <CheckCircle2 className="w-3 h-3" />
