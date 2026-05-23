@@ -1,13 +1,22 @@
-name: Deploy Web App
+name: Deploy Web App Dev
 
 on:
   push:
     branches: [main]
-    tags: ['web/v*']
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'tailwind.config.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-web-app-dev.yml'
   workflow_dispatch:
 
 jobs:
-  deploy:
+  deploy-dev:
+    name: Deploy Web App to Dev Staging S3
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -15,7 +24,7 @@ jobs:
 
       - name: Show Deploy Info
         run: |
-          echo "🚀 Web App Deploy"
+          echo "🚀 Web App Dev Deploy"
           echo "   Ref: ${{ github.ref_name }}"
           echo "   SHA: ${{ github.sha }}"
 
@@ -28,8 +37,8 @@ jobs:
       - name: Install Dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Build Frontend
-        run: npm run build
+      - name: Build Frontend (Staging Mode)
+        run: npx vite build --mode staging
 
       - name: Verify Build Output
         run: |
@@ -46,23 +55,22 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # CRITICAL: Sync ONLY to /app/ — NEVER to bucket root.
-      # The landing page lives at the bucket root. --delete only removes
-      # old files within /app/, not the landing.
-      - name: Deploy App to S3 (/app/ only)
-        run: aws s3 sync dist/ s3://vibe-landing-728741135483/app/ --delete
+      # CRITICAL: Sync ONLY to /app/ in dev.opitacode.com.
+      # The dev landing page lives at the bucket root.
+      - name: Deploy App to Dev S3 (/app/ only)
+        run: aws s3 sync dist/ s3://dev.opitacode.com/app/ --delete
 
-      - name: Invalidate CloudFront Cache (App)
-        run: aws cloudfront create-invalidation --distribution-id EONGVOV3BDAVI --paths "/app/*"
+      - name: Invalidate Dev CloudFront Cache (App)
+        run: aws cloudfront create-invalidation --distribution-id EHQLGHNKD091K --paths "/app/*"
 
       - name: Verify Deployment
         run: |
-          echo "Waiting 5s for CDN propagation..."
+          echo "Waiting 5s for Dev CDN propagation..."
           sleep 5
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://vibe.opitacode.com/app/)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://dev.opitacode.com/app/)
           echo "  /app/ returned: $HTTP_CODE"
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "⚠️ Web app returned $HTTP_CODE (may need more CDN propagation time)"
+            echo "⚠️ Dev web app returned $HTTP_CODE (may need more CDN propagation time)"
           else
-            echo "✅ Web app deployed and reachable"
+            echo "✅ Dev web app deployed and reachable at https://dev.opitacode.com/app/"
           fi

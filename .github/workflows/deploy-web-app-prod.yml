@@ -1,0 +1,67 @@
+name: Deploy Web App Prod
+
+on:
+  push:
+    tags: ['web/v*']
+  workflow_dispatch:
+
+jobs:
+  deploy-prod:
+    name: Deploy Web App to Production S3
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Show Deploy Info
+        run: |
+          echo "🚀 Web App Prod Deploy"
+          echo "   Tag: ${{ github.ref_name }}"
+          echo "   SHA: ${{ github.sha }}"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build Frontend (Production Mode)
+        run: npm run build
+
+      - name: Verify Build Output
+        run: |
+          if [ ! -f "dist/index.html" ]; then
+            echo "❌ dist/index.html not found — build failed silently"
+            exit 1
+          fi
+          echo "✅ dist/index.html exists ($(wc -c < dist/index.html) bytes)"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # CRITICAL: Sync ONLY to /app/ in the production bucket.
+      # The landing page lives at the bucket root.
+      - name: Deploy App to S3 (/app/ only)
+        run: aws s3 sync dist/ s3://vibe-landing-728741135483/app/ --delete
+
+      - name: Invalidate CloudFront Cache (App)
+        run: aws cloudfront create-invalidation --distribution-id EONGVOV3BDAVI --paths "/app/*"
+
+      - name: Verify Deployment
+        run: |
+          echo "Waiting 5s for CDN propagation..."
+          sleep 5
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://vibe.opitacode.com/app/)
+          echo "  /app/ returned: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "⚠️ Web app returned $HTTP_CODE (may need more CDN propagation time)"
+          else
+            echo "✅ Web app deployed and reachable at https://vibe.opitacode.com/app/"
+          fi

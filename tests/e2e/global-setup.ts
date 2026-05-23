@@ -16,7 +16,7 @@ import * as path from 'path';
 const USER_POOL_ID = 'us-east-1_LItAcj2Aa';
 const CLIENT_ID = '4b5sluoilcrtuq67qbu4528htl';
 const E2E_USERNAME = 'vibe-tester-01@opitacode.com';
-const E2E_PASSWORD = 'VibeE2E#2026!';
+const E2E_PASSWORD = process.env.TEST_E2E_PASSWORD || 'VibeE2E#2026!';
 
 /** Ruta donde escribimos el token para que los workers lo lean */
 export const TOKEN_FILE = path.resolve(process.cwd(), 'playwright/.auth/token.json');

@@ -1,22 +1,21 @@
-name: Deploy Backend (SST)
+name: Deploy Backend Dev (SST)
 
 on:
   push:
-    tags: ['backend/v*']
+    branches: [main]
+    paths:
+      - 'packages/vibe-ai-backend/**'
+      - 'sst.config.ts'
+      - '.github/workflows/deploy-backend-dev.yml'
   workflow_dispatch:
 
 jobs:
-  deploy:
+  deploy-dev:
+    name: Deploy Backend to AWS Dev Stage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Show Deploy Info
-        run: |
-          echo "🚀 Backend Deploy"
-          echo "   Tag: ${{ github.ref_name }}"
-          echo "   SHA: ${{ github.sha }}"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -34,8 +33,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Deploy via SST
-        run: npx sst deploy --stage prod
+      - name: Deploy via SST (Dev)
+        run: npx sst deploy --stage dev
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           DEEP_SEEK_KEY: ${{ secrets.DEEP_SEEK_KEY }}
@@ -50,31 +49,31 @@ jobs:
           ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
           STAGING_WHITELIST: ${{ secrets.STAGING_WHITELIST }}
 
-      - name: Verify API Health
+      - name: Verify Dev API Health
         run: |
           echo "═══════════════════════════════════════════════"
-          echo "  POST-DEPLOY VERIFICATION"
+          echo "  DEV POST-DEPLOY VERIFICATION"
           echo "═══════════════════════════════════════════════"
           FAILURES=0
 
           # 1. Core API reachable
           echo ""
-          echo "── 1/3 Core API ──"
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://api.opitacode.com/core/auth/me)
+          echo "── 1/3 Core API (Dev) ──"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://api-dev.opitacode.com/core/auth/me)
           echo "  /core/auth/me → $HTTP_CODE"
           if [ "$HTTP_CODE" = "000" ]; then
-            echo "  ❌ FAIL: Core API unreachable"
+            echo "  ❌ FAIL: Dev Core API unreachable"
             FAILURES=$((FAILURES + 1))
           else
-            echo "  ✅ Core API reachable"
+            echo "  ✅ Dev Core API reachable"
           fi
 
           # 2. Chat health check — verifies providers have valid keys
           echo ""
-          echo "── 2/3 Chat Providers ──"
-          CHAT_RESPONSE=$(curl -s -X POST https://api.opitacode.com/chat/ \
+          echo "── 2/3 Chat Providers (Dev) ──"
+          CHAT_RESPONSE=$(curl -s -X POST https://api-dev.opitacode.com/chat/ \
             -H "Content-Type: application/json" \
-            -H "Origin: https://vibe.opitacode.com" \
+            -H "Origin: https://dev.opitacode.com" \
             -d '{"action":"health_check"}')
           echo "  Response: $CHAT_RESPONSE"
 
@@ -84,46 +83,46 @@ jobs:
           STATUS=$(echo "$CHAT_RESPONSE" | grep -o '"status":"ok"' || true)
 
           if [ -z "$STATUS" ]; then
-            echo "  ❌ FAIL: Chat Lambda not responding correctly"
+            echo "  ❌ FAIL: Dev Chat Lambda not responding correctly"
             FAILURES=$((FAILURES + 1))
           else
-            echo "  ✅ Chat Lambda healthy"
+            echo "  ✅ Dev Chat Lambda healthy"
           fi
 
           if [ -z "$GEMINI" ]; then
-            echo "  ❌ FAIL: Gemini API key missing or not configured"
+            echo "  ❌ FAIL: Gemini API key missing or not configured in Dev"
             FAILURES=$((FAILURES + 1))
           else
             echo "  ✅ Gemini provider configured"
           fi
 
           if [ -z "$DEEPSEEK" ]; then
-            echo "  ⚠️  WARN: DeepSeek key missing (fallback unavailable)"
+            echo "  ⚠️  WARN: DeepSeek key missing in Dev (fallback unavailable)"
           else
             echo "  ✅ DeepSeek provider configured"
           fi
 
           # 3. Billing API reachable
           echo ""
-          echo "── 3/3 Billing API ──"
-          BILL_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://api.opitacode.com/billing/sign?product=VIBE_STUDENT&userId=health-check")
+          echo "── 3/3 Billing API (Dev) ──"
+          BILL_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://api-dev.opitacode.com/billing/sign?product=VIBE_STUDENT&userId=health-check")
           echo "  /billing/sign → $BILL_CODE"
           if [ "$BILL_CODE" = "000" ]; then
-            echo "  ❌ FAIL: Billing API unreachable"
+            echo "  ❌ FAIL: Dev Billing API unreachable"
             FAILURES=$((FAILURES + 1))
           else
-            echo "  ✅ Billing API reachable"
+            echo "  ✅ Dev Billing API reachable"
           fi
 
           # Final verdict
           echo ""
           echo "═══════════════════════════════════════════════"
           if [ "$FAILURES" -gt 0 ]; then
-            echo "  ❌ DEPLOY VERIFICATION FAILED ($FAILURES checks)"
-            echo "  The deploy completed but critical services are broken."
+            echo "  ❌ DEV DEPLOY VERIFICATION FAILED ($FAILURES checks)"
+            echo "  The deploy completed but critical services are broken in Dev."
             echo "  Check API keys in GitHub Secrets and redeploy."
             echo "═══════════════════════════════════════════════"
             exit 1
           fi
-          echo "  ✅ ALL CHECKS PASSED — Production is healthy"
+          echo "  ✅ ALL CHECKS PASSED — Dev Staging is healthy"
           echo "═══════════════════════════════════════════════"
