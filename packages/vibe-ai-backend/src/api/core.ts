@@ -182,8 +182,10 @@ export const handler = async (event: any) => {
         "session_start", "chat_message_sent", "project_created", "project_saved",
         "upgrade_prompt_shown", "checkout_completed", "login_method",
         "feature_used", "error_encountered", "onboarding_step",
+        "contact_submitted", "session_identify",
       ]);
       const VALID_SOURCES = new Set(["landing", "app"]);
+      const VALID_PRODUCTS = new Set(["vibe-studio", "opitacode-web", "opita-barber"]);
       const MAX_EVENTS_PER_BATCH = 25; // DynamoDB BatchWrite limit
       const TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
 
@@ -231,6 +233,7 @@ export const handler = async (event: any) => {
       } catch { /* anonymous is fine */ }
 
       const sessionId = body.sessionId || `anon-${sourceIp.replace(/\./g, "-")}`;
+      const productId = (body.productId && VALID_PRODUCTS.has(body.productId)) ? body.productId : "vibe-studio";
       const pk = userId ? `events#${userId}` : `events#${sessionId}`;
       const now = new Date();
       const expiresAt = Math.floor(now.getTime() / 1000) + TTL_SECONDS;
@@ -252,6 +255,7 @@ export const handler = async (event: any) => {
               sk: eventId,
               type: evt.type,
               source: evt.source || "app",
+              productId,
               data: evt.data || {},
               consent: evt.consent || "basic",
               userId: userId || null,
@@ -280,7 +284,7 @@ export const handler = async (event: any) => {
       }
 
       return {
-        statusCode: 200,
+        statusCode: 202,
         headers: getCorsHeaders(event),
         body: JSON.stringify({ accepted: writeRequests.length, skipped: skippedCount }),
       };

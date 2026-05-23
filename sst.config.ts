@@ -105,7 +105,19 @@ export default $config({
       },
       primaryIndex: { hashKey: "pk", rangeKey: "sk" },
       ttl: "expiresAt",
+      stream: "new-image",
     });
+
+    // 1.2h Data Lake — cold storage for historical analytics
+    const dataLakeBucket = new sst.aws.Bucket("OpitaDataLake");
+
+    // 1.2i Stream Processor — archives DynamoDB events to S3
+    const streamProcessor = new sst.aws.Function("TelemetryStreamProcessor", {
+      handler: "packages/vibe-ai-backend/src/api/telemetry-stream.handler",
+      link: [dataLakeBucket],
+      timeout: "60 seconds",
+    });
+    analyticsTable.subscribe(streamProcessor);
 
     const externalDynamoPermissions = {
       actions: ["dynamodb:*"],
@@ -231,7 +243,7 @@ export default $config({
         },
       },
       handler: "packages/vibe-ai-backend/src/api/admin.handler",
-      link: [transactionsTable, tokenUsageTable, projectsTable, table, analyticsTable],
+      link: [transactionsTable, tokenUsageTable, projectsTable, table, analyticsTable, storageBucket],
       permissions: [externalDynamoPermissions],
       environment: {
         JWT_SECRET: process.env.JWT_SECRET || "",
@@ -308,6 +320,7 @@ export default $config({
       RouterUrl: router.url,
       TableName: table.name,
       BucketName: storageBucket.name,
+      DataLakeBucketName: dataLakeBucket.name,
     };
   },
 });

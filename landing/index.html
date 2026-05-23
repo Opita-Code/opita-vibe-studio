@@ -586,7 +586,7 @@
       }
       function flush() {
         if (!queue.length) return;
-        const payload = JSON.stringify({ events: queue.splice(0), sessionId: sid });
+        const payload = JSON.stringify({ events: queue.splice(0), sessionId: sid, productId: "vibe-studio" });
         if (navigator.sendBeacon) { navigator.sendBeacon(API, payload); }
         else { fetch(API, { method: "POST", headers: {"Content-Type":"application/json"}, body: payload, keepalive: true }).catch(function(){}); }
       }

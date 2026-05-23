@@ -1,0 +1,14 @@
+{
+  "name": "@opitacode/telemetry-sdk",
+  "version": "1.0.0",
+  "description": "Lightweight telemetry SDK for all Opita Code products",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "license": "UNLICENSED",
+  "private": true
+}
