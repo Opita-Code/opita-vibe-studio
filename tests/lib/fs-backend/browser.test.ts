@@ -59,6 +59,10 @@ function createMockDir(
           name: childName,
           size: typeof value === "string" ? value.length : 0,
           text: vi.fn().mockResolvedValue(typeof value === "string" ? value : ""),
+          arrayBuffer: vi.fn().mockImplementation(async () => {
+            const str = typeof value === "string" ? value : "";
+            return new TextEncoder().encode(str).buffer;
+          }),
         });
         entriesArray.push([childName, file]);
       }
@@ -93,6 +97,7 @@ function createMockDir(
             name: subName,
             size: 0,
             text: vi.fn().mockResolvedValue(""),
+            arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
           }),
           createWritable: vi.fn().mockResolvedValue(writable),
         };

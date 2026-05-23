@@ -213,7 +213,7 @@ export const useChatStore = create<ChatStore>()(
 
       switchSession: (id) =>
         set((state) => {
-          if (!state.sessions[id]) return state;
+          if (!state.sessions[id] || state.activeSessionId === id) return state;
           // P0 fix: abort any active stream before switching to prevent
           // content being written to the wrong session.
           if (state.abortController) {
