@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState, useEffect, DragEvent, ClipboardEvent } from "react";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
+import { useProjectStore } from "@/stores/project";
 import { usePurchaseIntent } from "@/hooks/usePurchaseIntent";
 import type { Attachment } from "@/lib/types";
 import { listProviders } from "@/providers/registry";
@@ -48,6 +49,28 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
   const [isUploading, setIsUploading] = useState(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const activeTab = useProjectStore(s => s.activeTab);
+  const fileContents = useProjectStore(s => s.fileContents);
+  const shareActiveFileContext = useChatStore(s => s.shareActiveFileContext);
+  const setShareActiveFileContext = useChatStore(s => s.setShareActiveFileContext);
+  const [contextWarning, setContextWarning] = useState<string | null>(null);
+
+  // Large File Safeguard logic
+  useEffect(() => {
+    if (activeTab) {
+      const activeContent = fileContents[activeTab] ?? "";
+      const lines = activeContent.split("\n").length;
+      if (lines > 1500) {
+        setShareActiveFileContext(false);
+        setContextWarning("Archivo demasiado grande (>1500 líneas). Contexto desactivado.");
+      } else {
+        setContextWarning(null);
+      }
+    } else {
+      setContextWarning(null);
+    }
+  }, [activeTab, fileContents, setShareActiveFileContext]);
 
   // Handle injected text from Aura step chips
   useEffect(() => {
@@ -282,6 +305,34 @@ export function ChatInput({ onSend, disabled, onTextChange, injectText }: ChatIn
         <div role="alert" className="flex items-center justify-between mb-3 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-300">
           <span>⚠️ {uploadError}</span>
           <button onClick={() => setUploadError(null)} aria-label="Cerrar error" className="text-red-400 hover:text-white ml-2">✕</button>
+        </div>
+      )}
+
+      {activeTab && (
+        <div className="flex items-center justify-between mb-3 px-3 py-1.5 bg-obsidian-950/40 border border-white/5 rounded-lg text-xs">
+          <div className="flex items-center gap-1.5 text-white/60">
+            <span className="text-[10px]">📎</span>
+            <span>Contexto activo:</span>
+            <strong className="text-white/80 font-mono text-[11px]">{activeTab.split(/[/\\]/).pop()}</strong>
+            <span className="text-white/30 text-[10px]">
+              ({fileContents[activeTab]?.split("\n").length ?? 0} líneas)
+            </span>
+          </div>
+          {contextWarning ? (
+            <span className="text-amber-400 text-[10px] bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded flex items-center gap-1">
+              ⚠️ {contextWarning}
+            </span>
+          ) : (
+            <label className="flex items-center gap-2 cursor-pointer text-white/50 hover:text-white transition-colors">
+              <span className="text-[10px] uppercase font-bold tracking-wider">Incluir</span>
+              <input
+                type="checkbox"
+                checked={shareActiveFileContext}
+                onChange={(e) => setShareActiveFileContext(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-white/10 bg-white/5 text-aura-purple accent-aura-purple cursor-pointer focus:ring-0"
+              />
+            </label>
+          )}
         </div>
       )}
 

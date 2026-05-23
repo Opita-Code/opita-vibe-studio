@@ -96,6 +96,27 @@ export function useAgentHandler() {
       const authStore = useAuthStore.getState();
       const projectStore = useProjectStore.getState();
 
+      const finalAttachments = attachments ? [...attachments] : [];
+
+      if (chatStore.shareActiveFileContext && projectStore.activeTab) {
+        const activeTab = projectStore.activeTab;
+        const activeContent = projectStore.fileContents[activeTab] ?? "";
+        const filename = activeTab.split(/[/\\]/).pop() || "active_file";
+
+        const isAlreadyAttached = finalAttachments.some(
+          (att) => att.name === filename || att.id === `active-ctx-${activeTab}`
+        );
+        if (!isAlreadyAttached) {
+          finalAttachments.push({
+            id: `active-ctx-${activeTab}`,
+            name: filename,
+            contentType: "text/plain",
+            data: activeContent,
+            size: activeContent.length,
+          });
+        }
+      }
+
       // ─── Nudge Intercept (intent-aware) ───────────────────────
       // Solo se intercepta como nudge si el agente activo es build-agent.
       // En chat/explore, los mensajes nunca van al NudgeChannel.
@@ -145,7 +166,7 @@ export function useAgentHandler() {
           role: "user",
           content: text,
           timestamp: Date.now(),
-          attachments,
+          attachments: finalAttachments,
           deliveryStatus: "pending",
         });
 
@@ -182,7 +203,7 @@ export function useAgentHandler() {
           userMsgId,
           assistantMsgId,
           text,
-          attachments,
+          attachments: finalAttachments,
         };
       });
 
