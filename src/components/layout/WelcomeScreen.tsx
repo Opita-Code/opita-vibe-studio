@@ -190,6 +190,7 @@ export function WelcomeScreen() {
                 key={s.label}
                 onClick={() => handleSuggestion(s)}
                 aria-label={`Sugerencia: ${s.label}`}
+                data-testid={`template-chip-${s.templateId ?? s.label.toLowerCase().replace(/\s+/g, "-")}`}
                 className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl
                   bg-white/[0.03] border border-white/[0.06] text-left
                   hover:border-white/12 hover:bg-white/[0.06]

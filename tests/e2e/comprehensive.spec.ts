@@ -58,32 +58,33 @@ test.describe('02 — WelcomeScreen Template Gallery', () => {
     await mockGuestAuth(page);
   });
 
-  test('WelcomeScreen muestra "Comienza con un template" y 3 cards', async ({ page }) => {
+  test('WelcomeScreen muestra "Comienza con un template" y los 4 chips', async ({ page }) => {
     await page.goto('/app/');
     await enterAsGuest(page);
 
-    // WelcomeScreen is in the editor area when no tabs are open
+    // Label section still present
     await expect(page.locator('text="Comienza con un template"')).toBeAttached({ timeout: 10000 });
-    await expect(page.locator('h3:has-text("Landing React")')).toBeAttached();
-    await expect(page.locator('h3:has-text("Portfolio Personal")')).toBeAttached();
-    await expect(page.locator('h3:has-text("App de Tareas")')).toBeAttached();
+    // 4 suggestion chips
+    await expect(page.locator('[data-testid="template-chip-react-landing"]')).toBeAttached();
+    await expect(page.locator('[data-testid="template-chip-portfolio"]')).toBeAttached();
+    await expect(page.locator('[data-testid="template-chip-todo-app"]')).toBeAttached();
+    await expect(page.locator('[data-testid="template-chip-dashboard"]')).toBeAttached();
   });
 
-  test('Templates muestran descripciones correctas', async ({ page }) => {
+  test('Chips muestran labels correctas', async ({ page }) => {
     await page.goto('/app/');
     await enterAsGuest(page);
 
-    await expect(page.locator('text="Página de aterrizaje moderna con contador interactivo"')).toBeAttached({ timeout: 10000 });
-    await expect(page.locator('text="Lista de tareas completa con React y TypeScript"')).toBeAttached();
+    await expect(page.locator('[aria-label="Sugerencia: Landing page"]')).toBeAttached({ timeout: 10000 });
+    await expect(page.locator('[aria-label="Sugerencia: Portfolio"]')).toBeAttached();
+    await expect(page.locator('[aria-label="Sugerencia: App de tareas"]')).toBeAttached();
   });
 
-  test('Botones: Abrir Carpeta, Preguntar a IA, Conoce Vibe Studio', async ({ page }) => {
+  test('Botón "Abrir proyecto existente" visible', async ({ page }) => {
     await page.goto('/app/');
     await enterAsGuest(page);
 
-    await expect(page.locator('button:has-text("Abrir Carpeta")')).toBeAttached({ timeout: 10000 });
-    await expect(page.locator('button:has-text("Preguntar a IA")')).toBeAttached();
-    await expect(page.locator('a:has-text("Conoce Vibe Studio")')).toBeAttached();
+    await expect(page.locator('button:has-text("Abrir proyecto existente")')).toBeAttached({ timeout: 10000 });
   });
 });
 

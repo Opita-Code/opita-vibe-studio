@@ -118,14 +118,18 @@ export async function selectTemplate(page: Page, templateName: string) {
     await closePreview.click();
     await page.waitForTimeout(500);
   }
-  
-  // Now the WelcomeScreen should be visible with template cards
-  // Each template card is a <button> containing <h3>templateName</h3>
-  const templateH3 = page.locator(`h3:has-text("${templateName}")`);
-  await expect(templateH3).toBeVisible({ timeout: 5000 });
-  
-  // Click the parent button (the card)
-  await templateH3.click();
+
+  // Map display names to data-testid template chip IDs
+  const chipIds: Record<string, string> = {
+    'Landing React':       'react-landing',
+    'Portfolio Personal':  'portfolio',
+    'App de Tareas':       'todo-app',
+    'Dashboard':           'dashboard',
+  };
+  const chipId = chipIds[templateName] ?? templateName.toLowerCase().replace(/\s+/g, '-');
+  const chip = page.locator(`[data-testid="template-chip-${chipId}"]`);
+  await expect(chip).toBeVisible({ timeout: 5000 });
+  await chip.click();
   // Wait for scaffoldTemplate to process
   await page.waitForTimeout(1500);
 }

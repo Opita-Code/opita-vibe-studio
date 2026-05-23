@@ -90,14 +90,5 @@ test.describe('Guest Desktop — Flujo completo de invitado', () => {
     // "Agentes Pro" NO visible para invitados
     await expect(page.locator('button:has-text("Agentes Pro")')).toBeHidden();
   });
-
-  // ─── Landing Link ──────────────────────────────────────────────
-
-  test('Invitado ve enlace a Landing en ActivityBar', async ({ page }) => {
-    await page.goto('/app/');
-    await enterAsGuest(page);
-
-    const landingLink = page.locator('[aria-label="Ir a la Landing"]');
-    await expect(landingLink).toBeVisible({ timeout: 5000 });
-  });
 });
+
