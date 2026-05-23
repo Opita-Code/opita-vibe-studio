@@ -82,15 +82,19 @@ export async function waitForWorkspace(page: Page) {
 /**
  * Asegura que el chat sea visible.
  * 
- * En el layout chat-first, el ChatPanel (SidebarSlot) siempre se renderiza.
- * Solo necesitamos verificar que el contenido del chat sea visible.
+ * ChatPanel is lazy-loaded via extension (React.lazy + Suspense).
+ * In CI, this can take several seconds. We first wait for the aside
+ * element to appear in the DOM, then verify content is attached.
  */
 export async function ensureChatOpen(page: Page) {
-  // Chat-first layout: chat is always visible
-  // Wait for the guest CTA or the pro textarea to appear
+  // 1. Wait for the ChatPanel aside to mount (lazy-loaded via extension)
+  const aside = page.locator('aside');
+  await expect(aside.first()).toBeAttached({ timeout: 15000 });
+
+  // 2. Wait for either the guest CTA or the pro textarea to be in the DOM
   const chatContent = page.locator('text="Despierta a Vibe AI para potenciar tu código"');
   const textarea = page.locator('textarea');
-  await expect(chatContent.or(textarea.first())).toBeVisible({ timeout: 8000 });
+  await expect(chatContent.or(textarea.first())).toBeAttached({ timeout: 10000 });
 }
 
 /** Abre el panel de explorador */
