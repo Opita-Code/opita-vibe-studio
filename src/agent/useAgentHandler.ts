@@ -154,7 +154,7 @@ export function useAgentHandler() {
 
       // ─── Guard: Auth ──────────────────────────────────────
       if (authStore.authMode === "unauthenticated") {
-        window.location.href = `https://cuenta.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`;
+        window.location.href = `https://cuentas.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`;
         return;
       }
 

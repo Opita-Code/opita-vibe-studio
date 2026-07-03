@@ -306,7 +306,7 @@ export function ChatPanel({ width }: ChatPanelProps) {
             Despierta a Vibe AI para potenciar tu código
           </p>
           <button 
-            onClick={() => window.location.href = `https://cuenta.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`} 
+            onClick={() => window.location.href = `https://cuentas.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`} 
             className="w-full py-2.5 bg-white text-black text-sm font-semibold rounded-lg shadow hover:bg-slate-200 transition-colors"
             aria-describedby="chat-cta-description"
           >

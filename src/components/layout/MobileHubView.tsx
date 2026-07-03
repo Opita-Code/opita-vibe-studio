@@ -26,7 +26,7 @@ export function MobileHubView() {
           Inicia sesión para ver tu progreso, misiones y logros.
         </p>
         <a
-          href={`https://cuenta.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`}
+          href={`https://cuentas.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`}
           className="px-6 py-3 bg-gradient-to-r from-aura-cyan to-aura-purple text-white font-medium rounded-xl text-sm shadow-lg active:scale-95 transition-transform"
         >
           Iniciar sesión

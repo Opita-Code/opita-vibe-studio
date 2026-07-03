@@ -12,6 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:backend": "vitest run --config vitest.config.backend.ts",
+    "test:backend:watch": "vitest --config vitest.config.backend.ts",
     "test:e2e": "playwright test --project=chromium",
     "test:e2e:staging": "playwright test --project=staging",
     "test:e2e:prod": "playwright test --project=production",

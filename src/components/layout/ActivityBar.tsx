@@ -153,7 +153,7 @@ export const ActivityBar = React.memo(function ActivityBar() {
         <div className="w-full flex justify-center py-2 relative mb-2" ref={menuRef}>
           {authMode === "unauthenticated" ? (
             <button
-              onClick={() => window.location.href = `https://cuenta.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`}
+              onClick={() => window.location.href = `https://cuentas.opitacode.com/login?return_to=${encodeURIComponent(window.location.href)}`}
               className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all duration-200 border border-white/5 hover:border-white/10"
               title="Iniciar sesión"
               aria-label="Iniciar sesión"
@@ -215,7 +215,7 @@ export const ActivityBar = React.memo(function ActivityBar() {
                   {/* Actions */}
                   <div className="flex flex-col gap-1">
                     <a
-                      href="https://cuenta.opitacode.com"
+                      href="https://cuentas.opitacode.com"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 text-sm text-white/70 hover:text-white hover:bg-white/5 px-2 py-2 rounded-lg transition-colors"

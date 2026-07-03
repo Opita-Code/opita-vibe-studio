@@ -134,7 +134,7 @@ export async function handler(event: any) {
 
   // ── CORS helper (same pattern as core.ts) ──────────────────────
   const origin = event.headers?.origin || event.headers?.Origin || "";
-  let allowedOrigin = "https://cuenta.opitacode.com";
+  let allowedOrigin = "https://cuentas.opitacode.com";
   if (origin === "https://opitacode.com" || origin.endsWith(".opitacode.com") || origin.startsWith("http://localhost:")) {
     allowedOrigin = origin;
   }

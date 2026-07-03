@@ -17,8 +17,12 @@ const API_URL = CORE_API_URL;
 export interface SSOOptions {
   /** Destination after the user clicks the magic link. Defaults to /app. */
   postAuthUrl?: string;
-  /** Which service is requesting auth — controls email template and redirect fallback. */
-  service?: "vibe-studio" | "opita-code";
+  /**
+   * Which service is requesting auth — controls email template and redirect fallback.
+   * Sprint 2026-07-03-cuentas-v3-consumer-vibe (T-9): added 'opita-trabajos'
+   * so the Trabajos app can use the same magic link service.
+   */
+  service?: "vibe-studio" | "opita-code" | "opita-trabajos";
 }
 
 /**

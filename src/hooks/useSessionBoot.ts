@@ -17,7 +17,7 @@ export function useSessionBoot() {
         const product = params.get("product") || "VIBE_PRO";
         const state = useAuthStore.getState();
         if (state.user) {
-          const checkoutUrl = "https://cuenta.opitacode.com/checkout.html";
+          const checkoutUrl = "https://cuentas.opitacode.com/checkout.html";
           const redirectUrl = window.location.origin + window.location.pathname + "?payment_success=true";
           window.location.href = `${checkoutUrl}?product=${product}&userId=${encodeURIComponent(state.user.email)}&redirect=${encodeURIComponent(redirectUrl)}`;
         }
