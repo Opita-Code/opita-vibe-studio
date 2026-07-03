@@ -129,15 +129,6 @@ async function resolveCuentasContext(event: any, sub: string, opitaClaims: Opita
   return plan;
 }
 
-/**
- * @deprecated Use resolveCuentasContext instead.
- * Kept as a thin wrapper for backward compatibility.
- */
-async function resolvePlan(event: any, email: string): Promise<string> {
-  const opitaClaims = parseOpitaClaims({ sub: email, email });
-  return resolveCuentasContext(event, email, opitaClaims);
-}
-
 const Resource = SSTResource as any;
 
 const awsConfig = (process.env.LOCALSTACK_ENDPOINT && process.env.NODE_ENV !== "production") ? {
@@ -201,15 +192,6 @@ async function extractAuthClaims(event: any): Promise<AuthContext | null> {
   return null;
 }
 
-/**
- * @deprecated Use extractAuthClaims instead.
- * Returns just the email for backward compatibility.
- */
-async function extractAuthEmail(event: any): Promise<string | null> {
-  const ctx = await extractAuthClaims(event);
-  return ctx?.email ?? null;
-}
-
 function getCorsHeaders(event: any) {
   const origin = event.headers?.origin || event.headers?.Origin || "";
   let allowedOrigin = "https://opitacode.com";
@@ -246,10 +228,11 @@ export const handler = async (event: any) => {
   try {
     // Projects endpoints
     if (path === "/projects" && (method === "GET" || method === "POST")) {
-      const email = await extractAuthEmail(event);
-      if (!email) {
+      const auth = await extractAuthClaims(event);
+      if (!auth) {
         return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Unauthorized" }) };
       }
+      const email = auth.email;
 
       if (method === "GET") {
         const response = await docClient.send(new QueryCommand({
@@ -356,7 +339,8 @@ export const handler = async (event: any) => {
       // Try to identify the user (optional — landing is anonymous)
       let userId: string | null = null;
       try {
-        userId = await extractAuthEmail(event);
+        const auth = await extractAuthClaims(event);
+        if (auth) userId = auth.email;
       } catch { /* anonymous is fine */ }
 
       const sessionId = body.sessionId || `anon-${sourceIp.replace(/\./g, "-")}`;
@@ -420,13 +404,13 @@ export const handler = async (event: any) => {
     // ─── Token Usage Endpoint ────────────────────────────────────────
     if (path === "/usage" && method === "GET") {
       // Unified auth: Bearer token, Cognito cookie, or legacy session cookie
-      const email = await extractAuthEmail(event);
-      if (!email) {
+      const auth = await extractAuthClaims(event);
+      if (!auth) {
         return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
       }
 
       // Resolve plan from Cognito (source of truth), fallback to DynamoDB
-      const plan = await resolvePlan(event, email);
+      const plan = await resolveCuentasContext(event, auth.sub, auth.opitaClaims);
 
       // Token quota constants (must match chat.ts)
       const TOKEN_QUOTAS: Record<string, { daily: number; hourly: number }> = {
@@ -440,7 +424,7 @@ export const handler = async (event: any) => {
       const effectiveDailyLimit = await (async () => {
         try {
           const earned = await import("./gamification.js");
-          return await earned.getEffectiveQuota(email, plan);
+          return await earned.getEffectiveQuota(auth.email, plan);
         } catch {
           return quota.daily;
         }
@@ -494,10 +478,10 @@ export const handler = async (event: any) => {
     // ─── Gamification Endpoints ──────────────────────────────────
 
     if (path === "/gamification" && method === "GET") {
-      const email = await extractAuthEmail(event);
-      if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
-      const plan = await resolvePlan(event, email);
-      const profile = await getProfile(email, plan);
+      const auth = await extractAuthClaims(event);
+      if (!auth) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      const plan = await resolveCuentasContext(event, auth.sub, auth.opitaClaims);
+      const profile = await getProfile(auth.email, plan);
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
@@ -506,10 +490,10 @@ export const handler = async (event: any) => {
     }
 
     if (path === "/gamification/missions" && method === "POST") {
-      const email = await extractAuthEmail(event);
-      if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
-      const plan = await resolvePlan(event, email);
-      const missions = await getMissions(email, plan);
+      const auth = await extractAuthClaims(event);
+      if (!auth) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      const plan = await resolveCuentasContext(event, auth.sub, auth.opitaClaims);
+      const missions = await getMissions(auth.email, plan);
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
@@ -518,11 +502,11 @@ export const handler = async (event: any) => {
     }
 
     if (path?.startsWith("/gamification/missions/") && path.endsWith("/complete") && method === "POST") {
-      const email = await extractAuthEmail(event);
-      if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
-      const plan = await resolvePlan(event, email);
+      const auth = await extractAuthClaims(event);
+      if (!auth) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      const plan = await resolveCuentasContext(event, auth.sub, auth.opitaClaims);
       const missionId = path.replace("/gamification/missions/", "").replace("/complete", "");
-      const result = await completeMission(email, missionId, plan);
+      const result = await completeMission(auth.email, missionId, plan);
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
@@ -531,9 +515,9 @@ export const handler = async (event: any) => {
     }
 
     if (path === "/gamification/xp/award" && method === "POST") {
-      const email = await extractAuthEmail(event);
-      if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
-      const plan = await resolvePlan(event, email);
+      const auth = await extractAuthClaims(event);
+      if (!auth) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      const plan = await resolveCuentasContext(event, auth.sub, auth.opitaClaims);
       const body = JSON.parse(rawBody);
       // SECURITY: Only allow passive XP actions that are safe for client-triggered awards.
       // Mission completions and streak bonuses are awarded server-side by completeMission().
@@ -542,7 +526,7 @@ export const handler = async (event: any) => {
       if (!ALLOWED_PASSIVE_ACTIONS.has(action)) {
         return { statusCode: 403, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Acción no permitida" }) };
       }
-      const result = await awardXP(email, action, plan);
+      const result = await awardXP(auth.email, action, plan);
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),

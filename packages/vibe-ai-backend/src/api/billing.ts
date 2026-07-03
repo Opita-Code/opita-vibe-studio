@@ -9,10 +9,21 @@ import { CognitoIdentityProviderClient, AdminUpdateUserAttributesCommand, ListUs
 const Resource = SSTResource as any;
 const cognitoClient = new CognitoIdentityProviderClient({});
 
-// ─── Auth Helper (mirrors core.ts pattern) ──────────────────────
+// ─── Auth Helper (mirrors core.ts pattern) ───────────────────────
 
 const COGNITO_ISSUER = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_LItAcj2Aa";
 const JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
+
+/**
+ * Auth context returned to billing handlers.
+ * Adds `legacy: true` for users on the pre-Cognito HMAC session path
+ * (these users do not carry opita:* claims).
+ */
+interface BillingAuthContext {
+  email: string;
+  sub: string;
+  legacy: boolean;
+}
 
 function base64url(buf: Buffer) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
@@ -35,26 +46,42 @@ function verifyLegacyJWT(token: string, secret: string) {
 /**
  * Extract authenticated email from the request.
  * Checks: Bearer token → opita_id_token cookie → opita_session cookie.
+ * Returns BillingAuthContext (legacy flag indicates pre-Cognito HMAC users).
  */
-async function extractAuthEmail(event: any): Promise<string | null> {
-  async function verifyCognitoToken(token: string): Promise<string | null> {
+async function extractBillingAuthContext(event: any): Promise<BillingAuthContext | null> {
+  async function verifyCognitoToken(token: string): Promise<{ email: string; sub: string } | null> {
     try {
       const decoded = await jose.jwtVerify(token, JWKS, { issuer: COGNITO_ISSUER });
-      return (decoded.payload.email || decoded.payload.sub) as string | null;
-    } catch { return null; }
+      const payload = decoded.payload as { email?: string; sub?: string };
+      if (payload.email || payload.sub) {
+        return {
+          email: (payload.email || payload.sub) as string,
+          sub: payload.sub as string,
+        };
+      }
+    } catch { /* invalid Cognito token */ }
+    return null;
+  }
+
+  function tryLegacy(token: string): string | null {
+    try {
+      const payload = verifyLegacyJWT(token, process.env.JWT_SECRET || "");
+      if (payload.email) return payload.email as string;
+    } catch { /* invalid legacy token */ }
+    return null;
   }
 
   // 1. Bearer token
   const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (bearerToken) {
-    const email = await verifyCognitoToken(bearerToken);
-    if (email) return email;
-    // Fallback: try legacy HMAC
-    try {
-      const payload = verifyLegacyJWT(bearerToken, process.env.JWT_SECRET || "");
-      if (payload.email) return payload.email;
-    } catch { /* not a valid legacy token */ }
+    const cognito = await verifyCognitoToken(bearerToken);
+    if (cognito) return { ...cognito, legacy: false };
+    const legacyEmail = tryLegacy(bearerToken);
+    if (legacyEmail) {
+      // Legacy HMAC — no sub available, use email as sub placeholder
+      return { email: legacyEmail, sub: legacyEmail, legacy: true };
+    }
   }
 
   const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
@@ -62,17 +89,17 @@ async function extractAuthEmail(event: any): Promise<string | null> {
   // 2. Cognito cookie
   const cognitoMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
   if (cognitoMatch) {
-    const email = await verifyCognitoToken(cognitoMatch[1]);
-    if (email) return email;
+    const cognito = await verifyCognitoToken(cognitoMatch[1]);
+    if (cognito) return { ...cognito, legacy: false };
   }
 
   // 3. Legacy session cookie
   const sessionMatch = cookieHeader.match(/opita_session=([^;]+)/);
   if (sessionMatch) {
-    try {
-      const payload = verifyLegacyJWT(sessionMatch[1], process.env.JWT_SECRET || "");
-      return payload.email as string;
-    } catch { /* invalid */ }
+    const legacyEmail = tryLegacy(sessionMatch[1]);
+    if (legacyEmail) {
+      return { email: legacyEmail, sub: legacyEmail, legacy: true };
+    }
   }
 
   return null;
@@ -154,8 +181,8 @@ export async function handler(event: any) {
     const headers = corsHeaders;
 
     if (path === "/payments" || path === "/transactions") {
-      const email = await extractAuthEmail(event);
-      if (!email) {
+      const auth = await extractBillingAuthContext(event);
+      if (!auth) {
         return {
           statusCode: 401,
           headers,
@@ -168,7 +195,7 @@ export async function handler(event: any) {
           TableName: Resource.Transactions.name,
           FilterExpression: "user_id = :user_id",
           ExpressionAttributeValues: {
-            ":user_id": email,
+            ":user_id": auth.sub,
           },
         }));
 
@@ -197,11 +224,11 @@ export async function handler(event: any) {
       }
     }
 
-    const authenticatedEmail = await extractAuthEmail(event);
+    const auth = await extractBillingAuthContext(event);
 
     const params = event.queryStringParameters || {};
     const productKey = params.product;
-    const userId = authenticatedEmail || params.userId;
+    const userId = auth?.sub || params.userId;
 
     if (!userId) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Se requiere autenticación o userId" }) };
