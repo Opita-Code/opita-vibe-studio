@@ -4,7 +4,10 @@ import { Resource as SSTResource } from "sst";
 import * as jose from "jose";
 import { randomUUID } from "crypto";
 import { getProfile, getMissions, completeMission, awardXP } from "./gamification.js";
-import { cuentasClient, CircuitOpenError as CuentasCircuitOpenError } from "./lib/cuentas-client.js";
+import { cuentasClient, CircuitOpenError as CuentasCircuitOpenError, parseOpitaClaims, type OpitaClaims } from "@opita/cuentas-client";
+
+// Re-export shared types for backward compat with callers
+export type { OpitaClaims };
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -22,53 +25,6 @@ async function verifyCognitoToken(token: string): Promise<any | null> {
   } catch (e) {
     return null;
   }
-}
-
-// ─── Opita Claims (Cuentas v3) ──────────────────────────────────
-// Sprint 2026-07-03-cuentas-v3-consumer-vibe (T-2, T-3)
-
-export interface OpitaClaims {
-  activeProductId: string | null;
-  activeSelloId: string | null;
-  activeOrgId: string | null;
-  products: string[];
-  email: string | null;
-  sub: string | null;
-}
-
-/**
- * Parse opita:* JWT claims into a normalized shape.
- * Returns null if no opita:* claim is present (legacy user).
- */
-function parseOpitaClaims(payload: any): OpitaClaims | null {
-  const hasOpita =
-    "opita:active_product_id" in payload ||
-    "opita:active_sello_id" in payload ||
-    "opita:active_org_id" in payload ||
-    "opita:products" in payload;
-  if (!hasOpita) return null;
-
-  let products: string[] = [];
-  const rawProducts = payload["opita:products"];
-  if (Array.isArray(rawProducts)) {
-    products = rawProducts;
-  } else if (typeof rawProducts === "string" && rawProducts.trim()) {
-    try {
-      const parsed = JSON.parse(rawProducts);
-      if (Array.isArray(parsed)) products = parsed;
-    } catch {
-      products = rawProducts.split(",").map((s: string) => s.trim()).filter(Boolean);
-    }
-  }
-
-  return {
-    activeProductId: payload["opita:active_product_id"] || null,
-    activeSelloId: payload["opita:active_sello_id"] || null,
-    activeOrgId: payload["opita:active_org_id"] || null,
-    products,
-    email: payload.email || null,
-    sub: payload.sub || null,
-  };
 }
 
 /**
@@ -434,7 +390,7 @@ export const handler = async (event: any) => {
       const now = new Date();
       const dailyKey = `daily#${now.toISOString().split("T")[0]}`;
       const hourlyKey = `hourly#${now.toISOString().slice(0, 13)}`;
-      const pk = `user#${email}`;
+      const pk = `user#${auth.email}`;
 
       const [dailyResult, hourlyResult] = await Promise.all([
         docClient.send(new GetCommand({

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest';
-import { cuentasClient, CircuitOpenError } from '../cuentas-client';
+import { cuentasClient, CircuitOpenError } from '@opita/cuentas-client';
 
 let originalFetch: typeof fetch;
 let mockResponses: Array<{ status: number; body: unknown; delayMs?: number }> = [];
@@ -55,7 +55,7 @@ describe('cuentasClient.getWhoami', () => {
     expect(result.sub).toBe('abc-123');
     expect(result.active_context.active_sello_id).toBe('sello-1');
     expect(callLog[0].url).toMatch(/\/v1\/whoami$/);
-    expect(callLog[0].headers?.['Authorization']).toBe('Bearer jwt-xyz');
+    expect((callLog[0].headers as Record<string, string>)?.['Authorization']).toBe('Bearer jwt-xyz');
   });
 });
 
