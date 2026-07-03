@@ -4,6 +4,10 @@ import { Resource as SSTResource } from "sst";
 import * as jose from "jose";
 import { randomUUID } from "crypto";
 import { getProfile, getMissions, completeMission, awardXP } from "./gamification.js";
+import { cuentasClient, CircuitOpenError as CuentasCircuitOpenError, parseOpitaClaims, type OpitaClaims } from "@opita/cuentas-client";
+
+// Re-export shared types for backward compat with callers
+export type { OpitaClaims };
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -23,24 +27,62 @@ async function verifyCognitoToken(token: string): Promise<any | null> {
   }
 }
 
+/**
+ * Plan cache: avoid hammering Cuentas /v1/capabilities on every request.
+ * Key: sub. Value: { plan, expiresAt }.
+ */
+const planCache = new Map<string, { plan: string; expiresAt: number }>();
+const PLAN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 /** Extract plan from Cognito opita_id_token cookie, fallback to DynamoDB */
-async function resolvePlan(event: any, email: string): Promise<string> {
-  // 1. Try Cognito ID token (source of truth)
+/**
+ * Resolve plan: tries Cognito custom:plan claim first, then calls Cuentas
+ * /v1/capabilities when opita:active_org_id is present (capability-based),
+ * finally falls back to DynamoDB Users table.
+ *
+ * Sprint 2026-07-03-cuentas-v3-consumer-vibe (T-3)
+ */
+async function resolveCuentasContext(event: any, sub: string, opitaClaims: OpitaClaims | null): Promise<string> {
+  // 0. Cache hit
+  const cached = planCache.get(sub);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.plan;
+  }
+
+  // 1. Try Cognito custom:plan claim (still source of truth for billing)
   const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
   const idMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
   if (idMatch) {
     const claims = await verifyCognitoToken(idMatch[1]);
     if (claims?.['custom:plan']) {
+      planCache.set(sub, { plan: claims['custom:plan'], expiresAt: Date.now() + PLAN_CACHE_TTL_MS });
       return claims['custom:plan'];
     }
   }
 
-  // 2. Fallback: DynamoDB Users table
+  // 2. If user has opita:active_org_id, ask Cuentas for capabilities
+  if (opitaClaims?.activeOrgId && idMatch) {
+    try {
+      const caps = await cuentasClient.getMyCapabilities(idMatch[1]);
+      // Map capabilities to plan tier
+      if (caps.capabilities?.includes('product.admin')) return 'admin';
+      if (caps.capabilities?.includes('org.billing.manage')) return 'pro';
+      if (caps.capabilities?.includes('org.billing.view')) return 'starter';
+    } catch (err) {
+      if (!(err instanceof CuentasCircuitOpenError)) {
+        console.warn('[resolveCuentasContext] failed:', err);
+      }
+    }
+  }
+
+  // 3. Fallback: DynamoDB Users table
   const userDb = await docClient.send(new GetCommand({
     TableName: process.env.USERS_TABLE_NAME || "",
-    Key: { email }
+    Key: { email: sub }
   }));
-  return userDb.Item?.plan || "free";
+  const plan = userDb.Item?.plan || "free";
+  planCache.set(sub, { plan, expiresAt: Date.now() + PLAN_CACHE_TTL_MS });
+  return plan;
 }
 
 const Resource = SSTResource as any;
@@ -62,13 +104,30 @@ const docClient = DynamoDBDocumentClient.from(ddbClient);
  * 1. Authorization: Bearer <token> header (Cognito JWT — JWKS verified)
  * 2. opita_id_token cookie (Cognito — JWKS verified)
  */
-async function extractAuthEmail(event: any): Promise<string | null> {
+/**
+ * Extract authenticated email AND opita:* claims from the request.
+ * Returns both so handlers can use them.
+ * Sprint 2026-07-03-cuentas-v3-consumer-vibe (T-2)
+ */
+export interface AuthContext {
+  email: string;
+  sub: string;
+  opitaClaims: OpitaClaims | null;
+}
+
+async function extractAuthClaims(event: any): Promise<AuthContext | null> {
   // 1. Bearer token from Authorization header (Cognito JWT)
   const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (bearerToken) {
     const claims = await verifyCognitoToken(bearerToken);
-    if (claims?.email || claims?.sub) return (claims.email || claims.sub) as string;
+    if (claims?.email || claims?.sub) {
+      return {
+        email: (claims.email || claims.sub) as string,
+        sub: claims.sub as string,
+        opitaClaims: parseOpitaClaims(claims),
+      };
+    }
   }
 
   const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
@@ -77,7 +136,13 @@ async function extractAuthEmail(event: any): Promise<string | null> {
   const cognitoMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
   if (cognitoMatch) {
     const claims = await verifyCognitoToken(cognitoMatch[1]);
-    if (claims?.email || claims?.sub) return (claims.email || claims.sub) as string;
+    if (claims?.email || claims?.sub) {
+      return {
+        email: (claims.email || claims.sub) as string,
+        sub: claims.sub as string,
+        opitaClaims: parseOpitaClaims(claims),
+      };
+    }
   }
 
   return null;
@@ -119,10 +184,11 @@ export const handler = async (event: any) => {
   try {
     // Projects endpoints
     if (path === "/projects" && (method === "GET" || method === "POST")) {
-      const email = await extractAuthEmail(event);
-      if (!email) {
+      const auth = await extractAuthClaims(event);
+      if (!auth) {
         return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Unauthorized" }) };
       }
+      const email = auth.email;
 
       if (method === "GET") {
         const response = await docClient.send(new QueryCommand({
@@ -229,7 +295,8 @@ export const handler = async (event: any) => {
       // Try to identify the user (optional — landing is anonymous)
       let userId: string | null = null;
       try {
-        userId = await extractAuthEmail(event);
+        const auth = await extractAuthClaims(event);
+        if (auth) userId = auth.email;
       } catch { /* anonymous is fine */ }
 
       const sessionId = body.sessionId || `anon-${sourceIp.replace(/\./g, "-")}`;
@@ -293,13 +360,13 @@ export const handler = async (event: any) => {
     // ─── Token Usage Endpoint ────────────────────────────────────────
     if (path === "/usage" && method === "GET") {
       // Unified auth: Bearer token, Cognito cookie, or legacy session cookie
-      const email = await extractAuthEmail(event);
-      if (!email) {
+      const auth = await extractAuthClaims(event);
+      if (!auth) {
         return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
       }
 
       // Resolve plan from Cognito (source of truth), fallback to DynamoDB
-      const plan = await resolvePlan(event, email);
+      const plan = await resolveCuentasContext(event, auth.sub, auth.opitaClaims);
 
       // Token quota constants (must match chat.ts)
       const TOKEN_QUOTAS: Record<string, { daily: number; hourly: number }> = {
@@ -313,7 +380,7 @@ export const handler = async (event: any) => {
       const effectiveDailyLimit = await (async () => {
         try {
           const earned = await import("./gamification.js");
-          return await earned.getEffectiveQuota(email, plan);
+          return await earned.getEffectiveQuota(auth.email, plan);
         } catch {
           return quota.daily;
         }
@@ -323,7 +390,7 @@ export const handler = async (event: any) => {
       const now = new Date();
       const dailyKey = `daily#${now.toISOString().split("T")[0]}`;
       const hourlyKey = `hourly#${now.toISOString().slice(0, 13)}`;
-      const pk = `user#${email}`;
+      const pk = `user#${auth.email}`;
 
       const [dailyResult, hourlyResult] = await Promise.all([
         docClient.send(new GetCommand({
@@ -367,10 +434,10 @@ export const handler = async (event: any) => {
     // ─── Gamification Endpoints ──────────────────────────────────
 
     if (path === "/gamification" && method === "GET") {
-      const email = await extractAuthEmail(event);
-      if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
-      const plan = await resolvePlan(event, email);
-      const profile = await getProfile(email, plan);
+      const auth = await extractAuthClaims(event);
+      if (!auth) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      const plan = await resolveCuentasContext(event, auth.sub, auth.opitaClaims);
+      const profile = await getProfile(auth.email, plan);
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
@@ -379,10 +446,10 @@ export const handler = async (event: any) => {
     }
 
     if (path === "/gamification/missions" && method === "POST") {
-      const email = await extractAuthEmail(event);
-      if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
-      const plan = await resolvePlan(event, email);
-      const missions = await getMissions(email, plan);
+      const auth = await extractAuthClaims(event);
+      if (!auth) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      const plan = await resolveCuentasContext(event, auth.sub, auth.opitaClaims);
+      const missions = await getMissions(auth.email, plan);
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
@@ -391,11 +458,11 @@ export const handler = async (event: any) => {
     }
 
     if (path?.startsWith("/gamification/missions/") && path.endsWith("/complete") && method === "POST") {
-      const email = await extractAuthEmail(event);
-      if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
-      const plan = await resolvePlan(event, email);
+      const auth = await extractAuthClaims(event);
+      if (!auth) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      const plan = await resolveCuentasContext(event, auth.sub, auth.opitaClaims);
       const missionId = path.replace("/gamification/missions/", "").replace("/complete", "");
-      const result = await completeMission(email, missionId, plan);
+      const result = await completeMission(auth.email, missionId, plan);
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
@@ -404,9 +471,9 @@ export const handler = async (event: any) => {
     }
 
     if (path === "/gamification/xp/award" && method === "POST") {
-      const email = await extractAuthEmail(event);
-      if (!email) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
-      const plan = await resolvePlan(event, email);
+      const auth = await extractAuthClaims(event);
+      if (!auth) return { statusCode: 401, headers: getCorsHeaders(event), body: JSON.stringify({ error: "No session" }) };
+      const plan = await resolveCuentasContext(event, auth.sub, auth.opitaClaims);
       const body = JSON.parse(rawBody);
       // SECURITY: Only allow passive XP actions that are safe for client-triggered awards.
       // Mission completions and streak bonuses are awarded server-side by completeMission().
@@ -415,7 +482,7 @@ export const handler = async (event: any) => {
       if (!ALLOWED_PASSIVE_ACTIONS.has(action)) {
         return { statusCode: 403, headers: getCorsHeaders(event), body: JSON.stringify({ error: "Acción no permitida" }) };
       }
-      const result = await awardXP(email, action, plan);
+      const result = await awardXP(auth.email, action, plan);
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
