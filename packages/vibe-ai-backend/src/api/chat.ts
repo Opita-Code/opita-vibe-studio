@@ -402,12 +402,10 @@ export const handler = awslambda.streamifyResponse(
     // Extract cookie tokens (always, as fallback): OCAIS first, legacy after
     const cookies = event.headers?.cookie || event.headers?.Cookie || "";
     const ocaisCookieMatch = cookies.match(/__opita_session=([^;]+)/);
-    const legacyCookieMatch = cookies.match(/opita_session=([^;]+)/);
     const ocaisCookieToken = ocaisCookieMatch?.[1] || "";
-    const legacyCookieToken = legacyCookieMatch?.[1] || "";
-    
-    // Token candidates: try bearer first, then OCAIS cookie, then legacy cookie
-    const tokenCandidates = [bearerToken, ocaisCookieToken, legacyCookieToken].filter(Boolean);
+
+    // Token candidates: try bearer first, then OCAIS cookie
+    const tokenCandidates = [bearerToken, ocaisCookieToken].filter(Boolean);
 
     if (tokenCandidates.length === 0) {
       responseStream.setContentType("application/json");
@@ -416,12 +414,10 @@ export const handler = awslambda.streamifyResponse(
       return;
     }
 
-    // ─── JWT Verification (OCAIS JWKS → Cognito JWKS → Legacy HMAC) ───
+    // ─── JWT Verification (OCAIS JWKS — única fuente de verdad) ───
     const OCAIS_ISSUER = "opita-account-ui";
     const OCAIS_JWKS_URL = process.env.OCAIS_JWKS_URL || "https://api.opitacode.com/.well-known/jwks.json";
     const OCAIS_JWKS = jose.createRemoteJWKSet(new URL(OCAIS_JWKS_URL));
-    const COGNITO_ISSUER = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_LItAcj2Aa";
-    const COGNITO_JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
 
     let userId = "guest";
     let plan = "free";
@@ -443,28 +439,6 @@ export const handler = awslambda.streamifyResponse(
           const decoded = await jose.jwtVerify(token, OCAIS_JWKS);
           userId = (decoded.payload.email || decoded.payload.sub || "guest") as string;
           plan = (decoded.payload.plan || decoded.payload.role || "free") as string;
-          tokenVerified = true;
-          break;
-        } catch {
-          // Continue to next verifier
-        }
-      }
-      try {
-        // 2. Cognito JWKS (legacy RSA — compat 30 días)
-        const decoded = await jose.jwtVerify(token, COGNITO_JWKS, {
-          issuer: COGNITO_ISSUER,
-        });
-        userId = (decoded.payload.email || decoded.payload.sub || "guest") as string;
-        plan = (decoded.payload["custom:plan"] as string) || "free";
-        tokenVerified = true;
-        break;
-      } catch {
-        // Fallback: try legacy HMAC verification (Magic Link session tokens)
-        try {
-          const secret = new TextEncoder().encode(process.env.JWT_SECRET || "");
-          const decoded = await jose.jwtVerify(token, secret);
-          userId = (decoded.payload.sub || decoded.payload.email || "guest") as string;
-          plan = (decoded.payload.plan || "free") as string;
           tokenVerified = true;
           break;
         } catch {

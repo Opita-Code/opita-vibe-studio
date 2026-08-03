@@ -39,18 +39,27 @@ export const handler = async (event: any) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
+    // OCAIS es la única fuente de verdad (RS256 JWKS — api.opitacode.com/.well-known/jwks.json)
+    const OCAIS_ISSUER = "opita-account-ui";
+    const OCAIS_JWKS_URL = process.env.OCAIS_JWKS_URL || "https://api.opitacode.com/.well-known/jwks.json";
+    const OCAIS_JWKS = jwt.createRemoteJWKSet(new URL(OCAIS_JWKS_URL));
     let payload;
     try {
-      const { payload: verifiedPayload } = await jwt.jwtVerify(token, secret);
+      const { payload: verifiedPayload } = await jwt.jwtVerify(token, OCAIS_JWKS, { issuer: OCAIS_ISSUER });
       payload = verifiedPayload;
-    } catch (e) {
-      return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Invalid token" }) };
+    } catch {
+      try {
+        // Firma válida sin issuer exigido (rotación)
+        const { payload: verifiedPayload } = await jwt.jwtVerify(token, OCAIS_JWKS);
+        payload = verifiedPayload;
+      } catch (e) {
+        return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Invalid token" }) };
+      }
     }
 
     const body = JSON.parse(event.body || "{}");
     const { action, projectId, filename, contentType } = body;
-    const userId = payload.sub || "anonymous";
+    const userId = (payload.email || payload.sub || "anonymous") as string;
 
     // ─── Cloud Sync (Proyectos) ──────────────────────────────────────────
     if (action === "upload" || action === "download") {
