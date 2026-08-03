@@ -1,13 +1,11 @@
 import { Resource as SSTResource } from "sst";
 import * as crypto from "crypto";
-import { createHmac, timingSafeEqual } from "crypto";
+import { timingSafeEqual } from "crypto";
 import * as jose from "jose";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
-import { CognitoIdentityProviderClient, AdminUpdateUserAttributesCommand, ListUsersCommand } from "@aws-sdk/client-cognito-identity-provider";
 
 const Resource = SSTResource as any;
-const cognitoClient = new CognitoIdentityProviderClient({});
 
 // ─── Auth Helper (mirrors core.ts pattern) ──────────────────────
 
@@ -18,31 +16,9 @@ const OCAIS_ISSUER = "opita-account-ui";
 const OCAIS_JWKS_URL = process.env.OCAIS_JWKS_URL || "https://api.opitacode.com/.well-known/jwks.json";
 const OCAIS_JWKS = jose.createRemoteJWKSet(new URL(OCAIS_JWKS_URL));
 
-// Fallback legacy: Cognito (deprecado Phase 1D — compat 30 días)
-const COGNITO_ISSUER = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_LItAcj2Aa";
-const COGNITO_JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
-
-function base64url(buf: Buffer) {
-  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-function verifyLegacyJWT(token: string, secret: string) {
-  const [h, b, sig] = token.split(".");
-  const expectedSig = base64url(createHmac("sha256", secret).update(`${h}.${b}`).digest());
-  const sigBuf = Buffer.from(sig);
-  const expectedSigBuf = Buffer.from(expectedSig);
-  if (sigBuf.length !== expectedSigBuf.length || !timingSafeEqual(sigBuf, expectedSigBuf)) {
-    throw new Error("Invalid signature");
-  }
-  const payload = JSON.parse(Buffer.from(b, 'base64').toString('utf8'));
-  const now = Math.floor(Date.now() / 1000);
-  if (payload.exp && now > payload.exp) throw new Error("Token expired");
-  return payload;
-}
-
 /**
  * Extract authenticated email from the request.
- * Checks: Bearer (OCAIS) → __opita_session cookie (OCAIS) → legacy Cognito/HMAC.
+ * OCAIS es la única fuente de verdad: Bearer (OCAIS) → __opita_session cookie (OCAIS).
  */
 async function extractAuthEmail(event: any): Promise<string | null> {
   async function verifyOcaisToken(token: string): Promise<string | null> {
@@ -58,26 +34,12 @@ async function extractAuthEmail(event: any): Promise<string | null> {
     }
   }
 
-  async function verifyCognitoToken(token: string): Promise<string | null> {
-    try {
-      const decoded = await jose.jwtVerify(token, COGNITO_JWKS, { issuer: COGNITO_ISSUER });
-      return (decoded.payload.email || decoded.payload.sub) as string | null;
-    } catch { return null; }
-  }
-
-  // 1. Bearer token (OCAIS JWT; fallback legacy HMAC)
+  // 1. Bearer token (OCAIS JWT)
   const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (bearerToken) {
     const email = await verifyOcaisToken(bearerToken);
     if (email) return email;
-    const cognitoEmail = await verifyCognitoToken(bearerToken);
-    if (cognitoEmail) return cognitoEmail;
-    // Fallback: try legacy HMAC
-    try {
-      const payload = verifyLegacyJWT(bearerToken, process.env.JWT_SECRET || "");
-      if (payload.email) return payload.email;
-    } catch { /* not a valid legacy token */ }
   }
 
   const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
@@ -87,22 +49,6 @@ async function extractAuthEmail(event: any): Promise<string | null> {
   if (ocaisMatch) {
     const email = await verifyOcaisToken(ocaisMatch[1]);
     if (email) return email;
-  }
-
-  // 3. Legacy: Cognito cookie
-  const cognitoMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
-  if (cognitoMatch) {
-    const email = await verifyCognitoToken(cognitoMatch[1]);
-    if (email) return email;
-  }
-
-  // 4. Legacy session cookie (HMAC)
-  const sessionMatch = cookieHeader.match(/opita_session=([^;]+)/);
-  if (sessionMatch) {
-    try {
-      const payload = verifyLegacyJWT(sessionMatch[1], process.env.JWT_SECRET || "");
-      return payload.email as string;
-    } catch { /* invalid */ }
   }
 
   return null;
@@ -139,25 +85,6 @@ const PRODUCTS: Record<string, { name: string; amountInCents: number; currency: 
   VIBE_STUDENT: { name: "Vibe Estudiante", amountInCents: 1190000, currency: "COP" },
   VIBE_PRO: { name: "Vibe Studio Pro", amountInCents: 4990000, currency: "COP" },
 };
-
-async function getCognitoUsername(userId: string): Promise<string> {
-  const COGNITO_POOL_ID = "us-east-1_LItAcj2Aa";
-  if (userId.includes('@')) {
-    try {
-      const listResponse = await cognitoClient.send(new ListUsersCommand({
-        UserPoolId: COGNITO_POOL_ID,
-        Filter: `email = "${userId}"`,
-        Limit: 1
-      }));
-      if (listResponse.Users && listResponse.Users.length > 0) {
-        return listResponse.Users[0].Username || userId;
-      }
-    } catch (e) {
-      console.error('Error resolving email to UUID:', e);
-    }
-  }
-  return userId;
-}
 
 export async function handler(event: any) {
   const method = event.requestContext.http.method;
@@ -352,43 +279,7 @@ export async function handler(event: any) {
       }
 
       try {
-        const COGNITO_POOL_ID = "us-east-1_LItAcj2Aa";
-        const cognitoUsername = await getCognitoUsername(userId);
-
-        // 1. Update Cognito for Both Stacks
-        let attributeName = "";
-        let attributeValue = "";
-
-        if (isTrabajosProduct) {
-          const planMap: Record<string, string> = {
-            TRABAJOS_STARTER: "starter",
-            TRABAJOS_PRO: "pro",
-            TRABAJOS_SPRINT: "sprint"
-          };
-          const plan = planMap[productId];
-          if (plan) {
-            attributeName = "custom:trabajos_plan";
-            attributeValue = plan;
-          }
-        } else if (isVibeProduct) {
-          attributeName = "custom:plan";
-          attributeValue = productId === "VIBE_STUDENT" ? "estudiante" : "pro";
-        }
-
-        if (attributeName && attributeValue) {
-          try {
-            await cognitoClient.send(new AdminUpdateUserAttributesCommand({
-              UserPoolId: COGNITO_POOL_ID,
-              Username: cognitoUsername,
-              UserAttributes: [{ Name: attributeName, Value: attributeValue }]
-            }));
-            console.info(`Cognito updated: ${cognitoUsername} → ${attributeName} = ${attributeValue}`);
-          } catch (cognitoErr: any) {
-            console.error(`Error updating Cognito attribute for ${cognitoUsername}:`, cognitoErr.message || cognitoErr);
-          }
-        }
-
-        // 2. DynamoDB updates for Vibe Products ONLY
+        // DynamoDB updates (OCAIS DDB UsersTable es la única fuente de verdad del plan)
         if (isVibeProduct) {
           try {
             await docClient.send(new PutCommand({
@@ -425,7 +316,31 @@ export async function handler(event: any) {
           }));
           console.info(`Plan actualizado en DB Vibe: ${userId} → ${newPlan} (tx: ${tx.id})`);
         } else {
-          console.info(`Cross-Stack Trabajos webhook procesado exitosamente para ${userId}`);
+          // Productos Trabajos: plan en DDB (trabajos_plan) — ya no se escribe a Cognito
+          const trabajosPlanMap: Record<string, string> = {
+            TRABAJOS_STARTER: "starter",
+            TRABAJOS_PRO: "pro",
+            TRABAJOS_SPRINT: "sprint"
+          };
+          const newTrabajosPlan = trabajosPlanMap[productId];
+          if (newTrabajosPlan) {
+            try {
+              await docClient.send(new UpdateCommand({
+                TableName: process.env.USERS_TABLE_NAME,
+                Key: { email: userId },
+                UpdateExpression: "SET trabajos_plan = :tplan, updated_at = :updated_at",
+                ExpressionAttributeValues: {
+                  ":tplan": newTrabajosPlan,
+                  ":updated_at": new Date().toISOString()
+                }
+              }));
+              console.info(`Plan actualizado en DB Trabajos: ${userId} → ${newTrabajosPlan} (tx: ${tx.id})`);
+            } catch (tErr: any) {
+              console.error(`Error actualizando trabajos_plan de ${userId}:`, tErr.message || tErr);
+            }
+          } else {
+            console.info(`Cross-Stack Trabajos webhook procesado exitosamente para ${userId}`);
+          }
         }
 
       } catch (dbError) {
