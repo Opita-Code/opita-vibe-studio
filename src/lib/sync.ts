@@ -3,7 +3,8 @@ import { exportProjectAsZip } from "./export";
 import type { FileNode } from "./types";
 import type { FileSystemBackend } from "./fs-backend/types";
 import { useAuthStore } from "@/stores/auth";
-import { buildAuthHeaders, STORAGE_API_URL } from "@/lib/api-config";
+import { STORAGE_API_URL } from "@/lib/api-config";
+import { buildAuthHeaders } from "@/lib/auth-fetch";
 import { STORAGE_LIMITS } from "./tokens";
 import { usePurchaseIntentStore } from "@/hooks/usePurchaseIntent";
 

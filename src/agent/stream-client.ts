@@ -15,6 +15,7 @@ import type { SSEChunk } from "./types";
 import { useAuthStore } from "@/stores/auth";
 
 import { CHAT_API_URL } from "@/lib/api-config";
+import { isSessionPlaceholder } from "@/lib/auth-fetch";
 
 // ─── Error Translation ─────────────────────────────────────────
 
@@ -98,9 +99,9 @@ export async function* streamSSE(
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    // Only send Bearer when we have a real JWT (Cognito tokens).
-    // Magic link sessions use HttpOnly cookie (token === "opita_session" placeholder).
-    if (token && token !== "opita_session") {
+    // Only send Bearer when we have a real JWT (Cognito/OCAIS token legible).
+    // Magic link sessions use HttpOnly cookie (token es el placeholder OCAIS).
+    if (!isSessionPlaceholder(token)) {
       headers["Authorization"] = `Bearer ${token}`;
     }
 

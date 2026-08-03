@@ -5,6 +5,7 @@ import { X, Loader2, Zap } from "lucide-react";
 import { getPlan, getPlanName } from "@/lib/plan-registry";
 import { analytics } from "@/lib/analytics";
 import { BILLING_API_URL } from "@/lib/api-config";
+import { isSessionPlaceholder } from "@/lib/auth-fetch";
 
 export function WompiModal() {
   const { isModalOpen, closeModal, plan } = usePurchaseIntent();
@@ -38,7 +39,7 @@ export function WompiModal() {
         
         const headers: Record<string, string> = {};
         // Only send Bearer when we have a real JWT (not the cookie placeholder)
-        if (token && token !== "opita_session") {
+        if (!isSessionPlaceholder(token)) {
           headers["Authorization"] = `Bearer ${token}`;
         }
         

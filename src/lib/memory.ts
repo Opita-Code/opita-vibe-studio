@@ -10,6 +10,7 @@
 
 import { CloudBridge, WebStorageAdapter, SyncEngine, ContextDecayEngine } from "@opita/memory-sdk";
 import { useAuthStore } from "@/stores/auth";
+import { isSessionPlaceholder } from "@/lib/auth-fetch";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -32,7 +33,11 @@ const MAX_MEMORIES_PER_PROJECT = 100;
 // ─── SDK Initialization ────────────────────────────────────────
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_DEV_API_URL || "https://api.opitacode.com";
-const getAuthToken = async () => useAuthStore.getState().session?.token || null;
+const getAuthToken = async () => {
+  const token = useAuthStore.getState().session?.token || null;
+  // Sesión vía cookie HttpOnly (placeholder) — el SDK mandaría "Bearer __opita_session"
+  return isSessionPlaceholder(token) ? null : token;
+};
 const serviceName = "vibe-studio";
 
 export const cloudBridge = new CloudBridge({

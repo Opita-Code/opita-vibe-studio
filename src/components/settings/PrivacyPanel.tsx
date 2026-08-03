@@ -48,7 +48,8 @@ export function PrivacyPanel() {
     // Attempt to notify backend if authenticated
     try {
       const authState = (await import("@/stores/auth")).useAuthStore.getState();
-      if (authState.session?.token) {
+      const { isSessionPlaceholder } = await import("@/lib/auth-fetch");
+      if (authState.session?.token && !isSessionPlaceholder(authState.session.token)) {
         const API_BASE_URL = "https://suy2kd74af.execute-api.us-east-1.amazonaws.com/v1";
         await fetch(`${API_BASE_URL}/community/projects`, { // Generic endpoint for now
           method: "DELETE",
