@@ -29,8 +29,8 @@ import { waitForWorkspace } from '../helpers/setup';
  */
 
 const MODELS_TO_TEST = [
-  { id: 'deepseek-chat', uiName: 'Opita Flash' },
-  { id: 'deepseek-reasoner', uiName: 'Opita Architect' },
+  { id: 'deepseek-v4-flash', uiName: 'Opita Flash' },
+  { id: 'deepseek-v4-pro', uiName: 'Opita Pro' },
 ];
 
 /** Extrae solo el texto de la respuesta del asistente (último bloque del chat log) */
@@ -132,7 +132,6 @@ for (const model of MODELS_TO_TEST) {
       // ── PASO 3: Leer la respuesta del ASISTENTE ─────────────
       const chatLog = getChatLog(page);
       const assistantText = await getLastAssistantResponse(chatLog);
-      const fullChatText = await chatLog.textContent({ timeout: 2_000 }) ?? '';
 
       // ── PASO 4: Métricas ────────────────────────────────────
       const createdCount = (assistantText.match(/Creado:/g) || []).length;

@@ -1,7 +1,7 @@
 // ─── Model Configuration ────────────────────────────────────────
 
 export interface ModelConfig {
-  /** Identificador único del modelo (ej: "deepseek-chat") */
+  /** Identificador único del modelo (ej: "deepseek-v4-flash") */
   id: string;
   /** Nombre visible en la UI (ej: "DeepSeek V3") */
   name: string;

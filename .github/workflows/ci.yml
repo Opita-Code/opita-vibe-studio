@@ -6,9 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# REGLA DURA (2026-08-03): Playwright ABOLIDO para tests. La validación
+# browser/E2E se hace con dark-copilot (MCP Chromium real) en la máquina
+# del operador. CI queda: typecheck + unit + backend typecheck.
 jobs:
   test:
-    name: Typecheck, Unit & E2E Tests
+    name: Typecheck & Unit Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -33,18 +36,3 @@ jobs:
       - name: Backend Typecheck
         run: cd packages/vibe-ai-backend && npm run typecheck
 
-      - name: Install Playwright Browsers
-        run: npx playwright install chromium --with-deps
-
-      - name: Run Local E2E Tests
-        run: npx playwright test --project=chromium
-        env:
-          TEST_E2E_PASSWORD: ${{ secrets.TEST_E2E_PASSWORD }}
-
-      - name: Upload Test Report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7

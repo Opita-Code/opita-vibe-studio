@@ -93,7 +93,9 @@ const MODEL_RPM_LIMITS: Record<string, Record<string, number>> = {
     "gemini-2.5-flash": 6,
     "deepseek-chat": 6,
     "deepseek-v4-flash": 6,
-    "deepseek-reasoner": 3,
+    "MiniMax-M3": 4,
+    "MiniMax-M2.5-highspeed": 6,
+    "MiniMax-M2.5": 6,
     "*": 5, // default for unknown models
   },
   estudiante: {
@@ -287,7 +289,16 @@ export function getModel(providerId: string, customApiKey?: string, explicitMode
         apiKey: customApiKey || process.env.DEEP_SEEK_KEY,
         baseURL: "https://api.deepseek.com",
       });
-      return deepseek.chat(explicitModelId || "deepseek-chat");
+      return deepseek.chat(explicitModelId || "deepseek-v4-flash");
+    }
+    case "minimax": {
+      // MiniMax: OpenAI-compatible endpoint (https://api.minimax.io/v1)
+      // Modelos óptimos por tarea: MiniMax-M3 (agéntico/1M ctx), M2.5-highspeed (rápido)
+      const minimax = createOpenAI({
+        apiKey: customApiKey || process.env.MINIMAX_API_KEY,
+        baseURL: "https://api.minimax.io/v1",
+      });
+      return minimax.chat(explicitModelId || "MiniMax-M3");
     }
     case "openrouter": {
       // OpenRouter: MUST use .chat() — only supports /chat/completions
@@ -899,6 +910,8 @@ export const handler = awslambda.streamifyResponse(
 
         let finalModelId = modelId;
         const hasTools = tools && Object.keys(tools).length > 0;
+        // Guard legacy: clientes viejos pueden enviar deepseek-reasoner (R1),
+        // que no soporta tool calling. Reemplazado por deepseek-v4-pro.
         if (providerId === "deepseek" && finalModelId === "deepseek-reasoner" && hasTools) {
           console.warn("[MODEL SWAP] deepseek-reasoner does not support tools. Swapping to deepseek-v4-pro.");
           finalModelId = "deepseek-v4-pro";

@@ -183,7 +183,7 @@ export const useChatStore = create<ChatStore>()(
       isStreaming: false,
       isExecutingMCP: false,
       activeProvider: "deepseek",
-      activeModelId: "deepseek-chat",
+      activeModelId: "deepseek-v4-flash",
       pipelinePhase: null,
       useSubagent: true,
       subagentInstructions: "",
@@ -589,6 +589,17 @@ export const useChatStore = create<ChatStore>()(
     {
       name: "vibe-studio-chat",
       storage: createJSONStorage(() => idbStorage),
+      // v1 (2026-08-03): mapear ids legacy DeepSeek al catálogo oficial V4.
+      // `deepseek-chat` no existe en src/providers/registry.ts → el selector
+      // mostraba "Seleccionar modelo". Ver AGENTS.md: usar deepseek-v4-flash.
+      version: 1,
+      migrate: (persistedState) => {
+        const state = (persistedState ?? {}) as { activeModelId?: string };
+        if (state.activeModelId === "deepseek-chat") {
+          state.activeModelId = "deepseek-v4-flash";
+        }
+        return state;
+      },
       // Only persist these keys
       partialize: (state) => ({
         sessions: state.sessions,

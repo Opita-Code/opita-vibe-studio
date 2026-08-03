@@ -152,6 +152,7 @@ export default $config({
       environment: {
         JWT_SECRET: process.env.JWT_SECRET || "",
         DEEP_SEEK_KEY: process.env.DEEP_SEEK_KEY || "",
+        MINIMAX_API_KEY: process.env.MINIMAX_API_KEY || "",
         OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
         API_GOOGLE_CLOUD: process.env.API_GOOGLE_CLOUD || "",
         AI_STUDIO_GOOGLE: process.env.AI_STUDIO_GOOGLE || "",
