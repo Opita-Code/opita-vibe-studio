@@ -101,6 +101,13 @@ export const BYOK_PROVIDERS: ProviderDefinition[] = [
     requiresEndpoint: false,
   },
   {
+    id: "minimax",
+    name: "MiniMax",
+    category: "Alto Rendimiento",
+    docsUrl: "https://platform.minimax.io",
+    requiresEndpoint: false,
+  },
+  {
     id: "groq",
     name: "Groq",
     category: "Alto Rendimiento",
@@ -327,6 +334,7 @@ export async function testProviderConnection(
       mistral: "https://api.mistral.ai/v1/models",
       cohere: "https://api.cohere.ai/v1/models",
       together: "https://api.together.xyz/v1/models",
+      minimax: "https://api.minimax.io/v1/models",
       perplexity: "https://api.perplexity.ai/chat/completions",
       deepseek: "https://api.deepseek.com/models"
     };
@@ -402,6 +410,9 @@ export async function syncProviderToRegistry(
     } else if (providerId === "together") {
       const { createTogetherProvider } = await import("@/providers/together");
       registerProvider(createTogetherProvider(apiKey));
+    } else if (providerId === "minimax") {
+      const { createMiniMaxProvider } = await import("@/providers/minimax");
+      registerProvider(createMiniMaxProvider(apiKey));
     }
   } catch (err) {
     console.warn(`[BYOK] No se pudo sincronizar provider ${providerId}:`, err);

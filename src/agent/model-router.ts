@@ -82,7 +82,7 @@ export function selectModel(input: ModelRouterInput): ModelSelection {
   if (customApiKey && customApiKey !== "aws-managed") {
     return {
       providerId: inferProvider(modelId),
-      modelId: modelId || "deepseek-chat",
+      modelId: modelId || "deepseek-v4-flash",
       byok: true,
     };
   }
@@ -169,6 +169,7 @@ function inferProvider(modelId?: string): string {
   // P2 fix: add Claude model detection (was falling through to deepseek)
   if (modelId.startsWith("claude")) return "anthropic";
   if (modelId.startsWith("gemini")) return "gemini";
+  if (modelId.toLowerCase().startsWith("minimax")) return "minimax";
   if (modelId.startsWith("deepseek")) return "deepseek";
   if (modelId.includes("/")) return "openrouter"; // e.g. "google/gemini-2.5-flash"
   return "deepseek";

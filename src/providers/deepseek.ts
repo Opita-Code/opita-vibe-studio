@@ -4,7 +4,7 @@ import { SseError } from "./sse";
 // ─── Constants ─────────────────────────────────────────────────
 
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
-const DEFAULT_MODEL = "deepseek-chat";
+const DEFAULT_MODEL = "deepseek-v4-flash";
 
 /**
  * Crea un proveedor de DeepSeek V3.

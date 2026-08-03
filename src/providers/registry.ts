@@ -2,6 +2,7 @@ import type { AIProvider } from "@/lib/types";
 import type { ModelConfig, ProviderInfo } from "./types";
 import { createDeepSeekProvider } from "./deepseek";
 import { createGeminiProvider } from "./gemini";
+import { createMiniMaxProvider } from "./minimax";
 import { createOpenAIProvider } from "./openai";
 import { createOpenRouterProvider } from "./openrouter";
 import { createCustomProvider } from "./custom";
@@ -48,17 +49,6 @@ const DEEPSEEK_MODELS: ModelConfig[] = [
   {
     id: "deepseek-v4-pro",
     name: "Opita Pro",
-    providerId: "deepseek",
-    maxTokens: 8192,
-    temperature: 0.7,
-    costPer1kInput: 0,
-    costPer1kOutput: 0,
-    tier: "free",
-    requiredPlanTier: 2,
-  },
-  {
-    id: "deepseek-reasoner",
-    name: "Opita Architect",
     providerId: "deepseek",
     maxTokens: 8192,
     temperature: 0.7,
@@ -166,11 +156,50 @@ const CHATGPT_WEB_MODELS: ModelConfig[] = [
   },
 ];
 
+// MiniMax — modelos óptimos por tarea (fuente primaria 2026-08-03:
+// https://platform.minimax.io/docs/guides/text-generation):
+//   - MiniMax-M3             → agéntico, coding, tool-use, 1M contexto (premium)
+//   - MiniMax-M2.5-highspeed → ~100 tps, tareas rápidas (flash)
+//   - MiniMax-M2.5           → ~60 tps, mejor costo/valor (balance)
+const MINIMAX_MODELS: ModelConfig[] = [
+  {
+    id: "MiniMax-M3",
+    name: "MiniMax M3",
+    providerId: "minimax",
+    maxTokens: 8192,
+    temperature: 0.7,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    tier: "byok",
+  },
+  {
+    id: "MiniMax-M2.5-highspeed",
+    name: "MiniMax M2.5 Highspeed",
+    providerId: "minimax",
+    maxTokens: 8192,
+    temperature: 0.7,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    tier: "byok",
+  },
+  {
+    id: "MiniMax-M2.5",
+    name: "MiniMax M2.5",
+    providerId: "minimax",
+    maxTokens: 8192,
+    temperature: 0.7,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    tier: "byok",
+  },
+];
+
 // ─── Model map ─────────────────────────────────────────────────
 
 const MODEL_MAP: Record<string, ModelConfig[]> = {
   deepseek: DEEPSEEK_MODELS,
   gemini: GEMINI_MODELS,
+  minimax: MINIMAX_MODELS,
   openai: OPENAI_MODELS,
   anthropic: ANTHROPIC_MODELS,
   openrouter: OPENROUTER_MODELS,
@@ -196,6 +225,7 @@ export function initializeProviders(): void {
   const defaults: AIProvider[] = [
     createDeepSeekProvider(),
     createGeminiProvider(),
+    createMiniMaxProvider(),
     createOpenAIProvider(),
     createAnthropicProvider(),
     createOpenRouterProvider(),

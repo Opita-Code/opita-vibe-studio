@@ -26,7 +26,7 @@
 | **Último tag documentado** | `v0.2.1` en [`release-notes.md`](release-notes.md) — *mojibake (UTF-8 doble-encoded) pendiente de arreglar en otra pasada* |
 | **Stack headless** | Tauri v2 · React 18 · TypeScript 5.4 · Vite 5.4 · Tailwind 3.4 · Zustand 4.5 · CodeMirror 6 |
 | **Backend** | AWS Lambda vía SST v4 (`packages/vibe-ai-backend/`) · DynamoDB |
-| **AI providers** | 12 (Anthropic · ChatGPT Web · Cohere · Custom · DeepSeek · Gemini · Groq · Mistral · OpenAI · OpenRouter · Perplexity · Together) — todos BYOK |
+| **AI providers** | 13 (Anthropic · ChatGPT Web · Cohere · Custom · DeepSeek · Gemini · Groq · MiniMax · Mistral · OpenAI · OpenRouter · Perplexity · Together) — todos BYOK |
 | **Modelo DeepSeek canónico** | `deepseek-v4-pro`, `deepseek-v4-flash` *(ver `AGENTS.md` para contexto)* |
 | **Auth** | Magic Links propios · sin password · sin JWT |
 | **Studio** | dev: <https://dev.opitacode.com/app/> · prod: <https://vibe.opitacode.com/app/> |

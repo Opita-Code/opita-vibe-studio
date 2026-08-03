@@ -53,7 +53,7 @@ export function selectModel(ctx: Readonly<HarnessContext>): ModelSelection {
   if (customApiKey && customApiKey !== "aws-managed") {
     return {
       providerId: inferProvider(requestedModelId),
-      modelId: requestedModelId || "deepseek-chat",
+      modelId: requestedModelId || "deepseek-v4-flash",
       byok: true,
     };
   }

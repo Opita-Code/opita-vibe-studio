@@ -1,6 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 import * as dotenv from 'dotenv';
 
+// ⚠️ REGLA DURA (2026-08-03): Playwright ABOLIDO para tests.
+// Esta config y la suite tests/e2e quedan como ARCHIVO REFERENCIA (no se ejecutan
+// en CI ni en desarrollo). La validación browser se hace con dark-copilot (MCP
+// Chromium real) sobre el dev server o el stage target.
+// Decisión: dark-memory row 217 (pinned). Eliminar físicamente cuando el
+// operador apruebe la conversión/borrado de la suite en el PR.
+
 dotenv.config();
 
 export default defineConfig({
@@ -25,6 +32,9 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      // production-smoke.spec.ts solo corre contra prod (proyecto "production").
+      // El dev server local no sirve la landing estática ni tiene el stack real.
+      testIgnore: '**/production-smoke.spec.ts',
     },
     {
       name: 'staging',

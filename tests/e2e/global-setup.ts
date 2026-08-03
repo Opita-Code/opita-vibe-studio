@@ -13,7 +13,6 @@ import * as path from 'path';
  * Validez del token: 24 horas
  */
 
-const USER_POOL_ID = 'us-east-1_LItAcj2Aa';
 const CLIENT_ID = '4b5sluoilcrtuq67qbu4528htl';
 const E2E_USERNAME = 'vibe-tester-01@opitacode.com';
 const E2E_PASSWORD = process.env.TEST_E2E_PASSWORD || 'VibeE2E#2026!';
@@ -63,5 +62,10 @@ export default async function globalSetup() {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`\n❌ [E2E Setup] No se pudo obtener token de Cognito: ${msg}`);
     console.error('   Asegúrate de tener AWS CLI configurado (aws configure).');
+    // En CI el token es requisito (tests capacity + smoke lo inyectan).
+    // Fallar aquí con mensaje claro >> cascada de fallos confusos en los tests.
+    if (process.env.CI) {
+      throw new Error(`[E2E Setup] Token Cognito requerido en CI pero no obtenible: ${msg}. Verifica AWS_REGION y las credenciales en .github/workflows/ci.yml`);
+    }
   }
 }

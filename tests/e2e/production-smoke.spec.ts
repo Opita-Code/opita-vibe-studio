@@ -375,7 +375,7 @@ test.describe('👑 Pro User (Authenticated)', () => {
       data: {
         action: 'chat',
         providerId: 'deepseek',
-        modelId: 'deepseek-chat',
+        modelId: 'deepseek-v4-flash',
         messages: [{ role: 'user', content: 'Responde SOLO con la palabra FUNCIONA' }],
       },
     });
@@ -404,7 +404,8 @@ test.describe('🔒 Security & Performance', () => {
   test('App retorna en menos de 5 segundos', async ({ page }) => {
     const start = Date.now();
     await page.goto(PROD_APP);
-    await expect(page.locator('h1')).toBeVisible({ timeout: 10000 });
+    // La app no renderiza <h1>; el workspace se detecta por el ActivityBar
+    await expect(page.locator('[aria-label="Explorador de Archivos"]')).toBeVisible({ timeout: 10000 });
     const duration = Date.now() - start;
     expect(duration).toBeLessThan(5000);
   });

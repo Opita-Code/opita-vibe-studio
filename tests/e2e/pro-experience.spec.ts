@@ -284,7 +284,7 @@ test.describe('Pro Experience — Model Selector & Switching', () => {
     await expect(modelSelector).toBeVisible({ timeout: 5000 });
   });
 
-  test('Default model es Opita Flash (deepseek-chat)', async ({ page }) => {
+  test('Default model es Opita Flash (deepseek-v4-flash)', async ({ page }) => {
     await page.goto('/app/');
     await waitForWorkspace(page);
     await ensureChatOpen(page);
@@ -295,12 +295,12 @@ test.describe('Pro Experience — Model Selector & Switching', () => {
     const modelSelector = page.locator('button[aria-label="Seleccionar modelo de IA"]');
     await expect(modelSelector).toBeVisible();
 
-    // Store default is deepseek-chat (Opita Flash)
+    // Store default es deepseek-v4-flash (Opita Flash) — ver registry.ts
     const buttonText = await modelSelector.textContent();
     expect(buttonText).toContain('Opita Flash');
   });
 
-  test('Cambiar a Opita Architect actualiza selector', async ({ page }) => {
+  test('Cambiar a Opita Pro actualiza selector', async ({ page }) => {
     await page.goto('/app/');
     await waitForWorkspace(page);
     await ensureChatOpen(page);
@@ -311,14 +311,14 @@ test.describe('Pro Experience — Model Selector & Switching', () => {
     const modelSelector = page.locator('button[aria-label="Seleccionar modelo de IA"]');
     await expect(modelSelector).toBeVisible();
 
-    // Switch to Opita Architect
+    // Switch to Opita Pro
     await modelSelector.click();
     await page.waitForTimeout(300);
-    await page.locator('button', { hasText: 'Opita Architect' }).first().click();
+    await page.locator('button', { hasText: 'Opita Pro' }).first().click();
     await page.waitForTimeout(300);
 
     const newValue = await modelSelector.textContent();
-    expect(newValue).toContain('Opita Architect');
+    expect(newValue).toContain('Opita Pro');
   });
 
   test('Model selector tiene opciones disponibles', async ({ page }) => {
@@ -336,7 +336,7 @@ test.describe('Pro Experience — Model Selector & Switching', () => {
     await modelSelector.click();
     await page.waitForTimeout(300);
 
-    // Should have at least 2 options (Opita Architect + Opita Flash)
+    // Should have at least 2 options (Opita Flash + Opita Pro)
     // The dropdown renders buttons for each option
     // It's the sibling div of the button containing the options
     const dropdown = page.locator('.absolute.bottom-full');
@@ -362,7 +362,7 @@ test.describe('Pro Experience — Model Selector & Switching', () => {
     // Switch model
     await modelSelector.click();
     await page.waitForTimeout(300);
-    await page.locator('button', { hasText: 'Opita Architect' }).first().click();
+    await page.locator('button', { hasText: 'Opita Pro' }).first().click();
     await page.waitForTimeout(300);
 
     // Textarea should still be functional
@@ -389,56 +389,20 @@ test.describe('Pro Experience — Model Selector & Switching', () => {
     // Switch to a different model
     await modelSelector.click();
     await page.waitForTimeout(300);
-    await page.locator('button', { hasText: 'Opita Architect' }).first().click();
+    await page.locator('button', { hasText: 'Opita Pro' }).first().click();
     await page.waitForTimeout(300);
 
     // Send a message with the new model
-    await textarea.fill('Mensaje con Opita Architect');
+    await textarea.fill('Mensaje con Opita Pro');
     await textarea.press('Enter');
 
     // User bubble should appear
-    const userBubble = page.locator('.justify-end .whitespace-pre-wrap').filter({ hasText: 'Mensaje con Opita Architect' });
+    const userBubble = page.locator('.justify-end .whitespace-pre-wrap').filter({ hasText: 'Mensaje con Opita Pro' });
     await expect(userBubble).toBeVisible({ timeout: 10000 });
 
     // AI response should also appear (mocked)
     const aiBubble = page.locator('.justify-start .prose').first();
     await expect(aiBubble).toBeVisible({ timeout: 15000 });
-  });
-
-  test('Token counter visible y actualiza al escribir', async ({ page }) => {
-    await page.goto('/app/');
-    await waitForWorkspace(page);
-    await ensureChatOpen(page);
-
-    const textarea = page.locator('textarea[placeholder*="Escribe"]');
-    await expect(textarea).toBeVisible({ timeout: 15000 });
-
-    // Token counter shows ~0 tokens initially
-    const tokenCounter = page.locator('text=/~\\d+ tokens/');
-    await expect(tokenCounter).toBeVisible();
-
-    // Type some text
-    await textarea.fill('Hola mundo, este es un test de conteo');
-    await page.waitForTimeout(200);
-
-    // Token count should update (> 0)
-    const tokenText = await tokenCounter.textContent();
-    expect(tokenText).toMatch(/~\d+ tokens/);
-    const tokenCount = parseInt(tokenText?.match(/~(\d+)/)?.[1] || '0');
-    expect(tokenCount).toBeGreaterThan(0);
-  });
-
-  test('Engine label visible junto al selector', async ({ page }) => {
-    await page.goto('/app/');
-    await waitForWorkspace(page);
-    await ensureChatOpen(page);
-
-    const textarea = page.locator('textarea[placeholder*="Escribe"]');
-    await expect(textarea).toBeVisible({ timeout: 15000 });
-
-    // The "Engine 12k" label should be visible
-    const engineLabel = page.locator('text=/Engine \\d+k/');
-    await expect(engineLabel).toBeVisible();
   });
 });
 

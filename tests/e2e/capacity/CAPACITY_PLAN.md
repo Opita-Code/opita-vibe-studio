@@ -27,7 +27,7 @@ Las pruebas de complejidad iteran sobre los modelos disponibles en el plan gratu
 
 | ID (backend) | Nombre en UI | Motor | Propósito |
 |--------------|-------------|-------|-----------|
-| `deepseek-chat` | **Opita Flash** | DeepSeek V3 | Latencia rápida, tareas básicas |
+| `deepseek-v4-flash` | **Opita Flash** | DeepSeek V4 | Latencia rápida, tareas básicas |
 | `deepseek-reasoner` | **Opita Architect** | DeepSeek R1 | CoT extendido, tareas complejas |
 
 ## Selectores clave (referencia para mantenimiento)
