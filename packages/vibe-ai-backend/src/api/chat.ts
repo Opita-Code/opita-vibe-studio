@@ -388,13 +388,15 @@ export const handler = awslambda.streamifyResponse(
     const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
     const bearerToken = authHeader.split(" ")[1] || "";
     
-    // Extract cookie token (always, as fallback)
+    // Extract cookie tokens (always, as fallback): OCAIS first, legacy after
     const cookies = event.headers?.cookie || event.headers?.Cookie || "";
-    const cookieMatch = cookies.match(/opita_session=([^;]+)/);
-    const cookieToken = cookieMatch?.[1] || "";
+    const ocaisCookieMatch = cookies.match(/__opita_session=([^;]+)/);
+    const legacyCookieMatch = cookies.match(/opita_session=([^;]+)/);
+    const ocaisCookieToken = ocaisCookieMatch?.[1] || "";
+    const legacyCookieToken = legacyCookieMatch?.[1] || "";
     
-    // Token candidates: try bearer first, then cookie
-    const tokenCandidates = [bearerToken, cookieToken].filter(Boolean);
+    // Token candidates: try bearer first, then OCAIS cookie, then legacy cookie
+    const tokenCandidates = [bearerToken, ocaisCookieToken, legacyCookieToken].filter(Boolean);
 
     if (tokenCandidates.length === 0) {
       responseStream.setContentType("application/json");
@@ -403,9 +405,12 @@ export const handler = awslambda.streamifyResponse(
       return;
     }
 
-    // ─── JWT Verification (Cognito JWKS + Legacy HMAC fallback) ───
+    // ─── JWT Verification (OCAIS JWKS → Cognito JWKS → Legacy HMAC) ───
+    const OCAIS_ISSUER = "opita-account-ui";
+    const OCAIS_JWKS_URL = process.env.OCAIS_JWKS_URL || "https://api.opitacode.com/.well-known/jwks.json";
+    const OCAIS_JWKS = jose.createRemoteJWKSet(new URL(OCAIS_JWKS_URL));
     const COGNITO_ISSUER = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_LItAcj2Aa";
-    const JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
+    const COGNITO_JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
 
     let userId = "guest";
     let plan = "free";
@@ -413,8 +418,29 @@ export const handler = awslambda.streamifyResponse(
 
     for (const token of tokenCandidates) {
       try {
-        // Try Cognito JWKS first (RSA signed tokens)
-        const decoded = await jose.jwtVerify(token, JWKS, {
+        // 1. OCAIS JWKS (RS256 — sistema de sesión actual)
+        const decoded = await jose.jwtVerify(token, OCAIS_JWKS, {
+          issuer: OCAIS_ISSUER,
+        });
+        userId = (decoded.payload.email || decoded.payload.sub || "guest") as string;
+        plan = (decoded.payload.plan || decoded.payload.role || "free") as string;
+        tokenVerified = true;
+        break;
+      } catch {
+        try {
+          // 1b. OCAIS firma válida sin issuer exigido (rotación)
+          const decoded = await jose.jwtVerify(token, OCAIS_JWKS);
+          userId = (decoded.payload.email || decoded.payload.sub || "guest") as string;
+          plan = (decoded.payload.plan || decoded.payload.role || "free") as string;
+          tokenVerified = true;
+          break;
+        } catch {
+          // Continue to next verifier
+        }
+      }
+      try {
+        // 2. Cognito JWKS (legacy RSA — compat 30 días)
+        const decoded = await jose.jwtVerify(token, COGNITO_JWKS, {
           issuer: COGNITO_ISSUER,
         });
         userId = (decoded.payload.email || decoded.payload.sub || "guest") as string;

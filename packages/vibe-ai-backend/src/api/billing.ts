@@ -11,8 +11,16 @@ const cognitoClient = new CognitoIdentityProviderClient({});
 
 // ─── Auth Helper (mirrors core.ts pattern) ──────────────────────
 
+// OCAIS es el IdP del ecosistema (opita-account-ui). JWT RS256 verificables
+// contra https://api.opitacode.com/.well-known/jwks.json (kid=k2), issuer
+// "opita-account-ui". Sesión en cookie HttpOnly __opita_session (7d).
+const OCAIS_ISSUER = "opita-account-ui";
+const OCAIS_JWKS_URL = process.env.OCAIS_JWKS_URL || "https://api.opitacode.com/.well-known/jwks.json";
+const OCAIS_JWKS = jose.createRemoteJWKSet(new URL(OCAIS_JWKS_URL));
+
+// Fallback legacy: Cognito (deprecado Phase 1D — compat 30 días)
 const COGNITO_ISSUER = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_LItAcj2Aa";
-const JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
+const COGNITO_JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
 
 function base64url(buf: Buffer) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
@@ -34,22 +42,37 @@ function verifyLegacyJWT(token: string, secret: string) {
 
 /**
  * Extract authenticated email from the request.
- * Checks: Bearer token → opita_id_token cookie → opita_session cookie.
+ * Checks: Bearer (OCAIS) → __opita_session cookie (OCAIS) → legacy Cognito/HMAC.
  */
 async function extractAuthEmail(event: any): Promise<string | null> {
+  async function verifyOcaisToken(token: string): Promise<string | null> {
+    try {
+      const decoded = await jose.jwtVerify(token, OCAIS_JWKS, { issuer: OCAIS_ISSUER });
+      return (decoded.payload.email || decoded.payload.sub) as string | null;
+    } catch {
+      // Fallback: firma válida con otro issuer (rotación)
+      try {
+        const decoded = await jose.jwtVerify(token, OCAIS_JWKS);
+        return (decoded.payload.email || decoded.payload.sub) as string | null;
+      } catch { return null; }
+    }
+  }
+
   async function verifyCognitoToken(token: string): Promise<string | null> {
     try {
-      const decoded = await jose.jwtVerify(token, JWKS, { issuer: COGNITO_ISSUER });
+      const decoded = await jose.jwtVerify(token, COGNITO_JWKS, { issuer: COGNITO_ISSUER });
       return (decoded.payload.email || decoded.payload.sub) as string | null;
     } catch { return null; }
   }
 
-  // 1. Bearer token
+  // 1. Bearer token (OCAIS JWT; fallback legacy HMAC)
   const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (bearerToken) {
-    const email = await verifyCognitoToken(bearerToken);
+    const email = await verifyOcaisToken(bearerToken);
     if (email) return email;
+    const cognitoEmail = await verifyCognitoToken(bearerToken);
+    if (cognitoEmail) return cognitoEmail;
     // Fallback: try legacy HMAC
     try {
       const payload = verifyLegacyJWT(bearerToken, process.env.JWT_SECRET || "");
@@ -59,14 +82,21 @@ async function extractAuthEmail(event: any): Promise<string | null> {
 
   const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
 
-  // 2. Cognito cookie
+  // 2. OCAIS session cookie (HttpOnly)
+  const ocaisMatch = cookieHeader.match(/__opita_session=([^;]+)/);
+  if (ocaisMatch) {
+    const email = await verifyOcaisToken(ocaisMatch[1]);
+    if (email) return email;
+  }
+
+  // 3. Legacy: Cognito cookie
   const cognitoMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
   if (cognitoMatch) {
     const email = await verifyCognitoToken(cognitoMatch[1]);
     if (email) return email;
   }
 
-  // 3. Legacy session cookie
+  // 4. Legacy session cookie (HMAC)
   const sessionMatch = cookieHeader.match(/opita_session=([^;]+)/);
   if (sessionMatch) {
     try {

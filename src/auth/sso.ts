@@ -43,7 +43,9 @@ export async function initiateSSO(email?: string, options?: SSOOptions): Promise
     : (options?.postAuthUrl ?? `${window.location.origin}/app`);
   const service = options?.service ?? "vibe-studio";
 
-  const response = await fetch(`${API_URL}/auth/request`, {
+  // OCAIS: /auth/request legacy fue decommissioned (410 Gone). El endpoint vivo
+  // es /core/auth/request-ocais (magic link con token de un solo uso, 15 min TTL).
+  const response = await fetch(`${API_URL}/auth/request-ocais`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -68,6 +70,9 @@ function getCookie(name: string) {
 
 function removeSSOCookie(name: string) {
   const domain = window.location.hostname.includes('opitacode.com') ? 'domain=.opitacode.com;' : '';
+  // Eliminar con y sin Secure: el flag Secure forma parte de la identidad de la
+  // cookie, así que una cookie no-secure (dev local) NO se borra con un set Secure.
+  document.cookie = `${name}=; ${domain} path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax`;
   document.cookie = `${name}=; ${domain} path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax`;
 }
 
@@ -90,70 +95,129 @@ function decodeJWT(token: string): any {
   }
 }
 
+// Placeholder para sesiones OCAIS: el JWT real (__opita_session) es HttpOnly
+// y no es legible desde JS. Se usa credentials: "include" para que el backend
+// lo lea. NUNCA se envía este placeholder como Bearer token (ver api-config.ts).
+const SESSION_PLACEHOLDER = "__opita_session";
+
 /**
- * Intenta restaurar una sesión leyendo la cookie de Cognito
- * o cayendo hacia el backend de AWS antiguo.
+ * Intenta restaurar una sesión usando el sistema OCAIS:
+ *   1. GET /auth/me con credentials:include → el backend OCAIS lee la cookie
+ *      HttpOnly __opita_session (RS256 JWT, 7d) y devuelve el perfil.
+ *   2. Si 401 → intenta rotar la sesión vía POST /core/auth/refresh
+ *      (usa la cookie opita_refresh_token, 30d) y reintenta /auth/me.
+ *   3. Fallback legacy: cookie Cognito opita_id_token (compat 30 días).
  */
 export async function restoreSession(): Promise<AuthResult | null> {
   try {
-    // 1. Intentar con Cognito Cookie primero (source of truth)
-    const cognitoToken = getCookie("opita_id_token");
-    if (cognitoToken) {
-      const claims = decodeJWT(cognitoToken);
-      if (claims && claims.sub) {
-        if (claims.exp && claims.exp * 1000 < Date.now()) {
-          removeSSOCookie('opita_id_token');
-          return null; // Token expired, force re-login
-        }
+    // 1. Sesión OCAIS vía cookie (__opita_session HttpOnly)
+    const ocaisUser = await fetchMe();
+    if (ocaisUser) return ocaisUser;
+
+    // 2. Intento de refresh: el JWT de 7d puede haber expirado pero el refresh
+    //    token (30d) sigue vivo. Rotamos y reintentamos.
+    const refreshed = await refreshSession();
+    if (refreshed) return refreshed;
+
+    // 3. Fallback legacy: Cognito (deprecado Phase 1D, compat transitoria)
+    const legacy = await restoreLegacyCognito();
+    if (legacy) return legacy;
+
+    return null;
+  } catch (err) {
+    console.error("Failed to restore session via OCAIS", err);
+    return null;
+  }
+}
+
+/**
+ * GET /auth/me con credentials:include. El backend OCAIS lee la cookie
+ * HttpOnly __opita_session y devuelve el perfil del usuario.
+ */
+async function fetchMe(): Promise<AuthResult | null> {
+  try {
+    const meResponse = await fetch(`${API_URL}/auth/me`, {
+      credentials: "include",
+    });
+    if (meResponse.ok) {
+      const data = await meResponse.json();
+      if (data.user?.email) {
         const user: UserProfile = {
-          id: `user-${claims.email}`,
-          email: claims.email,
-          name: claims.given_name || claims.name || claims.email.split("@")[0] || "Usuario",
-          plan: claims['custom:plan'] || claims.plan || "free",
-          verified: true,
+          id: data.user.id ? `user-${data.user.id}` : `user-${data.user.email}`,
+          email: data.user.email,
+          name: data.user.name || data.user.email.split("@")[0] || "Usuario",
+          plan: data.user.plan || "free",
+          verified: data.user.verified !== false,
         };
         const session: Session = {
-          token: cognitoToken, // Pasamos el JWT real para que aiService.ts lo mande a la Lambda
-          expiresAt: claims.exp ? claims.exp * 1000 : Date.now() + 3600000,
+          token: SESSION_PLACEHOLDER, // HttpOnly — el JWT real vive en la cookie
+          expiresAt: data.user.expiresAt || Date.now() + 7 * 24 * 3600000,
         };
         useAuthStore.getState().migrateFromGuest(user.email);
         return { user, session };
       }
     }
+  } catch {
+    // /auth/me failed — no authenticated session
+  }
+  return null;
+}
 
-    // 2. Fallback: Magic Link / Password backend session (opita_session HttpOnly cookie)
-    // The cookie is HttpOnly so we can't read it client-side — call /auth/me to validate
-    try {
-      const meResponse = await fetch(`${API_URL}/auth/me`, {
-        credentials: "include",
-      });
-      if (meResponse.ok) {
-        const data = await meResponse.json();
-        if (data.user?.email) {
-          const user: UserProfile = {
-            id: `user-${data.user.email}`,
-            email: data.user.email,
-            name: data.user.email.split("@")[0] || "Usuario",
-            plan: data.user.plan || "free",
-            verified: true,
-          };
-          const session: Session = {
-            token: "opita_session", // HttpOnly — real token is in the cookie
-            expiresAt: Date.now() + 7 * 24 * 3600000,
-          };
-          useAuthStore.getState().migrateFromGuest(user.email);
-          return { user, session };
-        }
-      }
-    } catch {
-      // /auth/me failed — user is not authenticated via backend session either
+/**
+ * Rota la sesión vía POST /core/auth/refresh. El backend OCAIS lee la cookie
+ * opita_refresh_token (30d), valida la fila en sessionStore, elimina la fila
+ * antigua y minta un nuevo __opita_session (7d) + nuevo refresh token,
+ * devolviéndolos como Set-Cookie. Tras el refresh, re-valida con /auth/me.
+ *
+ * @returns AuthResult si el refresh fue exitoso, null en caso contrario
+ *          (refresh token expirado/inválido → se fuerza re-login).
+ */
+export async function refreshSession(): Promise<AuthResult | null> {
+  try {
+    const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!refreshResponse.ok) {
+      // 401: refresh token expirado/inválido — no hay sesión recuperable
+      removeSSOCookie("opita_refresh_token");
+      removeSSOCookie(SESSION_PLACEHOLDER);
+      return null;
     }
-
-    return null;
-  } catch (err) {
-    console.error("Failed to restore session via AWS", err);
+    // Cookies rotadas en la respuesta — re-validar el perfil con el nuevo JWT
+    return await fetchMe();
+  } catch {
     return null;
   }
+}
+
+/**
+ * Fallback legacy: sesión Cognito vía cookie opita_id_token (deprecada).
+ * Se mantiene 30 días para compatibilidad con sesiones emitidas antes de
+ * la migración a OCAIS.
+ */
+async function restoreLegacyCognito(): Promise<AuthResult | null> {
+  const cognitoToken = getCookie("opita_id_token");
+  if (!cognitoToken) return null;
+  const claims = decodeJWT(cognitoToken);
+  if (!claims || !claims.sub) return null;
+  if (claims.exp && claims.exp * 1000 < Date.now()) {
+    removeSSOCookie("opita_id_token");
+    return null; // Token expired — force re-login
+  }
+  const user: UserProfile = {
+    id: `user-${claims.email}`,
+    email: claims.email,
+    name: claims.given_name || claims.name || claims.email.split("@")[0] || "Usuario",
+    plan: claims["custom:plan"] || claims.plan || "free",
+    verified: true,
+  };
+  const session: Session = {
+    token: cognitoToken, // JWT legible — puede ir como Bearer (Cognito no es HttpOnly)
+    expiresAt: claims.exp ? claims.exp * 1000 : Date.now() + 3600000,
+  };
+  useAuthStore.getState().migrateFromGuest(user.email);
+  return { user, session };
 }
 
 
@@ -171,12 +235,16 @@ export async function logout(): Promise<void> {
     // Local logout must always succeed
   }
 
-  // Eliminar cookies compartidas de Cognito
+  // Eliminar cookies OCAIS (sistema de sesión actual)
+  removeSSOCookie('__opita_session');
+  removeSSOCookie('opita_refresh_token');
+
+  // Eliminar cookies compartidas de Cognito (legacy)
   removeSSOCookie('opita_id_token');
   removeSSOCookie('opita_access_token');
   removeSSOCookie('opita_refresh_token');
 
-  // Eliminar cookie de sesión de Magic Link / Password backend
+  // Eliminar cookie de sesión de Magic Link / Password backend (legacy)
   removeSSOCookie('opita_session');
 
   // Limpiar datos de sesión de localStorage (NO datos de trabajo como BYOK, sync, onboarding)

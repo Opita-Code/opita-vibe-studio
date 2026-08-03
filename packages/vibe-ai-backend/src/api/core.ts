@@ -10,23 +10,61 @@ if (!JWT_SECRET) {
   throw new Error("FATAL: JWT_SECRET is not set");
 }
 
-// ─── Cognito Plan Extraction (source of truth) ─────────────────
+// ─── OCAIS Plan Extraction (source of truth) ───────────────────
+// OCAIS es el IdP del ecosistema opitacode (opita-account-ui). Emite JWTs
+// RS256 verificables contra https://api.opitacode.com/.well-known/jwks.json
+// (kid=k2) con issuer "opita-account-ui". La sesión viaja en la cookie
+// HttpOnly __opita_session (7d) + opita_refresh_token (30d).
+const OCAIS_ISSUER = "opita-account-ui";
+const OCAIS_JWKS_URL = process.env.OCAIS_JWKS_URL || "https://api.opitacode.com/.well-known/jwks.json";
+const OCAIS_JWKS = jose.createRemoteJWKSet(new URL(OCAIS_JWKS_URL));
+
+// Fallback legacy: Cognito (deprecado Phase 1D — compat 30 días)
 const COGNITO_ISSUER = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_LItAcj2Aa";
-const JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
+const COGNITO_JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
+
+async function verifyOcaisToken(token: string): Promise<any | null> {
+  try {
+    // Issuer estricto OCAIS; si el JWT es válido pero con otro issuer
+    // (rotación), fallback a verificación de firma sin exigir issuer.
+    const decoded = await jose.jwtVerify(token, OCAIS_JWKS, { issuer: OCAIS_ISSUER });
+    return decoded.payload;
+  } catch {
+    try {
+      const decoded = await jose.jwtVerify(token, OCAIS_JWKS);
+      return decoded.payload;
+    } catch {
+      return null;
+    }
+  }
+}
 
 async function verifyCognitoToken(token: string): Promise<any | null> {
   try {
-    const decoded = await jose.jwtVerify(token, JWKS, { issuer: COGNITO_ISSUER });
+    const decoded = await jose.jwtVerify(token, COGNITO_JWKS, { issuer: COGNITO_ISSUER });
     return decoded.payload;
   } catch (e) {
     return null;
   }
 }
 
-/** Extract plan from Cognito opita_id_token cookie, fallback to DynamoDB */
+/** Extrae el plan del usuario: OCAIS JWT (cookie __opita_session o Bearer) → DDB */
 async function resolvePlan(event: any, email: string): Promise<string> {
-  // 1. Try Cognito ID token (source of truth)
+  // 1. OCAIS session token (source of truth) — claim role/plan del JWT RS256
   const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
+  const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const ocaisMatch = cookieHeader.match(/__opita_session=([^;]+)/);
+  const ocaisToken = bearerToken || ocaisMatch?.[1] || null;
+  if (ocaisToken) {
+    const claims = await verifyOcaisToken(ocaisToken);
+    if (claims) {
+      const plan = claims.plan || claims.role || null;
+      if (plan) return plan;
+    }
+  }
+
+  // 2. Fallback legacy: Cognito ID token
   const idMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
   if (idMatch) {
     const claims = await verifyCognitoToken(idMatch[1]);
@@ -35,7 +73,7 @@ async function resolvePlan(event: any, email: string): Promise<string> {
     }
   }
 
-  // 2. Fallback: DynamoDB Users table
+  // 3. Fallback: DynamoDB Users table (tabla compartida con opita-account)
   const userDb = await docClient.send(new GetCommand({
     TableName: process.env.USERS_TABLE_NAME || "",
     Key: { email }
@@ -59,21 +97,31 @@ const docClient = DynamoDBDocumentClient.from(ddbClient);
 /**
  * Extract authenticated email from the request.
  * Checks in order:
- * 1. Authorization: Bearer <token> header (Cognito JWT — JWKS verified)
- * 2. opita_id_token cookie (Cognito — JWKS verified)
+ * 1. Authorization: Bearer <token> header (OCAIS RS256 JWT — JWKS verified)
+ * 2. __opita_session cookie (OCAIS — JWKS verified)
+ * 3. opita_id_token cookie (legacy Cognito — compat 30 días)
  */
 async function extractAuthEmail(event: any): Promise<string | null> {
-  // 1. Bearer token from Authorization header (Cognito JWT)
   const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
+
+  // 1. Bearer token (OCAIS JWT; fallback legacy Cognito)
   if (bearerToken) {
-    const claims = await verifyCognitoToken(bearerToken);
+    const claims = await verifyOcaisToken(bearerToken);
+    if (claims?.email || claims?.sub) return (claims.email || claims.sub) as string;
+    const cognitoClaims = await verifyCognitoToken(bearerToken);
+    if (cognitoClaims?.email || cognitoClaims?.sub) return (cognitoClaims.email || cognitoClaims.sub) as string;
+  }
+
+  // 2. OCAIS session cookie (HttpOnly — la lee el backend)
+  const ocaisMatch = cookieHeader.match(/__opita_session=([^;]+)/);
+  if (ocaisMatch) {
+    const claims = await verifyOcaisToken(ocaisMatch[1]);
     if (claims?.email || claims?.sub) return (claims.email || claims.sub) as string;
   }
 
-  const cookieHeader = event.headers?.cookie || event.headers?.Cookie || "";
-
-  // 2. Cognito ID token cookie
+  // 3. Legacy: Cognito ID token cookie
   const cognitoMatch = cookieHeader.match(/opita_id_token=([^;]+)/);
   if (cognitoMatch) {
     const claims = await verifyCognitoToken(cognitoMatch[1]);

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { UserProfile, Session, TokenUsage, UserPlan } from "@/lib/types";
 import { CORE_API_URL } from "@/lib/api-config";
+import { isSessionPlaceholder } from "@/lib/auth-fetch";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -122,7 +123,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const response = await fetch(API_URL + "/usage", {
         credentials: "include",
         headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(!isSessionPlaceholder(token) ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
       if (response.ok) {

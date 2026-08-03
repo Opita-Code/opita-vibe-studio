@@ -5,6 +5,7 @@ import type {
   MilestoneProgress,
 } from "@/lib/types";
 import { startMissionTracker, stopMissionTracker, resetMissionProgress } from "@/lib/mission-tracker";
+import { isSessionPlaceholder } from "@/lib/auth-fetch";
 import {
   calculateLevel,
   levelProgress,
@@ -77,7 +78,7 @@ async function gamificationFetch(
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(!isSessionPlaceholder(token) ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });

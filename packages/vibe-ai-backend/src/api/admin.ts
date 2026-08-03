@@ -394,26 +394,51 @@ function getAdminTools(ctx: AdminContext) {
 
 // ─── JWT Verification (shared with chat.ts) ─────────────────────
 
+// OCAIS es el IdP actual: RS256 JWT contra api.opitacode.com/.well-known/jwks.json
+const OCAIS_ISSUER = "opita-account-ui";
+const OCAIS_JWKS_URL = process.env.OCAIS_JWKS_URL || "https://api.opitacode.com/.well-known/jwks.json";
+const OCAIS_JWKS = jose.createRemoteJWKSet(new URL(OCAIS_JWKS_URL));
+
 const COGNITO_ISSUER = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_LItAcj2Aa";
-const JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
+const COGNITO_JWKS = jose.createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`));
 
 async function verifyToken(token: string): Promise<{ email: string; plan: string } | null> {
   try {
-    const decoded = await jose.jwtVerify(token, JWKS, { issuer: COGNITO_ISSUER });
+    // 1. OCAIS JWKS (sistema de sesión actual)
+    const decoded = await jose.jwtVerify(token, OCAIS_JWKS, { issuer: OCAIS_ISSUER });
     return {
       email: (decoded.payload.email || decoded.payload.sub || "") as string,
-      plan: (decoded.payload["custom:plan"] as string) || "free",
+      plan: (decoded.payload.plan || decoded.payload.role || "free") as string,
     };
   } catch {
     try {
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET || "");
-      const decoded = await jose.jwtVerify(token, secret);
+      // 1b. OCAIS firma válida sin issuer (rotación)
+      const decoded = await jose.jwtVerify(token, OCAIS_JWKS);
       return {
-        email: (decoded.payload.sub || decoded.payload.email || "") as string,
-        plan: (decoded.payload.plan || "free") as string,
+        email: (decoded.payload.email || decoded.payload.sub || "") as string,
+        plan: (decoded.payload.plan || decoded.payload.role || "free") as string,
       };
     } catch {
-      return null;
+      // 2. Cognito legacy
+      try {
+        const decoded = await jose.jwtVerify(token, COGNITO_JWKS, { issuer: COGNITO_ISSUER });
+        return {
+          email: (decoded.payload.email || decoded.payload.sub || "") as string,
+          plan: (decoded.payload["custom:plan"] as string) || "free",
+        };
+      } catch {
+        // 3. Legacy HMAC
+        try {
+          const secret = new TextEncoder().encode(process.env.JWT_SECRET || "");
+          const decoded = await jose.jwtVerify(token, secret);
+          return {
+            email: (decoded.payload.sub || decoded.payload.email || "") as string,
+            plan: (decoded.payload.plan || "free") as string,
+          };
+        } catch {
+          return null;
+        }
+      }
     }
   }
 }
@@ -454,13 +479,17 @@ export const handler = awslambda.streamifyResponse(
     // ── Auth ──
     const authHeader = event.headers?.authorization || event.headers?.Authorization || "";
     let token = authHeader.split(" ")[1];
+    const cookies = event.headers?.cookie || event.headers?.Cookie || "";
     if (!token) {
-      const cookies = event.headers?.cookie || event.headers?.Cookie || "";
+      // OCAIS session cookie (sistema actual)
+      const match = cookies.match(/__opita_session=([^;]+)/);
+      if (match) token = match[1];
+    }
+    if (!token) {
       const match = cookies.match(/opita_session=([^;]+)/);
       if (match) token = match[1];
     }
     if (!token) {
-      const cookies = event.headers?.cookie || event.headers?.Cookie || "";
       const match = cookies.match(/opita_id_token=([^;]+)/);
       if (match) token = match[1];
     }
