@@ -5,14 +5,15 @@ import { useAuthStore } from "@/stores/auth";
 import { ByokPanel } from "@/components/settings/ByokPanel";
 import { PrivacyPanel } from "@/components/settings/PrivacyPanel";
 import { SubagentPanel } from "@/components/settings/SubagentPanel";
+import { CustomToolsPanel } from "@/components/settings/CustomToolsPanel";
 import { PlanCard } from "@/components/usage/PlanCard";
 import { TokenBar } from "@/components/usage/TokenBar";
 import { ContextPanel } from "@/components/settings/ContextPanel";
 import { motion, AnimatePresence } from "framer-motion";
-import { Blocks, Palette, CreditCard, Bot, ShieldCheck, X } from "lucide-react";
+import { Blocks, Palette, CreditCard, Bot, ShieldCheck, Wrench, X } from "lucide-react";
 import { canAccess } from "@/lib/plan-registry";
 
-type SettingsCategory = "conexiones" | "apariencia" | "uso" | "agentes" | "privacidad";
+type SettingsCategory = "conexiones" | "apariencia" | "uso" | "agentes" | "privacidad" | "herramientas";
 
 export function SettingsPanel() {
   const settingsVisible = useUIStore((s) => s.settingsVisible);
@@ -80,6 +81,7 @@ export function SettingsPanel() {
   const categories = [
     { id: "conexiones", label: "Conexiones IA", icon: Blocks },
     { id: "apariencia", label: "Apariencia", icon: Palette },
+    { id: "herramientas", label: "Herramientas", icon: Wrench },
     { id: "uso", label: "Suscripción y Uso", icon: CreditCard },
     ...(canAccess(plan, "sdd") ? [{ id: "agentes", label: "Agentes SDD", icon: Bot }] : []),
     ...(isAuthenticated ? [{ id: "privacidad", label: "Privacidad", icon: ShieldCheck }] : []),
@@ -218,6 +220,16 @@ export function SettingsPanel() {
                         </div>
                         <SubagentPanel />
                         <ContextPanel />
+                      </div>
+                    )}
+
+                    {activeTab === "herramientas" && (
+                      <div className="space-y-8">
+                        <div>
+                          <h3 className="text-lg font-semibold text-slate-200 mb-1">Herramientas</h3>
+                          <p className="text-sm text-slate-400 mb-6">Define herramientas personalizadas que el agente puede invocar al generar código.</p>
+                        </div>
+                        <CustomToolsPanel />
                       </div>
                     )}
 
