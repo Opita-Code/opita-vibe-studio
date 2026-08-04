@@ -49,6 +49,8 @@ export interface BuildAgentConfig {
   persona?: PersonaId;
   /** Custom persona prompt */
   customPersonaPrompt?: string;
+  /** Memories recuperadas de dark-memory (markdown ya formateado) */
+  memoryContext?: string;
 }
 
 // ─── Agent ─────────────────────────────────────────────────────
@@ -77,6 +79,7 @@ export async function* runBuildAgent(
     projectSummary: config.projectSummary,
     persona: config.persona,
     customPersonaPrompt: config.customPersonaPrompt,
+    memoryContext: config.memoryContext,
   });
 
   // Delivery strategy addon (build-specific, not in the composer)

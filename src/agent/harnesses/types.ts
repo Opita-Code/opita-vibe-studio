@@ -202,6 +202,17 @@ export interface HarnessContext {
   /** How skills were resolved */
   skillResolution: SkillResolution;
 
+  // ─── Memory (dark-memory bridge) ──────────────────────────
+  /** Memories recuperadas de dark-memory (BM25 recall) antes de ejecutar. */
+  retrievedMemories: Array<{
+    id: number;
+    kind: string;
+    title: string;
+    content: string;
+    tags: string;
+    rank: number;
+  }>;
+
   // ─── Security ──────────────────────────────────────────────
   /** Pending permission checks */
   permissionChecks: PermissionCheck[];
@@ -319,6 +330,7 @@ export function createDefaultContext(
     shouldDelegate: false,
     resolvedSkills: [],
     skillResolution: "none",
+    retrievedMemories: [],
     permissionChecks: [],
     blocked: false,
     harnessTrace: [],

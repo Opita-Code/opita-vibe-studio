@@ -20,6 +20,7 @@ import { runExploreAgent, type ExploreAgentConfig } from "./explore-agent";
 import { runBuildAgent, type BuildAgentConfig } from "./build-agent";
 import { getProjectSummary } from "@/tools/executor";
 import { selectModel } from "./model-router";
+import { buildMemoryContextBlock } from "@/lib/dark-memory";
 
 // ─── Config ────────────────────────────────────────────────────
 
@@ -117,6 +118,17 @@ export async function* handleMessage(
     ? getProjectSummary() ?? undefined
     : undefined;
 
+  // 4b. Dark-memory context: recuperar memories relevantes (RAG ligero)
+  // para que Aura no contradiga decisiones previas. Degradación
+  // elegante: si dark-memory no está disponible → "".
+  let memoryContext: string | undefined;
+  try {
+    const block = await buildMemoryContextBlock(userText);
+    if (block) memoryContext = block;
+  } catch (err: unknown) {
+    console.warn("[orchestrator] dark-memory context falló:", err);
+  }
+
   // 5. Route to appropriate agent
   switch (intent) {
     case "chat":
@@ -130,6 +142,7 @@ export async function* handleMessage(
         projectSummary,
         persona: config.persona,
         customPersonaPrompt: config.customPersonaPrompt,
+        memoryContext,
       } satisfies ChatAgentConfig);
       break;
 
@@ -143,6 +156,7 @@ export async function* handleMessage(
         projectSummary,
         persona: config.persona,
         customPersonaPrompt: config.customPersonaPrompt,
+        memoryContext,
       } satisfies ExploreAgentConfig);
       break;
 
@@ -175,6 +189,7 @@ export async function* handleMessage(
         executionMode: config.executionMode,
         useTDD,
         deliveryStrategy: delivery,
+        memoryContext,
       } satisfies BuildAgentConfig);
       break;
     }

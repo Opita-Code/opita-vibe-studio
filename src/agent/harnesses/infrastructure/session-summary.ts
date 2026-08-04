@@ -1,16 +1,29 @@
 /**
  * Session Summary / Compaction Recovery Harness.
  *
- * Generates and saves an operational summary during memory
- * compaction processes, ensuring the next session starts
- * with correct context.
+ * Persiste el estado operacional de la sesión en dark-memory
+ * (agent_memory, kind=context, tag=session-summary). La recuperación
+ * post-compaction se hace consultando dark-memory en lugar de
+ * parsear markdown con regex.
  *
- * In Vibe Studio context, "compaction" means the chat history
- * is too long and the oldest messages get trimmed. This harness
- * ensures critical state is preserved.
+ * En Vibe Studio, "compaction" = el historial del chat se trunca.
+ * Este harness asegura que el estado crítico sobreviva en dark-memory.
+ *
+ * Sin bridge, degrada al summary markdown (compatibilidad).
  */
 
 import type { Harness, HarnessContext, HarnessResult } from "../types";
+import type { DarkMemoryBridge } from "@opita/dark-memory-bridge";
+
+let bridge: DarkMemoryBridge | null = null;
+
+/** Inyecta el bridge (se llama una vez al arrancar el app). */
+export function setSessionBridge(b: DarkMemoryBridge | null): void {
+  bridge = b;
+}
+
+/** Clave de memoria para el summary de sesión. */
+export const SESSION_SUMMARY_TITLE = "session-summary";
 
 export const sessionSummaryHarness: Harness = {
   id: "session-summary",
@@ -22,18 +35,69 @@ export const sessionSummaryHarness: Harness = {
     return true;
   },
 
-  execute(_ctx: Readonly<HarnessContext>): HarnessResult {
-    return {
-      block: false,
-      contextUpdates: {},
-      summary: "Session state tracked for potential recovery",
-    };
+  async execute(ctx: Readonly<HarnessContext>): Promise<HarnessResult> {
+    if (!bridge) {
+      return {
+        block: false,
+        contextUpdates: {},
+        summary: "Session state tracked for potential recovery (sin bridge)",
+      };
+    }
+
+    const summary = generateSessionSummary(ctx);
+    const phase = ctx.currentPhase ?? "session";
+
+    try {
+      await bridge.save({
+        kind: "context",
+        title: `${SESSION_SUMMARY_TITLE}/${phase}`,
+        content: summary,
+        tags: `session-summary,${phase}`,
+        memory_type: "episodic",
+      });
+      return {
+        block: false,
+        contextUpdates: {},
+        summary: `Session state persisted in dark-memory (fase ${phase})`,
+      };
+    } catch (err: unknown) {
+      console.warn("[session-summary] persist falló:", err);
+      return {
+        block: false,
+        contextUpdates: {},
+        summary: "Session state not persisted (dark-memory no disponible)",
+      };
+    }
   },
 };
 
 /**
- * Generates a session summary from the current context.
- * Used when saving state for recovery after compaction.
+ * Recupera el último session summary de dark-memory.
+ * Reemplaza a extractRecoveryState() (regex sobre markdown).
+ * Devuelve null si no hay bridge o no existe.
+ */
+export async function loadRecoveryState(
+  bridgeInstance: DarkMemoryBridge | null = bridge,
+): Promise<HarnessContext["retrievedMemories"][number] | null> {
+  if (!bridgeInstance) return null;
+  try {
+    const hits = await bridgeInstance.recall({
+      query: "session-summary",
+      operator: bridgeInstance.operator,
+      kind: "context",
+      limit: 1,
+    });
+    return hits.length > 0 ? hits[0] : null;
+  } catch (err: unknown) {
+    console.warn("[session-summary] loadRecoveryState falló:", err);
+    return null;
+  }
+}
+
+/**
+ * Genera un session summary del contexto actual.
+ * Mantiene el formato markdown (legible por humanos), pero la
+ * persistencia/recuperación real ya no depende de parsearlo.
  */
 export function generateSessionSummary(ctx: Readonly<HarnessContext>): string {
   const lines: string[] = [
@@ -70,8 +134,11 @@ export function generateSessionSummary(ctx: Readonly<HarnessContext>): string {
 }
 
 /**
- * Extracts minimal recovery state from a session summary.
- * Used to bootstrap a new session from a compacted summary.
+ * Extrae estado de recuperación de un summary markdown.
+ *
+ * @deprecated — el camino canónico es loadRecoveryState() contra
+ * dark-memory. Se mantiene para compatibilidad con tests/consumidores
+ * existentes; los nuevos consumidores deben usar dark-memory.
  */
 export function extractRecoveryState(summary: string): {
   completedPhases: string[];

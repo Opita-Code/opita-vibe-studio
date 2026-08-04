@@ -1,22 +1,30 @@
 /**
- * Engram Memory Harness — Cross-session persistence.
+ * Engram Memory Harness — Cross-session persistence via dark-memory.
  *
- * The nucleus of persistence. Ensures the agent maintains memory
- * between sessions and across agents, preventing rediscovery of
- * past decisions.
+ * El núcleo de persistencia del harness Aura. Antes era solo un
+ * generador de planes (retrieval plan sin fetch). Ahora ejecuta
+ * recall real contra dark-memory (BM25) y deja las memorias
+ * recuperadas en HarnessContext.retrievedMemories para que el
+ * prompt composer las inyecte.
  *
- * Responsibilities:
- * 1. Load relevant context from Engram at session start
- * 2. Ensure phase artifacts are persisted after execution
- * 3. Recover state after compaction
+ * El bridge se inyecta con setEngramBridge(). Sin bridge, el harness
+ * degrada al comportamiento anterior (solo plan) — el pipeline no
+ * se bloquea.
  *
- * NOTE: This harness manages the POLICY of when to persist.
- * The actual Engram calls happen in the sub-agents that have
- * access to the MCP tools. This harness just sets flags and
- * artifact references in the context.
+ * NOTE: Este harness gestiona la POLÍTICA de persistencia. La
+ * persistencia real por fase la ejecuta dark-memory-persist
+ * (post-execute) o los sub-agentes con acceso a las tools MCP.
  */
 
-import type { Harness, HarnessContext, HarnessResult, ArtifactStoreMode } from "../types";
+import type { Harness, HarnessContext, HarnessResult } from "../types";
+import type { DarkMemoryBridge } from "@opita/dark-memory-bridge";
+
+let bridge: DarkMemoryBridge | null = null;
+
+/** Inyecta el bridge (se llama una vez al arrancar el app). */
+export function setEngramBridge(b: DarkMemoryBridge | null): void {
+  bridge = b;
+}
 
 export const engramMemoryHarness: Harness = {
   id: "engram-memory",
@@ -29,23 +37,81 @@ export const engramMemoryHarness: Harness = {
     return ctx.artifactStore === "engram" || ctx.artifactStore === "hybrid";
   },
 
-  execute(ctx: Readonly<HarnessContext>): HarnessResult {
+  async execute(ctx: Readonly<HarnessContext>): Promise<HarnessResult> {
     // Build the list of artifacts to retrieve based on current phase
     const retrievalPlan = buildRetrievalPlan(ctx);
 
+    if (!bridge) {
+      return {
+        block: false,
+        contextUpdates: {},
+        summary: retrievalPlan.length > 0
+          ? `Engram retrieval plan (sin bridge): [${retrievalPlan.join(", ")}]`
+          : "Engram: no artifacts to retrieve",
+      };
+    }
+
+    // Ejecución real: recall por cada topic key del plan.
+    const retrieved = await recallFromPlan(retrievalPlan);
+
     return {
       block: false,
-      contextUpdates: {},
-      summary: retrievalPlan.length > 0
-        ? `Engram retrieval plan: [${retrievalPlan.join(", ")}]`
-        : "Engram: no artifacts to retrieve",
+      contextUpdates: {
+        retrievedMemories: [...ctx.retrievedMemories, ...retrieved],
+      },
+      summary: retrieved.length > 0
+        ? `Engram: ${retrieved.length} memories recuperadas de dark-memory`
+        : "Engram: sin memories relevantes",
     };
   },
 };
 
 /**
- * Determines which Engram topic keys to retrieve for the current phase.
- * Returns topic keys in the format "sdd/{change-name}/{artifact-type}".
+ * Ejecuta agent_memory_recall por cada topic key del plan.
+ * Devuelve las memorias con su rank BM25.
+ */
+async function recallFromPlan(
+  plan: string[],
+): Promise<HarnessContext["retrievedMemories"]> {
+  if (!bridge || plan.length === 0) return [];
+
+  const results: HarnessContext["retrievedMemories"] = [];
+
+  for (const topicKey of plan) {
+    try {
+      const hits = await bridge.recall({
+        query: topicKey,
+        operator: bridge.operator,
+        limit: 3,
+      });
+      for (const hit of hits) {
+        results.push({
+          id: hit.id,
+          kind: hit.kind,
+          title: hit.title,
+          content: hit.content,
+          tags: hit.tags,
+          rank: hit.rank,
+        });
+      }
+    } catch (err: unknown) {
+      console.warn(`[engram] recall falló para "${topicKey}":`, err);
+    }
+  }
+
+  // Dedup por id, mantener rank más alto.
+  const byId = new Map<number, HarnessContext["retrievedMemories"][number]>();
+  for (const r of results) {
+    const existing = byId.get(r.id);
+    if (!existing || r.rank > existing.rank) byId.set(r.id, r);
+  }
+
+  return [...byId.values()].sort((a, b) => b.rank - a.rank).slice(0, 10);
+}
+
+/**
+ * Determina qué topic keys recuperar para la fase actual.
+ * Formato: "sdd/{change-name}/{artifact-type}".
  */
 export function buildRetrievalPlan(ctx: Readonly<HarnessContext>): string[] {
   if (!ctx.currentPhase) return [];
@@ -79,8 +145,8 @@ export function buildRetrievalPlan(ctx: Readonly<HarnessContext>): string[] {
 }
 
 /**
- * Determines which artifact to persist after phase execution.
- * Returns the topic key suffix.
+ * Determina qué artifact persistir tras ejecutar la fase.
+ * Devuelve el sufijo del topic key.
  */
 export function getPersistenceTarget(
   phase: HarnessContext["currentPhase"],
@@ -102,13 +168,13 @@ export function getPersistenceTarget(
 }
 
 /**
- * Generates the Engram persistence instructions for a sub-agent prompt.
- * The sub-agent uses these to know HOW to persist its output.
+ * Genera las instrucciones de persistencia para un sub-agente.
+ * Ahora usa las tools reales de dark-memory.
  */
 export function generatePersistenceInstructions(
   changeName: string,
   phase: HarnessContext["currentPhase"],
-  mode: ArtifactStoreMode,
+  mode: HarnessContext["artifactStore"],
 ): string {
   if (mode === "none" || !phase) return "";
 
@@ -121,15 +187,13 @@ export function generatePersistenceInstructions(
     return [
       `PERSISTENCE (MANDATORY — do NOT skip):`,
       `After completing your work, you MUST call:`,
-      `  mem_save(`,
+      `  dark_memory_agent_memory_save(`,
       `    title: "${topicKey}",`,
-      `    topic_key: "${topicKey}",`,
-      `    type: "architecture",`,
-      `    project: "{project}",`,
-      `    capture_prompt: false,`,
+      `    kind: "finding",`,
+      `    tags: "sdd,${changeName},${target}",`,
       `    content: "{your full artifact markdown}"`,
       `  )`,
-      `If you return without calling mem_save, the next phase CANNOT find your artifact.`,
+      `If you return without calling dark_memory_agent_memory_save, the next phase CANNOT find your artifact.`,
     ].join("\n");
   }
 

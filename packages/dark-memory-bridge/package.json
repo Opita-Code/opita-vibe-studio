@@ -1,0 +1,22 @@
+{
+  "name": "@opita/dark-memory-bridge",
+  "version": "0.1.0",
+  "description": "Bridge TypeScript que expone dark-memory (MCP) como backend de memoria/RAG para el harness Aura de Vibe Studio.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@tauri-apps/api": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@tauri-apps/api": {
+      "optional": true
+    }
+  }
+}

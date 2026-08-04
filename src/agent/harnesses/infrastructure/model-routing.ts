@@ -103,6 +103,7 @@ function inferProvider(modelId?: string): string {
   if (modelId.startsWith("gpt-") || modelId.startsWith("o1") || modelId.startsWith("o3")) return "openai";
   if (modelId.startsWith("gemini")) return "gemini";
   if (modelId.startsWith("deepseek")) return "deepseek";
+  if (modelId.startsWith("MiniMax")) return "minimax";
   if (modelId.includes("/")) return "openrouter";
   return "deepseek";
 }

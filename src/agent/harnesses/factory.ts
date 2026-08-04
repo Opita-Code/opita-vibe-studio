@@ -45,6 +45,8 @@ import { componentDependencyHarness } from "./infrastructure/component-dependenc
 import { commandWrapperHarness } from "./infrastructure/command-wrapper";
 import { perAgentAdapterHarness } from "./infrastructure/per-agent-adapter";
 import { sessionSummaryHarness } from "./infrastructure/session-summary";
+import { darkMemoryContextHarness } from "./infrastructure/dark-memory-context";
+import { darkMemoryPersistHarness } from "./infrastructure/dark-memory-persist";
 
 /**
  * Creates a fully configured HarnessEngine with all harnesses registered.
@@ -70,6 +72,7 @@ export function createHarnessEngine(): HarnessEngine {
     // ─── Pre-execute: guards and setup ───────────────────────
     phaseDagHarness,                // priority: 10
     artifactDependencyHarness,      // priority: 15
+    darkMemoryContextHarness,       // priority: 15 (misma fase, antes de engram)
     engramMemoryHarness,            // priority: 20
     skillRegistryHarness,           // priority: 30
     modelRoutingHarness,            // priority: 40
@@ -87,6 +90,7 @@ export function createHarnessEngine(): HarnessEngine {
     verifyHarness,                  // priority: 20
     skillResolutionHarness,         // priority: 50
     rollbackHarness,                // priority: 80
+    darkMemoryPersistHarness,       // priority: 85
     resultContractHarness,          // priority: 90
     sessionSummaryHarness,          // priority: 95
 

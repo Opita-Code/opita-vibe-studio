@@ -25,6 +25,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@opita/memory-sdk": path.resolve(__dirname, "./packages/memory-sdk/src/index.ts"),
+      "@opita/dark-memory-bridge": path.resolve(__dirname, "./packages/dark-memory-bridge/src/index.ts"),
     },
   },
 

@@ -31,6 +31,8 @@ export interface ChatAgentConfig {
   persona?: PersonaId;
   /** Custom persona prompt */
   customPersonaPrompt?: string;
+  /** Memories recuperadas de dark-memory (markdown ya formateado) */
+  memoryContext?: string;
 }
 
 // ─── Agent ─────────────────────────────────────────────────────
@@ -54,6 +56,7 @@ export async function* runChatAgent(
     projectSummary: config.projectSummary,
     persona: config.persona,
     customPersonaPrompt: config.customPersonaPrompt,
+    memoryContext: config.memoryContext,
   });
 
   // Prepend system message

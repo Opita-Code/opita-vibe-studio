@@ -14,6 +14,14 @@
  */
 
 import type { Harness, HarnessContext, HarnessResult, SkillEntry } from "../types";
+import type { DarkMemoryBridge } from "@opita/dark-memory-bridge";
+
+let bridge: DarkMemoryBridge | null = null;
+
+/** Inyecta el bridge (se llama una vez al arrancar el app). */
+export function setSkillBridge(b: DarkMemoryBridge | null): void {
+  bridge = b;
+}
 
 /** Built-in skills that are always available */
 const BUILTIN_SKILLS: SkillEntry[] = [
@@ -81,8 +89,10 @@ export const skillRegistryHarness: Harness = {
     return ctx.intent === "code" || ctx.intent === "explore";
   },
 
-  execute(ctx: Readonly<HarnessContext>): HarnessResult {
-    const skills = resolveSkills(ctx.userText, ctx.project.stack);
+  async execute(ctx: Readonly<HarnessContext>): Promise<HarnessResult> {
+    // Skills dinámicas primero (dark-memory), built-in como fallback.
+    const dynamic = bridge ? await loadDynamicSkills(bridge) : [];
+    const skills = resolveSkills(ctx.userText, ctx.project.stack, dynamic);
 
     return {
       block: false,
@@ -98,17 +108,87 @@ export const skillRegistryHarness: Harness = {
 };
 
 /**
- * Resolves which skills match the current task.
- * Matches on user text AND detected stack.
+ * Carga skills dinámicas desde dark-memory (kind=context, tag=skill).
+ * Devuelve SkillEntry[] parseadas desde las memories.
+ */
+async function loadDynamicSkills(b: DarkMemoryBridge): Promise<SkillEntry[]> {
+  try {
+    const rows = await b.list({ kind: "context", tag: "skill", limit: 50 });
+    const skills: SkillEntry[] = [];
+
+    for (const row of rows) {
+      try {
+        // El content de una memory skill se serializa como JSON:
+        // { triggers: string[], compactRules: string }
+        const parsed = JSON.parse(row.content) as { triggers?: string[]; compactRules?: string };
+        if (!parsed.compactRules) continue;
+        skills.push({
+          id: row.title || `skill-${row.id}`,
+          name: row.title || `Skill ${row.id}`,
+          triggers: parsed.triggers ?? [],
+          compactRules: parsed.compactRules,
+        });
+      } catch {
+        // Si no es JSON válido, tratar el content como compactRules plano.
+        skills.push({
+          id: row.title || `skill-${row.id}`,
+          name: row.title || `Skill ${row.id}`,
+          triggers: (row.tags ?? "").split(",").map((t) => t.trim()).filter(Boolean),
+          compactRules: row.content,
+        });
+      }
+    }
+
+    return skills;
+  } catch (err: unknown) {
+    console.warn("[skill-registry] loadDynamicSkills falló:", err);
+    return [];
+  }
+}
+
+/**
+ * Aprende una skill nueva guardándola en dark-memory.
+ * Los triggers se derivan del id + tags; las reglas compactas del content.
+ */
+export async function learnSkill(
+  b: DarkMemoryBridge | null,
+  skill: SkillEntry,
+): Promise<boolean> {
+  if (!b) return false;
+  try {
+    await b.save({
+      kind: "context",
+      title: skill.id,
+      content: JSON.stringify({
+        triggers: skill.triggers,
+        compactRules: skill.compactRules,
+      }),
+      tags: `skill,${skill.id}`,
+      memory_type: "procedural",
+    });
+    return true;
+  } catch (err: unknown) {
+    console.warn("[skill-registry] learnSkill falló:", err);
+    return false;
+  }
+}
+
+/**
+ * Resuelve qué skills matchean la tarea actual.
+ * Matches sobre userText + stack detectado, contra skills dinámicas
+ * y built-in (fallback).
  */
 export function resolveSkills(
   userText: string,
   stack: string[],
+  dynamic: SkillEntry[] = [],
 ): SkillEntry[] {
   const lower = userText.toLowerCase();
   const matched: SkillEntry[] = [];
 
-  for (const skill of BUILTIN_SKILLS) {
+  const candidates = [...BUILTIN_SKILLS, ...dynamic];
+
+  for (const skill of candidates) {
     const textMatch = skill.triggers.some((t) => lower.includes(t.toLowerCase()));
     const stackMatch = skill.triggers.some((t) =>
       stack.some((s) => s.toLowerCase().includes(t.toLowerCase().replace(".", "")))

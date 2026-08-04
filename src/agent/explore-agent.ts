@@ -46,6 +46,8 @@ export interface ExploreAgentConfig {
   persona?: PersonaId;
   /** Custom persona prompt */
   customPersonaPrompt?: string;
+  /** Memories recuperadas de dark-memory (markdown ya formateado) */
+  memoryContext?: string;
 }
 
 // ─── Agent ─────────────────────────────────────────────────────
@@ -73,6 +75,7 @@ export async function* runExploreAgent(
     projectSummary: config.projectSummary,
     persona: config.persona,
     customPersonaPrompt: config.customPersonaPrompt,
+    memoryContext: config.memoryContext,
   });
 
   // Research-specific addon (explore-agent only)
