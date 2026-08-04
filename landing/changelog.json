@@ -1,5 +1,38 @@
 [
   {
+    "version": "1.0.0",
+    "date": "2026-08-04",
+    "title": "Desktop reescrito: Tauri → Wails v3 + Go + dark-memory contra 12 MB",
+    "components": [
+      {
+        "name": "Desktop",
+        "tag": "desktop/v1.0.0"
+      }
+    ],
+    "highlights": [
+      "Reescritura desde cero: Tauri/Rust eliminado, Wails v3 + Go con 90% del frontend React porteado",
+      "Sidecar dark-memory nativo vía stdio JSON-RPC (memoria, sesiones, agent_memory, recall BM25)",
+      "Cifrado DPAPI de API keys en Windows — blobs atados al usuario, imposibles de copiar a otra PC",
+      "Agente ReAct completo con 6 tools + catálogo 17 modelos + SSE streaming con ThinkParser",
+      "Binario single-file 12 MB, sin runtime externo, sin Node.js"
+    ],
+    "details": {
+      "Desktop": [
+        "✨ rewrite completo: arquitectura Wails v3 + Go + React, Tauri/Rust eliminado",
+        "✨ sidecar dark-memory v2.10.0-alpha via stdio JSON-RPC (boot marker, reconnection, 45 tools)",
+        "✨ DPAPI at-rest encryption — API keys nunca tocan disco en plaintext (CryptProtectData user-scoped, marcador 'encrypted')",
+        "✨ transporte WebSocket loopback 127.0.0.1:39281 (coder/websocket, env-gated, fallback in-memory)",
+        "✨ agente ReAct multi-turn: file_read, file_write, file_grep, bash_exec, dark_memory_recall, dark_memory_save",
+        "✨ catálogo 17 modelos: deepseek-v4-flash/pro, gemini-2.5-flash/pro, MiniMax-M3/M2.5/highspeed + 10 BYOK",
+        "✨ SSE streaming con ThinkParser — reasoning models muestran el pensar colapsado",
+        "✨ system tray, global hotkey CmdOrCtrl+Shift+V, single-instance, kill-tree platform-aware",
+        "✨ workspace watcher fsnotify (debounce 1s, ignora .git/node_modules/dist)",
+        "✨ build system: 12 MB prod binary (-w -s -H windowsgui), CI matrix win/ubuntu/macos, smoke test",
+        "📝 28 tests Go + 7 tests vitest ThinkParser + livecheck end-to-end providers reales"
+      ]
+    }
+  },
+  {
     "version": "0.5.1",
     "date": "2026-05-23",
     "title": "Agregar productos al whitelist de ingesta",

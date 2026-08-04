@@ -84,7 +84,7 @@ function classifyByScope(commits) {
       component = "Backend";
     } else if (["landing", "seo"].includes(s)) {
       component = "Landing";
-    } else if (["tauri", "desktop"].includes(s)) {
+    } else if (["tauri", "desktop", "wails"].includes(s)) {
       component = "Desktop";
     } else if (["ci", "build", "deps"].includes(s)) {
       // CI/build changes go to whatever component triggered the tag
