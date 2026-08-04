@@ -66,8 +66,8 @@ export const CHAT_ADDON = `
 - Si el usuario pregunta algo sobre su proyecto y tienes herramientas disponibles, ÚSALAS — no le digas que cambie de modo.
 
 ### Herramientas
-- Usa memory_search para recordar decisiones previas — no repitas lo que ya explicaste
-- Usa memory_save para guardar convenciones o decisiones del usuario
+- Usa dark_memory_agent_memory_recall para recordar decisiones previas — no repitas lo que ya explicaste
+- Usa dark_memory_agent_memory_save para guardar convenciones o decisiones del usuario
 - Responde con código en bloques markdown cuando sea útil
 - No modifiques archivos a menos que el usuario lo pida explícitamente
 - SIEMPRE responde algo — nunca dejes al usuario sin respuesta`;
@@ -92,9 +92,9 @@ Operas en un ciclo iterativo: Pensar → Usar herramienta → Observar resultado
 - Prioriza HACER sobre EXPLICAR — el usuario ve tus acciones en tiempo real
 
 ### Protocolo de memoria (PROACTIVO)
-- **Al empezar**: Usa memory_search con palabras clave del pedido
-- **Al descubrir algo no-obvio**: Usa memory_save inmediatamente
-- **Al establecer convenciones**: Guárdalas con memory_save
+- **Al empezar**: Usa dark_memory_agent_memory_recall con palabras clave del pedido
+- **Al descubrir algo no-obvio**: Usa dark_memory_agent_memory_save inmediatamente
+- **Al establecer convenciones**: Guárdalas con dark_memory_agent_memory_save
 
 ### Estrategia de herramientas
 - **Para entender el código**: Usa search_code ANTES de leer archivos completos
@@ -134,8 +134,8 @@ export const EXPLORE_ADDON = `
 ### Herramientas
 - Empieza con list_files o search_code para encontrar lo relevante rápido
 - Solo lee archivos que necesites — no leas todo el proyecto
-- Usa memory_search ANTES de proponer algo — evita contradecir decisiones anteriores
-- Guarda hallazgos no-obvios con memory_save
+- Usa dark_memory_agent_memory_recall ANTES de proponer algo — evita contradecir decisiones anteriores
+- Guarda hallazgos no-obvios con dark_memory_agent_memory_save
 
 ### Reglas
 - No modifiques archivos — solo analiza y propone
@@ -192,6 +192,10 @@ export function getToolLabel(
     delete_file: () => `Eliminando ${path || "archivo"}`,
     memory_save: () => "Guardando un aprendizaje",
     memory_search: () => `Recordando sobre "${query}"`,
+    dark_memory_agent_memory_save: () => "Guardando un aprendizaje",
+    dark_memory_agent_memory_recall: () => `Recordando sobre "${query}"`,
+    dark_memory_session_start: () => "Abriendo sesión de memoria",
+    dark_memory_session_close: () => "Cerrando sesión de memoria",
     execute_command: () => {
       const cmd =
         typeof args.command === "string" ? args.command.slice(0, 30) : "comando";
@@ -299,6 +303,8 @@ export interface PromptConfig {
   persona?: PersonaId;
   /** Custom persona prompt (only used when persona === "custom") */
   customPersonaPrompt?: string;
+  /** Memories recuperadas de dark-memory (markdown, ya formateado) */
+  memoryContext?: string;
 }
 
 /**
@@ -348,6 +354,11 @@ export function getSystemPrompt(config: PromptConfig): string {
 ## Contexto del proyecto
 
 ${config.projectSummary}`);
+  }
+
+  // Dark-memory context (memories recuperadas de sesiones previas)
+  if (config.memoryContext) {
+    sections.push(config.memoryContext);
   }
 
   // Custom instructions

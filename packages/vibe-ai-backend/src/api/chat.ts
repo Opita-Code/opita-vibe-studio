@@ -91,7 +91,6 @@ const TOKEN_QUOTAS: Record<string, { daily: number; hourly: number }> = {
 const MODEL_RPM_LIMITS: Record<string, Record<string, number>> = {
   free: {
     "gemini-2.5-flash": 6,
-    "deepseek-chat": 6,
     "deepseek-v4-flash": 6,
     "MiniMax-M3": 4,
     "MiniMax-M2.5-highspeed": 6,
@@ -100,18 +99,14 @@ const MODEL_RPM_LIMITS: Record<string, Record<string, number>> = {
   },
   estudiante: {
     "gemini-2.5-flash": 12,
-    "deepseek-chat": 12,
     "deepseek-v4-flash": 12,
     "deepseek-v4-pro": 8,
-    "deepseek-reasoner": 5,
     "*": 10,
   },
   pro: {
     "gemini-2.5-flash": 25,
-    "deepseek-chat": 25,
     "deepseek-v4-flash": 25,
     "deepseek-v4-pro": 15,
-    "deepseek-reasoner": 10,
     "*": 20,
   },
 };
@@ -884,12 +879,8 @@ export const handler = awslambda.streamifyResponse(
 
         let finalModelId = modelId;
         const hasTools = tools && Object.keys(tools).length > 0;
-        // Guard legacy: clientes viejos pueden enviar deepseek-reasoner (R1),
-        // que no soporta tool calling. Reemplazado por deepseek-v4-pro.
-        if (providerId === "deepseek" && finalModelId === "deepseek-reasoner" && hasTools) {
-          console.warn("[MODEL SWAP] deepseek-reasoner does not support tools. Swapping to deepseek-v4-pro.");
-          finalModelId = "deepseek-v4-pro";
-        }
+        // deepseek-reasoner fue abolido (AGENTS.md): los ids legacy ya no se
+        // aceptan; el catálogo es deepseek-v4-flash/pro únicamente.
 
         const result = streamText({
           model: getModel(providerId, activeKey, finalModelId),

@@ -140,9 +140,6 @@ npm run build               # tsc + vite build (producción)
 npm run preview             # vite preview
 npm test                    # vitest unit + integration
 npm run test:watch          # vitest watch
-npm run test:e2e            # playwright (chromium)
-npm run test:e2e:staging    # playwright contra dev.opitacode.com
-npm run test:e2e:prod       # playwright contra vibe.opitacode.com
 npm run typecheck           # tsc --noEmit
 npm run lint                # eslint .
 npm run format              # prettier --write .
@@ -151,6 +148,8 @@ npm run storybook           # storybook dev :6006
 npm run build-storybook     # storybook static build
 npm run tauri               # tauri CLI (dev / build / …)
 ```
+
+> **E2E / browser**: Playwright fue abolido (regla dura 2026-08-03). La validación E2E se hace con dark-copilot (browser MCP) + smoke harness.
 
 ## Deploy · Deployment
 

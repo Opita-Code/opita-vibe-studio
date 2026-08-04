@@ -105,7 +105,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
       isLoading: false,
     }),
 
-  logout: () =>
+  logout: () => {
+    // Cerrar sesión de dark-memory (fire-and-forget, degradación elegante).
+    void import("@/lib/dark-memory").then(({ closeDarkMemorySession }) =>
+      closeDarkMemorySession(),
+    );
     set({
       user: null,
       session: null,
@@ -114,7 +118,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
       tokenUsage: defaultTokenUsage,
       guestEmail: null,
       needsMigration: false,
-    }),
+    });
+  },
 
   fetchTokenUsage: async () => {
     try {
@@ -149,6 +154,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
         // Fetch token usage after successful session restoration
         const store = useAuthStore.getState();
         store.fetchTokenUsage();
+        // Init dark-memory bridge + sesión (post-login; degradación
+        // elegante si dark-memory no está disponible).
+        const { initDarkMemory, startDarkMemorySession } = await import("@/lib/dark-memory");
+        await initDarkMemory();
+        await startDarkMemorySession();
       }
     } catch {
       // No session or error — stay in guest mode (already default)

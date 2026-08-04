@@ -17,9 +17,10 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@opita/memory-sdk": ["./packages/memory-sdk/src/index.ts"]
+      "@opita/memory-sdk": ["./packages/memory-sdk/src/index.ts"],
+      "@opita/dark-memory-bridge": ["./packages/dark-memory-bridge/src/index.ts"]
     }
   },
-  "include": ["src", "./packages/memory-sdk/src"],
+  "include": ["src", "./packages/memory-sdk/src", "./packages/dark-memory-bridge/src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
