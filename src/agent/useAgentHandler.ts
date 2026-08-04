@@ -26,6 +26,69 @@ import { agentBus } from "@/stores/agent";
 import { vibeEvents } from "@/lib/vibe-events";
 import { pushNudge, clearNudges } from "@/agent/nudge-channel";
 import { shouldSendAsNudge } from "@/agent/nudge-guard";
+import { buildProjectContext } from "@/agent/context-loader";
+import type { FileNode } from "@/lib/types";
+
+// ─── Project context derivation (VL-3) ──────────────────────────
+
+interface DerivedProjectContext {
+  testRunner: string | null;
+  hasGit: boolean;
+  packageManager: "npm" | "pnpm" | "bun" | "yarn" | null;
+  rootFiles: string[];
+  stack: string[];
+}
+
+/**
+ * Deriva el contexto real del proyecto activo (workspace abierto).
+ * Reemplaza los hardcodes testRunner:null + hasGit:false que hacían
+ * que decideTDD() nunca se activara. Si no hay workspace, retorna
+ * el fallback actual (null/false).
+ */
+export function deriveProjectContext(): DerivedProjectContext {
+  const projectStore = useProjectStore.getState();
+  const workspace = projectStore.workspaces.find(
+    (w) => w.id === projectStore.activeWorkspaceId,
+  ) ?? projectStore.workspaces[0];
+
+  if (!workspace) {
+    return { testRunner: null, hasGit: false, packageManager: null, rootFiles: [], stack: [] };
+  }
+
+  // Extraer root files (nombres) del árbol de archivos.
+  const rootFiles: string[] = (workspace.files ?? [])
+    .map((f: FileNode) => f.name)
+    .filter(Boolean);
+
+  // Buscar package.json en los archivos del workspace.
+  let packageJson: { scripts?: Record<string, string>; dependencies?: Record<string, string>; devDependencies?: Record<string, string> } | undefined;
+  try {
+    const pkgPath = workspace.files?.find((f) => f.name === "package.json")?.path
+      ?? (rootFiles.includes("package.json") ? "package.json" : undefined);
+    if (pkgPath) {
+      const raw = projectStore.fileContents[pkgPath];
+      if (raw) {
+        packageJson = JSON.parse(raw);
+      }
+    }
+  } catch {
+    packageJson = undefined;
+  }
+
+  const ctx = buildProjectContext(
+    workspace.id,
+    packageJson ?? {},
+    rootFiles,
+  );
+
+  return {
+    testRunner: ctx.testRunner,
+    hasGit: workspace.isGitRepo ?? false,
+    packageManager: ctx.packageManager,
+    rootFiles,
+    stack: ctx.stack,
+  };
+}
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -248,6 +311,10 @@ export function useAgentHandler() {
         // ─── Build Orchestrator Config ────────────────────────
         const plan = (authStore.plan || "free") as "free" | "estudiante" | "pro";
 
+        // Contexto real del proyecto (VL-3): testRunner/hasGit/stack
+        // derivados del workspace activo — NO hardcodes.
+        const projectCtx = deriveProjectContext();
+
         const config: OrchestratorConfig = {
           providerId: chatStore.activeProvider,
           modelId: chatStore.activeModelId,
@@ -256,8 +323,10 @@ export function useAgentHandler() {
           signal: ac.signal,
           customInstructions: chatStore.subagentInstructions || undefined,
           hasProjectOpen,
-          testRunner: null, // TODO: from context-loader
-          hasGit: false, // TODO: detect git
+          testRunner: projectCtx.testRunner,
+          hasGit: projectCtx.hasGit,
+          projectFiles: projectCtx.rootFiles,
+          packageManager: projectCtx.packageManager,
           persona: useUIStore.getState().persona,
           customPersonaPrompt: useUIStore.getState().customPersonaPrompt || undefined,
         };
