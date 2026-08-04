@@ -1,5 +1,53 @@
 [
   {
+    "version": "1.1.0",
+    "date": "2026-08-04",
+    "title": "Live preview real + chat-agent con tools (specs 778/779)",
+    "components": [
+      {
+        "name": "Web App",
+        "tag": "web/v1.1.0"
+      }
+    ],
+    "highlights": [
+      "De-hallucinate contra auditoría org-wide 2026-07-28",
+      "Eliminar StatusBar.test.tsx (componente ya eliminado)",
+      "Eliminar StatusBar.tsx, StatusBar.stories.tsx y StatusbarSlot.tsx"
+    ],
+    "details": {
+      "Web App": [
+        "✨ live preview real + chat-agent con tools (specs 778/779)",
+        "🐛 deploy-landing prod tambien en push a main (consistencia con dev)",
+        "✨ centralizar keys LLM en SSM /opita-llm/* (patrón transversal)",
+        "✨ montar TerminalPanel en App + eliminar 10 archivos de código muerto (#14)",
+        "✨ dark-memory como backend de memoria/RAG de Aura + abolición Playwright (#10)",
+        "✨ integrar MiniMax al pool de providers + CI sin E2E",
+        "🐛 migrar sesión a OCAIS (__opita_session + refresh rotativo + JWKS)",
+        "📝 de-hallucinate contra auditoría org-wide 2026-07-28",
+        "🐛 montar ViewTabs directamente en App.tsx tras eliminar StatusbarSlot",
+        "🐛 ViewTabs a11y tests requieren template scaffolded en layout chat-first",
+        "eliminar StatusBar.test.tsx (componente ya eliminado)",
+        "eliminar StatusBar.tsx, StatusBar.stories.tsx y StatusbarSlot.tsx",
+        "✨ fase 4 - merge StatusBar en ActionBar, eliminar barra inferior",
+        "✨ fase 3 - mision activa en empty state del chat",
+        "🐛 corregir tests que fallan en CI por lazy loading y falta de FS backend",
+        "✨ fase 2 - contexto visible de IA en header del chat",
+        "📝 add v0.5.1",
+        "🐛 agregar permisos DynamoDB Stream a TelemetryStreamProcessor",
+        "✨ agregar productos al whitelist de ingesta",
+        "✨ fase 1c - ActivityBar simplificada de 9 a 5 items",
+        "📝 add v1.0.1"
+      ],
+      "Landing": [
+        "🐛 apuntar descargas a repo desktop Wails + entrada changelog v1.0.0",
+        "✨ descarga directa con detección de OS"
+      ],
+      "Backend": [
+        "🐛 OCAIS única fuente de verdad — eliminar cadena Cognito/HMAC legacy (#9)"
+      ]
+    }
+  },
+  {
     "version": "1.0.0",
     "date": "2026-08-04",
     "title": "Desktop reescrito: Tauri → Wails v3 + Go + dark-memory contra 12 MB",
