@@ -21,8 +21,64 @@ import { runBuildAgent, type BuildAgentConfig } from "./build-agent";
 import { getProjectSummary } from "@/tools/executor";
 import { selectModel } from "./model-router";
 import { buildMemoryContextBlock } from "@/lib/dark-memory";
+import { createHarnessEngine } from "./harnesses/factory";
+import { createDefaultContext } from "./harnesses";
+import type { HarnessContext } from "./harnesses/types";
 
 // ─── Config ────────────────────────────────────────────────────
+
+/** Harness engine singleton (VL-3) — instanciado una vez, reutilizado. */
+let harnessEngine: ReturnType<typeof createHarnessEngine> | null = null;
+
+function getHarnessEngine(): ReturnType<typeof createHarnessEngine> {
+  if (!harnessEngine) {
+    harnessEngine = createHarnessEngine();
+  }
+  return harnessEngine;
+}
+
+/**
+ * Ejecuta la fase pre-execute del harness engine con el contexto
+ * derivado de la request. Propaga decisiones (model, retrievedMemories,
+ * skills, useTDD, delivery) al resto del orquestador.
+ *
+ * Degradación elegante: si algo falla (bridge ausente, harness bug),
+ * devuelve el contexto sin cambios — el flujo actual se mantiene.
+ */
+export async function runHarnessPreExecute(
+  userText: string,
+  config: OrchestratorConfig,
+): Promise<Partial<HarnessContext>> {
+  try {
+    const engine = getHarnessEngine();
+
+    // Poblar el contexto con lo que sabemos de la request.
+    const base = createDefaultContext(userText, config.plan);
+    const ctx: HarnessContext = {
+      ...base,
+      project: {
+        ...base.project,
+        isOpen: config.hasProjectOpen,
+        rootFiles: config.projectFiles ?? [],
+        testRunner: config.testRunner ?? null,
+        hasGit: config.hasGit ?? false,
+        packageManager: config.packageManager ?? null,
+        stack: [],
+      },
+      requestedModelId: config.modelId,
+      customApiKey: config.customApiKey,
+      signal: config.signal,
+    };
+
+    // Correr solo la fase pre-execute (dark-memory-context, engram,
+    // skill-registry, model-routing, etc.).
+    const result = await engine.runPhase("pre-execute", ctx);
+    return result;
+  } catch (err: unknown) {
+    console.warn("[orchestrator] harness pre-execute falló (degradado):", err);
+    return {};
+  }
+}
 
 /** How the agent delivers changes */
 export type DeliveryStrategy = "direct" | "pr" | "feature-branch";
@@ -50,6 +106,8 @@ export interface OrchestratorConfig {
   testRunner?: string | null;
   /** Root-level files in the project (for convention/lockfile detection) */
   projectFiles?: string[];
+  /** Detected package manager (from context-loader) */
+  packageManager?: "npm" | "pnpm" | "bun" | "yarn" | null;
   /** Whether git is initialized in the project */
   hasGit?: boolean;
   /** Active persona ID for Aura's communication tone */
@@ -85,6 +143,10 @@ export async function* handleMessage(
 ): AsyncGenerator<AgentEvent> {
   // 1. Classify intent
   const intent = classifyIntent(userText, config.hasProjectOpen);
+
+  // 1b. Harness pre-execute (VL-3): el engine inyecta decisiones de
+  // memoria/modelo/skills. Degradación elegante si falla.
+  const harnessCtx = await runHarnessPreExecute(userText, config);
 
   // 2. Intelligent model selection based on plan tier
   // "build" = basic code generation (FREE allowed)
@@ -129,6 +191,21 @@ export async function* handleMessage(
     console.warn("[orchestrator] dark-memory context falló:", err);
   }
 
+  // 4c. Harness retrievedMemories (VL-3): si el harness engine cargó
+  // memories vía dark-memory-context/engram, inyectarlas también.
+  const harnessMemories = harnessCtx.retrievedMemories ?? [];
+  if (harnessMemories.length > 0) {
+    const lines = harnessMemories.map(
+      (m) => `- **[${m.kind}] ${m.title}** (${m.tags || "sin tags"}): ${m.content.slice(0, 200)}`,
+    );
+    const block = `## Memoria del harness\n\n${lines.join("\n")}\n`;
+    memoryContext = memoryContext ? `${memoryContext}\n${block}` : block;
+  }
+
+  // 4d. Decisiones del harness para TDD/delivery (VL-3).
+  const harnessUseTDD = harnessCtx.useTDD;
+  const harnessDelivery = harnessCtx.deliveryStrategy;
+
   // 5. Route to appropriate agent
   switch (intent) {
     case "chat":
@@ -164,17 +241,21 @@ export async function* handleMessage(
       // ─── Intelligent Decisions ──────────────────────────
 
       // TDD Decision: use TDD only when project has a test runner
-      // AND the request implies creating/modifying testable code
-      const useTDD = decideTDD(
-        userText,
-        config.testRunner ?? null
-      );
+      // AND the request implies creating/modifying testable code.
+      // El harness engine (strictTDD) puede haber decidido ya (VL-3).
+      const useTDD = harnessUseTDD !== undefined
+        ? harnessUseTDD
+        : decideTDD(userText, config.testRunner ?? null);
 
-      // Delivery Decision: based on git presence and change scope
-      const delivery = decideDelivery(
-        userText,
-        config.hasGit ?? false
-      );
+      // Delivery Decision: based on git presence and change scope.
+      // El harness engine (deliveryStrategy) puede haber decidido ya.
+      // Solo mapear si el harness dio una estrategia soportada por el
+      // build-agent (direct | feature-branch | pr).
+      const harnessDeliveryMapped =
+        harnessDelivery === "direct" || harnessDelivery === "feature-branch" || harnessDelivery === "pr"
+          ? harnessDelivery
+          : undefined;
+      const delivery = harnessDeliveryMapped ?? decideDelivery(userText, config.hasGit ?? false);
 
       yield* runBuildAgent(conversationHistory, {
         providerId: routedProviderId,
