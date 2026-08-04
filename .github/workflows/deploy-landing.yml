@@ -2,6 +2,10 @@ name: Deploy Landing
 
 on:
   push:
+    branches: [main]
+    paths:
+      - 'landing/**'
+      - '.github/workflows/deploy-landing.yml'
     tags: ['landing/v*', 'web/v*', 'v*']
   workflow_dispatch:
 
