@@ -82,6 +82,10 @@ function defaultTauriInvoke(_cmd: string, _args: Record<string, unknown>): Promi
  * Habla con un endpoint MCP streamable HTTP usando JSON-RPC 2.0
  * POST. Requiere que el servidor exponga la ruta del protocolo
  * (config.baseUrl debe incluir la ruta, ej. http://127.0.0.1:8844/mcp).
+ *
+ * @remarks Usa `fetch()` (browser API). No usar en entornos Node < 18
+ * sin polyfill global. Para Node, usar TauriTransport (sidecar) o
+ * MemoryTransport (fallback offline).
  */
 export class HttpTransport implements BridgeTransport {
   readonly kind: TransportKind = "http";

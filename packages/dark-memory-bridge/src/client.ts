@@ -53,7 +53,7 @@ export class DarkMemoryBridge {
 
     this.operator = config.operator;
     this.projectId = config.projectId;
-    this.cacheTtlMs = config.cacheTtlMs ?? 5000;
+    this.cacheTtlMs = config.cacheTtlMs ?? 30_000;
     this.maxCacheEntries = config.maxCacheEntries ?? 50;
 
     this.transport = createTransport({
