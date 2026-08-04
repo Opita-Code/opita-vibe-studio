@@ -40,6 +40,15 @@ vibe-studio/
 - **Backend**: AWS Lambda TypeScript via SST v4
 - **Auth**: Magic Links propios — `initiateSSO(email, { postAuthUrl: '/app', service: 'vibe-studio' })`
 - **AI**: DeepSeek V4 / Gemini / MiniMax via BYOK + quota DynamoDB
+- **LLM keys centralizadas (transversal, 2026-08-04)**: las keys de servicio
+  (MiniMax `MiniMax-M3`, DeepSeek) se leen del namespace SSM compartido
+  **`/opita-llm/*`** (`/opita-llm/minimax-api-key`, `/opita-llm/deepseek-api-key`)
+  en deploy-time desde `sst.config.ts` (patrón `aws.ssm.getParameter` con
+  `withDecryption: true`), que las inyecta como env vars a la Lambda. Rotar una
+  vez en SSM actualiza todos los productos Opita. Los GH Actions secrets
+  (`MINIMAX_API_KEY`, `DEEP_SEEK_KEY`) quedan SOLO como fallback de
+  dev/staging si el param SSM no existe; prod falla si SSM falta (throw). No
+  crear keys LLM por-producto.
 - **Memoria/RAG**: dark-memory (MCP) via `@opita/dark-memory-bridge` — recall BM25, agent_memory kinds, session lifecycle
 - **Runtime**: Bun or Node.js ESM for tooling
 - **Testing**: Vitest (unit + integration). E2E/browser: dark-copilot MCP (Playwright abolido — regla dura)

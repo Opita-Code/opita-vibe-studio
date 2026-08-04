@@ -33,6 +33,10 @@ jobs:
         run: npx sst deploy --stage prod
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          # Centralized LLM secrets (2026-08-04): prod reads /opita-llm/*
+          # from SSM in sst.config.ts (withDecryption). The GH secrets below
+          # are kept as fallback ONLY for dev/staging (prod throws if SSM
+          # missing). Rotate keys in SSM /opita-llm/* — not here.
           DEEP_SEEK_KEY: ${{ secrets.DEEP_SEEK_KEY }}
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           API_GOOGLE_CLOUD: ${{ secrets.API_GOOGLE_CLOUD }}

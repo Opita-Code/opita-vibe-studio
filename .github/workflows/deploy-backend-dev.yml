@@ -37,6 +37,9 @@ jobs:
         run: npx sst deploy --stage dev
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          # Centralized LLM secrets (2026-08-04): dev prefers /opita-llm/*
+          # from SSM (sst.config.ts); GH secrets below are the fallback when
+          # the SSM param is missing for non-prod stages.
           DEEP_SEEK_KEY: ${{ secrets.DEEP_SEEK_KEY }}
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           API_GOOGLE_CLOUD: ${{ secrets.API_GOOGLE_CLOUD }}

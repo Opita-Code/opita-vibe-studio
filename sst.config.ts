@@ -60,6 +60,36 @@ export default $config({
       console.warn(`⚠️ SSM parameter auth-api-url not found for stage ${$app.stage}. Falling back to ${authApiUrl}`);
     }
 
+    // ─── Centralized LLM secrets (/opita-llm/*, transversal pattern 2026-08-04) ───
+    // ALL Opita products read LLM keys from the shared SSM namespace
+    // /opita-llm/* — rotate once in SSM, every service picks it up.
+    // Values mirror what used to live ONLY in GH Actions secrets
+    // (MINIMAX_API_KEY, DEEP_SEEK_KEY). Fallback to process.env keeps
+    // local dev and CI working even if the SSM param is missing for a
+    // non-prod stage (dev/staging fall back to the GH secret value).
+    const minimaxApiKeyParam = `/opita-llm/minimax-api-key`;
+    const deepseekApiKeyParam = `/opita-llm/deepseek-api-key`;
+
+    let minimaxApiKey: string;
+    try {
+      const p = await aws.ssm.getParameter({ name: minimaxApiKeyParam, withDecryption: true });
+      minimaxApiKey = p.value;
+    } catch (e) {
+      if ($app.stage === "prod") throw e;
+      minimaxApiKey = process.env.MINIMAX_API_KEY || "";
+      console.warn(`⚠️ SSM ${minimaxApiKeyParam} not found for stage ${$app.stage}. Falling back to process.env.MINIMAX_API_KEY (${minimaxApiKey ? "present" : "EMPTY"}).`);
+    }
+
+    let deepseekApiKey: string;
+    try {
+      const p = await aws.ssm.getParameter({ name: deepseekApiKeyParam, withDecryption: true });
+      deepseekApiKey = p.value;
+    } catch (e) {
+      if ($app.stage === "prod") throw e;
+      deepseekApiKey = process.env.DEEP_SEEK_KEY || "";
+      console.warn(`⚠️ SSM ${deepseekApiKeyParam} not found for stage ${$app.stage}. Falling back to process.env.DEEP_SEEK_KEY (${deepseekApiKey ? "present" : "EMPTY"}).`);
+    }
+
     // 1.2 Crear tabla DynamoDB (Conversations)
     const table = new sst.aws.Dynamo("Conversations", {
       fields: {
@@ -151,8 +181,11 @@ export default $config({
       permissions: [externalDynamoPermissions],
       environment: {
         JWT_SECRET: process.env.JWT_SECRET || "",
-        DEEP_SEEK_KEY: process.env.DEEP_SEEK_KEY || "",
-        MINIMAX_API_KEY: process.env.MINIMAX_API_KEY || "",
+        // Centralized LLM secrets (SSM /opita-llm/*, transversal pattern
+        // 2026-08-04). The Lambda receives the decrypted values; local dev
+        // without SSM access falls back to the env-var chain in chat.ts.
+        DEEP_SEEK_KEY: deepseekApiKey,
+        MINIMAX_API_KEY: minimaxApiKey,
         OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
         API_GOOGLE_CLOUD: process.env.API_GOOGLE_CLOUD || "",
         AI_STUDIO_GOOGLE: process.env.AI_STUDIO_GOOGLE || "",
