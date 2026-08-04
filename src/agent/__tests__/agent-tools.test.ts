@@ -26,10 +26,11 @@ describe("agent-tools", () => {
     it("explore should have research tools but NO write tools", () => {
       const names = getToolNamesForPhase("explore");
       expect(names).toContain("read_file");
-      expect(names).toContain("web_search");
-      expect(names).toContain("browse_url");
       expect(names).toContain("dark_memory_agent_memory_recall");
-      expect(names).toContain("analyze_dependencies");
+      // VL-5: tools fantasma eliminadas (web_search/browse_url/analyze_dependencies).
+      expect(names).not.toContain("web_search");
+      expect(names).not.toContain("browse_url");
+      expect(names).not.toContain("analyze_dependencies");
       // Explore MUST NOT have write access
       expect(names).not.toContain("write_file");
       expect(names).not.toContain("apply_diff");
@@ -47,11 +48,12 @@ describe("agent-tools", () => {
       expect(names).not.toContain("execute_command");
     });
 
-    it("design should have read + memory + web, but no writes", () => {
+    it("design should have read + memory, but no writes ni web fantasma", () => {
       const names = getToolNamesForPhase("design");
       expect(names).toContain("read_file");
       expect(names).toContain("dark_memory_agent_memory_save");
-      expect(names).toContain("web_search");
+      // VL-5: web_search eliminada.
+      expect(names).not.toContain("web_search");
       expect(names).not.toContain("write_file");
       expect(names).not.toContain("execute_command");
     });

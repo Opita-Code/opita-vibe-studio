@@ -67,24 +67,6 @@ export const EXPLORE_TOOLS: ToolDefinition[] = [
     ],
     dangerous: false,
   },
-  // Web research
-  {
-    name: "web_search",
-    description: "Busca información en internet: APIs, librerías, patrones, soluciones, documentación.",
-    parameters: [
-      { name: "query", type: "string", description: "Consulta de búsqueda", required: true },
-      { name: "max_results", type: "number", description: "Máximo de resultados (default: 5)", required: false },
-    ],
-    dangerous: false,
-  },
-  {
-    name: "browse_url",
-    description: "Navega a una URL y extrae contenido como texto. Para docs, READMEs, artículos.",
-    parameters: [
-      { name: "url", type: "string", description: "URL completa", required: true },
-    ],
-    dangerous: false,
-  },
   // Memory
   {
     name: "dark_memory_agent_memory_recall",
@@ -101,15 +83,6 @@ export const EXPLORE_TOOLS: ToolDefinition[] = [
       { name: "title", type: "string", description: "Título corto", required: true },
       { name: "content", type: "string", description: "Detalle del hallazgo", required: true },
       { name: "kind", type: "string", description: "Kind: note | observation | decision | finding | todo | link | context", required: false },
-    ],
-    dangerous: false,
-  },
-  // Analysis
-  {
-    name: "analyze_dependencies",
-    description: "Analiza dependencias: versiones, vulnerabilidades, alternativas modernas, tamaño de bundle.",
-    parameters: [
-      { name: "package_name", type: "string", description: "Paquete a analizar (vacío = todos)", required: false },
     ],
     dangerous: false,
   },
@@ -198,15 +171,6 @@ export const DESIGN_TOOLS: ToolDefinition[] = [
       { name: "title", type: "string", description: "Título de la decisión", required: true },
       { name: "content", type: "string", description: "Detalle y justificación", required: true },
       { name: "kind", type: "string", description: "Kind: decision | finding | note", required: false },
-    ],
-    dangerous: false,
-  },
-  {
-    name: "web_search",
-    description: "Investiga patrones de diseño, arquitecturas de referencia, best practices.",
-    parameters: [
-      { name: "query", type: "string", description: "Consulta", required: true },
-      { name: "max_results", type: "number", description: "Máximo resultados (default: 3)", required: false },
     ],
     dangerous: false,
   },
