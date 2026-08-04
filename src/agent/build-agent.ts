@@ -407,6 +407,8 @@ function getToolIcon(toolName: string): string {
     delete_file: "🗑️",
     memory_save: "💾",
     memory_search: "🧠",
+    dark_memory_agent_memory_save: "💾",
+    dark_memory_agent_memory_recall: "🧠",
     execute_command: "⚡",
   };
   return icons[toolName] || "🔨";

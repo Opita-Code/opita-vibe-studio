@@ -16,8 +16,8 @@ describe("agent-tools", () => {
   describe("tool isolation per phase", () => {
     it("chat should only have memory tools", () => {
       const names = getToolNamesForPhase("chat");
-      expect(names).toContain("memory_search");
-      expect(names).toContain("memory_save");
+      expect(names).toContain("dark_memory_agent_memory_recall");
+      expect(names).toContain("dark_memory_agent_memory_save");
       expect(names).not.toContain("write_file");
       expect(names).not.toContain("read_file");
       expect(names).not.toContain("execute_command");
@@ -28,7 +28,7 @@ describe("agent-tools", () => {
       expect(names).toContain("read_file");
       expect(names).toContain("web_search");
       expect(names).toContain("browse_url");
-      expect(names).toContain("memory_search");
+      expect(names).toContain("dark_memory_agent_memory_recall");
       expect(names).toContain("analyze_dependencies");
       // Explore MUST NOT have write access
       expect(names).not.toContain("write_file");
@@ -41,7 +41,7 @@ describe("agent-tools", () => {
       const names = getToolNamesForPhase("propose");
       expect(names).toContain("read_file");
       expect(names).toContain("search_code");
-      expect(names).toContain("memory_search");
+      expect(names).toContain("dark_memory_agent_memory_recall");
       expect(names).not.toContain("write_file");
       expect(names).not.toContain("web_search");
       expect(names).not.toContain("execute_command");
@@ -50,7 +50,7 @@ describe("agent-tools", () => {
     it("design should have read + memory + web, but no writes", () => {
       const names = getToolNamesForPhase("design");
       expect(names).toContain("read_file");
-      expect(names).toContain("memory_save");
+      expect(names).toContain("dark_memory_agent_memory_save");
       expect(names).toContain("web_search");
       expect(names).not.toContain("write_file");
       expect(names).not.toContain("execute_command");

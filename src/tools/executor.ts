@@ -627,6 +627,163 @@ async function toolDeleteFile(
 
 // ─── Memory Tools ──────────────────────────────────────────────
 
+/**
+ * Dark-memory canonical tools.
+ *
+ * prompts.ts (BUILD_ADDON/CHAT_ADDON/EXPLORE_ADDON) ordena al modelo
+ * usar dark_memory_agent_memory_save / dark_memory_agent_memory_recall
+ * (nombres canónicos de dark-memory MCP). Estos handlers resuelven esas
+ * tools con el bridge real cuando está disponible; si no, degradan a
+ * memory-sdk local (comportamiento previo).
+ */
+
+import { getDarkMemoryBridge } from "@/lib/dark-memory";
+
+async function toolDarkMemorySave(
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const title = String(args.title || "");
+  const content = String(args.content || "");
+  const tags = String(args.tags || "");
+  const kind = String(args.kind || "finding") as "note" | "observation" | "decision" | "finding" | "todo" | "link" | "context";
+
+  if (!title) return { name: "dark_memory_agent_memory_save", success: false, error: "Se requiere 'title'" };
+  if (!content) return { name: "dark_memory_agent_memory_save", success: false, error: "Se requiere 'content'" };
+
+  const validKinds = ["note", "observation", "decision", "finding", "todo", "link", "context"];
+  if (!validKinds.includes(kind)) {
+    return { name: "dark_memory_agent_memory_save", success: false, error: `Kind inválido '${kind}'. Usa: ${validKinds.join(", ")}` };
+  }
+
+  // Bridge real de dark-memory (si está inicializado)
+  const bridge = getDarkMemoryBridge();
+  if (bridge) {
+    try {
+      const row = await bridge.save({
+        kind,
+        title,
+        content,
+        tags,
+        memory_type: "episodic",
+      });
+      return {
+        name: "dark_memory_agent_memory_save",
+        success: true,
+        result: `Memoria guardada en dark-memory: "${row.title}" [${row.kind}] (ID: ${row.id})`,
+      };
+    } catch (err) {
+      return {
+        name: "dark_memory_agent_memory_save",
+        success: false,
+        error: `Error guardando en dark-memory: ${err instanceof Error ? err.message : "Error desconocido"}`,
+      };
+    }
+  }
+
+  // Fallback: memory-sdk local (SDK deprecado pero funcional)
+  const KIND_TO_TYPE: Record<string, "decision" | "pattern" | "bugfix" | "discovery" | "convention"> = {
+    decision: "decision",
+    finding: "discovery",
+    pattern: "pattern",
+    bugfix: "bugfix",
+    convention: "convention",
+    note: "discovery",
+    observation: "discovery",
+    todo: "discovery",
+    link: "discovery",
+    context: "discovery",
+  };
+  const type = KIND_TO_TYPE[kind] ?? "discovery";
+  try {
+    const project = useProjectStore.getState().activeWorkspaceId || "unknown";
+    const entry = await saveMemory({ project, title, content, type });
+    return {
+      name: "dark_memory_agent_memory_save",
+      success: true,
+      result: `Memoria guardada (local): "${entry.title}" [${entry.type}] (ID: ${entry.id}) — dark-memory no disponible`,
+    };
+  } catch (err) {
+    return {
+      name: "dark_memory_agent_memory_save",
+      success: false,
+      error: `Error guardando memoria: ${err instanceof Error ? err.message : "Error desconocido"}`,
+    };
+  }
+}
+
+async function toolDarkMemoryRecall(
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const query = String(args.query || "");
+  if (!query) return { name: "dark_memory_agent_memory_recall", success: false, error: "Se requiere 'query'" };
+
+  // Bridge real de dark-memory (si está inicializado)
+  const bridge = getDarkMemoryBridge();
+  if (bridge) {
+    try {
+      const hits = await bridge.recall({ query, operator: bridge.operator, limit: 5 });
+
+      if (hits.length === 0) {
+        return {
+          name: "dark_memory_agent_memory_recall",
+          success: true,
+          result: `No se encontraron memorias para '${query}'.`,
+        };
+      }
+
+      const formatted = hits.map((m) => {
+        const tags = m.tags ? ` (${m.tags})` : "";
+        return `[${m.kind}] "${m.title}"${tags} (rank ${m.rank.toFixed(2)})\n  ${m.content.slice(0, 300)}`;
+      }).join("\n\n");
+
+      return {
+        name: "dark_memory_agent_memory_recall",
+        success: true,
+        result: `[${hits.length} memoria${hits.length === 1 ? "" : "s"} de dark-memory]\n\n${formatted}`,
+      };
+    } catch (err) {
+      return {
+        name: "dark_memory_agent_memory_recall",
+        success: false,
+        error: `Error buscando en dark-memory: ${err instanceof Error ? err.message : "Error desconocido"}`,
+      };
+    }
+  }
+
+  // Fallback: memory-sdk local
+  try {
+    const project = useProjectStore.getState().activeWorkspaceId || "unknown";
+    const results = await searchMemories(project, query, 5);
+
+    if (results.length === 0) {
+      return {
+        name: "dark_memory_agent_memory_recall",
+        success: true,
+        result: `No se encontraron memorias para '${query}'.`,
+      };
+    }
+
+    const formatted = results.map((m) => {
+      const age = Date.now() - m.createdAt;
+      const days = Math.floor(age / (1000 * 60 * 60 * 24));
+      const timeAgo = days === 0 ? "hoy" : days === 1 ? "ayer" : `hace ${days} días`;
+      return `[${m.type}] "${m.title}" (${timeAgo})\n  ${m.content}`;
+    }).join("\n\n");
+
+    return {
+      name: "dark_memory_agent_memory_recall",
+      success: true,
+      result: `[${results.length} memoria${results.length === 1 ? "" : "s"} (local)]\n\n${formatted}`,
+    };
+  } catch (err) {
+    return {
+      name: "dark_memory_agent_memory_recall",
+      success: false,
+      error: `Error buscando memorias: ${err instanceof Error ? err.message : "Error desconocido"}`,
+    };
+  }
+}
+
 async function toolMemorySave(
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
@@ -962,6 +1119,8 @@ const TOOL_MAP: Record<string, (args: Record<string, unknown>) => Promise<ToolRe
   delete_file: toolDeleteFile,
   memory_save: toolMemorySave,
   memory_search: toolMemorySearch,
+  dark_memory_agent_memory_save: toolDarkMemorySave,
+  dark_memory_agent_memory_recall: toolDarkMemoryRecall,
   execute_command: toolExecuteCommand,
   preview_component: toolPreviewComponent,
 };

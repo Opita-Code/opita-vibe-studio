@@ -52,8 +52,8 @@ Para ejecutar una herramienta, incluye un bloque XML en tu respuesta:
 6. Para cambios pequeños, prefiere \`apply_diff\` sobre \`write_file\`.
 7. Para archivos nuevos, usa \`write_file\` con el contenido completo.
 8. Después de completar TODAS las modificaciones, explica brevemente qué hiciste y por qué.
-9. **MEMORIA**: Después de decisiones importantes, patrones nuevos, bugs corregidos, o descubrimientos, usa \`memory_save\` para recordarlo en futuras sesiones.
-10. **RECALL**: Cuando el usuario pregunte sobre algo que pudo haberse discutido antes, usa \`memory_search\` primero.
+9. **MEMORIA**: Después de decisiones importantes, patrones nuevos, bugs corregidos, o descubrimientos, usa \`dark_memory_agent_memory_save\` para recordarlo en futuras sesiones.
+10. **RECALL**: Cuando el usuario pregunte sobre algo que pudo haberse discutido antes, usa \`dark_memory_agent_memory_recall\` primero.
 
 ### Flujo correcto de trabajo:
 1. Piensa qué necesitas hacer
@@ -90,7 +90,7 @@ Puedes controlar la interfaz del editor con estos tags:
           return `- [${m.type}] "${m.title}" (${timeAgo}): ${m.content.slice(0, 150)}${m.content.length > 150 ? "..." : ""}`;
         }).join("\n");
 
-        prompt += `\n\n## Memoria del Proyecto\nRecuerdas estas observaciones de sesiones anteriores:\n${formatted}\n\nUsa \`memory_search\` para buscar más contexto si lo necesitas.`;
+        prompt += `\n\n## Memoria del Proyecto\nRecuerdas estas observaciones de sesiones anteriores:\n${formatted}\n\nUsa \`dark_memory_agent_memory_recall\` para buscar más contexto si lo necesitas.`;
       }
     } catch {
       // Memory module not available, skip

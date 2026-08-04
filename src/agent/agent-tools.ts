@@ -17,20 +17,21 @@ import type { ToolDefinition } from "@/tools/definitions";
 
 export const CHAT_TOOLS: ToolDefinition[] = [
   {
-    name: "memory_search",
-    description: "Busca en la memoria del proyecto: decisiones, patrones, contexto previo.",
+    name: "dark_memory_agent_memory_recall",
+    description: "Busca en la memoria del proyecto (dark-memory): decisiones, patrones, contexto previo.",
     parameters: [
       { name: "query", type: "string", description: "Término de búsqueda", required: true },
     ],
     dangerous: false,
   },
   {
-    name: "memory_save",
-    description: "Guarda un aprendizaje o decisión importante.",
+    name: "dark_memory_agent_memory_save",
+    description: "Guarda un aprendizaje o decisión importante en dark-memory.",
     parameters: [
       { name: "title", type: "string", description: "Título corto y buscable", required: true },
       { name: "content", type: "string", description: "Detalle", required: true },
-      { name: "type", type: "string", description: "Tipo: decision | pattern | bugfix | discovery | convention", required: false },
+      { name: "kind", type: "string", description: "Kind: note | observation | decision | finding | todo | link | context", required: false },
+      { name: "tags", type: "string", description: "Tags CSV", required: false },
     ],
     dangerous: false,
   },
@@ -86,20 +87,20 @@ export const EXPLORE_TOOLS: ToolDefinition[] = [
   },
   // Memory
   {
-    name: "memory_search",
-    description: "Busca decisiones, bugs resueltos, convenciones y descubrimientos previos.",
+    name: "dark_memory_agent_memory_recall",
+    description: "Busca decisiones, bugs resueltos, convenciones y descubrimientos previos en dark-memory.",
     parameters: [
       { name: "query", type: "string", description: "Término de búsqueda", required: true },
     ],
     dangerous: false,
   },
   {
-    name: "memory_save",
-    description: "Guarda un hallazgo o conclusión de la investigación.",
+    name: "dark_memory_agent_memory_save",
+    description: "Guarda un hallazgo o conclusión de la investigación en dark-memory.",
     parameters: [
       { name: "title", type: "string", description: "Título corto", required: true },
       { name: "content", type: "string", description: "Detalle del hallazgo", required: true },
-      { name: "type", type: "string", description: "Tipo: decision | pattern | discovery", required: false },
+      { name: "kind", type: "string", description: "Kind: note | observation | decision | finding | todo | link | context", required: false },
     ],
     dangerous: false,
   },
@@ -144,7 +145,7 @@ export const PROPOSE_TOOLS: ToolDefinition[] = [
     dangerous: false,
   },
   {
-    name: "memory_search",
+    name: "dark_memory_agent_memory_recall",
     description: "Busca decisiones anteriores para no contradecirlas en la propuesta.",
     parameters: [
       { name: "query", type: "string", description: "Término de búsqueda", required: true },
@@ -183,7 +184,7 @@ export const DESIGN_TOOLS: ToolDefinition[] = [
     dangerous: false,
   },
   {
-    name: "memory_search",
+    name: "dark_memory_agent_memory_recall",
     description: "Busca decisiones arquitectónicas previas para mantener coherencia.",
     parameters: [
       { name: "query", type: "string", description: "Término de búsqueda", required: true },
@@ -191,12 +192,12 @@ export const DESIGN_TOOLS: ToolDefinition[] = [
     dangerous: false,
   },
   {
-    name: "memory_save",
+    name: "dark_memory_agent_memory_save",
     description: "Guarda decisiones arquitectónicas y trade-offs del diseño.",
     parameters: [
       { name: "title", type: "string", description: "Título de la decisión", required: true },
       { name: "content", type: "string", description: "Detalle y justificación", required: true },
-      { name: "type", type: "string", description: "Tipo: decision | architecture", required: false },
+      { name: "kind", type: "string", description: "Kind: decision | finding | note", required: false },
     ],
     dangerous: false,
   },
@@ -277,12 +278,12 @@ export const APPLY_TOOLS: ToolDefinition[] = [
     dangerous: true,
   },
   {
-    name: "memory_save",
+    name: "dark_memory_agent_memory_save",
     description: "Guarda un aprendizaje del proceso de construcción.",
     parameters: [
       { name: "title", type: "string", description: "Título", required: true },
       { name: "content", type: "string", description: "Detalle", required: true },
-      { name: "type", type: "string", description: "Tipo: bugfix | pattern | decision", required: false },
+      { name: "kind", type: "string", description: "Kind: decision | finding | note", required: false },
     ],
     dangerous: false,
   },
@@ -337,12 +338,12 @@ export const VERIFY_TOOLS: ToolDefinition[] = [
     dangerous: true,
   },
   {
-    name: "memory_save",
+    name: "dark_memory_agent_memory_save",
     description: "Guarda el resultado de la verificación y lecciones aprendidas.",
     parameters: [
       { name: "title", type: "string", description: "Título", required: true },
       { name: "content", type: "string", description: "Detalle del resultado", required: true },
-      { name: "type", type: "string", description: "Tipo: bugfix | discovery", required: false },
+      { name: "kind", type: "string", description: "Kind: finding | note", required: false },
     ],
     dangerous: false,
   },
