@@ -202,6 +202,59 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     dangerous: false,
   },
   {
+    name: "dark_memory_agent_memory_save",
+    description:
+      "Guarda una memoria en dark-memory (backend canónico de memoria del proyecto). " +
+      "Usa esta herramienta PROACTIVAMENTE para recordar decisiones arquitectónicas, " +
+      "patrones establecidos, bugs corregidos, convenciones del proyecto, o descubrimientos. " +
+      "Kind canónico: note, observation, decision, finding, todo, link, context. " +
+      "Equivalente a memory_save pero con persistencia cross-session en dark-memory.",
+    parameters: [
+      {
+        name: "title",
+        type: "string",
+        description: "Título corto y buscable (ej: 'Usar Zustand en vez de Redux', 'Fix N+1 en listado')",
+        required: true,
+      },
+      {
+        name: "content",
+        type: "string",
+        description: "Contenido detallado: qué se decidió/descubrió, por qué, y archivos afectados",
+        required: true,
+      },
+      {
+        name: "kind",
+        type: "string",
+        description: "Categoría canónica: note, observation, decision, finding, todo, link, context (default: finding)",
+        required: false,
+      },
+      {
+        name: "tags",
+        type: "string",
+        description: "Tags CSV para búsqueda (opcional, ej: 'auth,refactor,2026')",
+        required: false,
+      },
+    ],
+    dangerous: false,
+  },
+  {
+    name: "dark_memory_agent_memory_recall",
+    description:
+      "Busca en dark-memory (backend canónico de memoria del proyecto) por relevancia BM25. " +
+      "Usa esta herramienta cuando el usuario pregunte sobre decisiones pasadas, " +
+      "o cuando necesites contexto sobre cómo se resolvió algo previamente. " +
+      "Equivalente a memory_search pero con ranking semántico cross-session.",
+    parameters: [
+      {
+        name: "query",
+        type: "string",
+        description: "Términos de búsqueda en lenguaje natural (ej: 'autenticación', 'componente botón')",
+        required: true,
+      },
+    ],
+    dangerous: false,
+  },
+  {
     name: "execute_command",
     description:
       "Ejecuta un comando en la terminal del proyecto. " +

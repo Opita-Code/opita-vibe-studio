@@ -225,6 +225,8 @@ function getExploreIcon(toolName: string): string {
     browse_url: "🔗",
     memory_search: "🧠",
     memory_save: "💾",
+    dark_memory_agent_memory_recall: "🧠",
+    dark_memory_agent_memory_save: "💾",
     analyze_dependencies: "📦",
   };
   return icons[toolName] || "🔬";

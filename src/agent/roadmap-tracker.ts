@@ -20,7 +20,7 @@ import type { AgentEvent, RoadmapGoal } from "./types";
 
 // ─── Phase Inference ───────────────────────────────────────────
 
-const ANALYZE_TOOLS = new Set(["read_file", "list_files", "search_code", "memory_search"]);
+const ANALYZE_TOOLS = new Set(["read_file", "list_files", "search_code", "memory_search", "dark_memory_agent_memory_recall"]);
 const BUILD_TOOLS   = new Set(["write_file", "apply_diff", "delete_file"]);
 const VERIFY_TOOLS  = new Set(["execute_command"]);
 

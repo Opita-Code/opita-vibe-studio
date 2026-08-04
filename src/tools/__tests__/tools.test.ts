@@ -20,8 +20,8 @@ import {
 // ─── Tool Definitions ──────────────────────────────────────────
 
 describe("Tool Definitions", () => {
-  it("debe tener 10 herramientas definidas", () => {
-    expect(TOOL_DEFINITIONS).toHaveLength(10);
+  it("debe tener 12 herramientas definidas", () => {
+    expect(TOOL_DEFINITIONS).toHaveLength(12);
   });
 
   it("cada herramienta tiene name, description, y parameters", () => {
@@ -41,6 +41,10 @@ describe("Tool Definitions", () => {
     expect(names).toContain("list_files");
     expect(names).toContain("search_code");
     expect(names).toContain("delete_file");
+    expect(names).toContain("memory_save");
+    expect(names).toContain("memory_search");
+    expect(names).toContain("dark_memory_agent_memory_save");
+    expect(names).toContain("dark_memory_agent_memory_recall");
   });
 
   it("formatToolsForPrompt genera texto con todas las herramientas", () => {
