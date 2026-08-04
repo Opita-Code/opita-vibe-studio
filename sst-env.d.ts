@@ -29,9 +29,18 @@ declare module "sst" {
       "type": "sst.aws.Function"
       "url": string
     }
+    "OpitaDataLake": {
+      "name": string
+      "type": "sst.aws.Bucket"
+    }
     "Projects": {
       "name": string
       "type": "sst.aws.Dynamo"
+    }
+    "ResearchAPI": {
+      "name": string
+      "type": "sst.aws.Function"
+      "url": string
     }
     "StorageAPI": {
       "name": string
@@ -43,6 +52,10 @@ declare module "sst" {
       "type": "sst.aws.Function"
       "url": string
     }
+    "TelemetryStreamProcessor": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
     "TokenUsage": {
       "name": string
       "type": "sst.aws.Dynamo"
@@ -50,10 +63,6 @@ declare module "sst" {
     "Transactions": {
       "name": string
       "type": "sst.aws.Dynamo"
-    }
-    "VibeRouter": {
-      "type": "sst.aws.Router"
-      "url": string
     }
     "VibeStorage": {
       "name": string

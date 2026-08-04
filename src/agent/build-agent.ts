@@ -17,6 +17,7 @@ import { streamSSE, type StreamOptions } from "./stream-client";
 import { getSystemPrompt, getToolLabel } from "./prompts";
 import { executeTool } from "@/tools/executor";
 import type { ToolCall } from "@/tools/definitions";
+import { useChatStore, type ResearchStatus } from "@/stores/chat";
 import { drainNudges, clearNudges } from "./nudge-channel";
 import { RoadmapTracker } from "./roadmap-tracker";
 
@@ -27,6 +28,15 @@ const MAX_ITERATIONS = 15;
 
 /** Maximum consecutive errors before aborting */
 const MAX_CONSECUTIVE_ERRORS = 3;
+
+/** Mapea tools de documentación a su estado para el indicador visual. */
+const RESEARCH_TOOL_STATUS: Record<string, ResearchStatus> = {
+  docs_search: "searching",
+  docs_fetch: "fetching",
+  code_search: "code",
+  cve_check: "cve",
+  synthesis: "synthesizing",
+};
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -310,6 +320,12 @@ async function* handleToolRequest(
 
   const friendlyLabel = getToolLabel(toolCall.name, toolCall.args);
 
+  // Signal research status for OSINT tools (visual indicator in UI)
+  const researchStatus = RESEARCH_TOOL_STATUS[toolCall.name];
+  if (researchStatus) {
+    useChatStore.getState().setResearchStatus(researchStatus);
+  }
+
   // Create step
   const step: AgentStep = {
     id: `step-${Date.now()}-${stepLog.length}`,
@@ -329,6 +345,11 @@ async function* handleToolRequest(
 
   // Execute the tool
   const result = await executeTool(toolCall);
+
+  // Clear research status after the OSINT tool finishes
+  if (researchStatus) {
+    useChatStore.getState().setResearchStatus(null);
+  }
 
   // Update step status
   step.status = result.success ? "done" : "error";

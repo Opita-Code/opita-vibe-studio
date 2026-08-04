@@ -34,6 +34,25 @@ export interface ChatSession {
   updatedAt: number;
 }
 
+// ─── Types ─────────────────────────────────────────────────────
+
+/** Estado de investigación OSINT del agente (para indicador visual). */
+export type ResearchStatus =
+  | "searching"
+  | "fetching"
+  | "code"
+  | "cve"
+  | "synthesizing";
+
+/** Label en español para cada estado de research. */
+export const RESEARCH_STATUS_LABELS: Record<ResearchStatus, string> = {
+  searching: "Buscando documentación...",
+  fetching: "Leyendo documentación...",
+  code: "Buscando código...",
+  cve: "Verificando vulnerabilidades...",
+  synthesizing: "Consolidando hallazgos...",
+};
+
 // ─── State ─────────────────────────────────────────────────────
 
 interface ChatState {
@@ -41,6 +60,8 @@ interface ChatState {
   activeSessionId: string;
   isStreaming: boolean;
   isExecutingMCP: boolean;
+  /** Estado de investigación OSINT activa (null = sin research en curso) */
+  researchStatus: ResearchStatus | null;
   activeProvider: string;
   activeModelId: string;
   pipelinePhase: "entender" | "construir" | "verificar" | "subagente" | null;
@@ -86,6 +107,7 @@ interface ChatActions {
   // Transient & Flags
   setStreaming: (streaming: boolean) => void;
   setExecutingMCP: (executing: boolean) => void;
+  setResearchStatus: (status: ResearchStatus | null) => void;
   setAbortController: (ac: AbortController | null) => void;
   abortStreaming: () => void;
   setActiveProvider: (provider: string) => void;
@@ -182,6 +204,7 @@ export const useChatStore = create<ChatStore>()(
       activeSessionId: "default",
       isStreaming: false,
       isExecutingMCP: false,
+      researchStatus: null,
       activeProvider: "deepseek",
       activeModelId: "deepseek-v4-flash",
       pipelinePhase: null,
@@ -374,6 +397,7 @@ export const useChatStore = create<ChatStore>()(
 
       setStreaming: (streaming) => set({ isStreaming: streaming }),
       setExecutingMCP: (executing) => set({ isExecutingMCP: executing }),
+      setResearchStatus: (researchStatus) => set({ researchStatus }),
       setAbortController: (ac) => set({ abortController: ac }),
       
       abortStreaming: () =>
@@ -381,7 +405,7 @@ export const useChatStore = create<ChatStore>()(
           if (state.abortController) {
             state.abortController.abort();
           }
-          return { isStreaming: false, isExecutingMCP: false, abortController: null };
+          return { isStreaming: false, isExecutingMCP: false, researchStatus: null, abortController: null };
         }),
         
       setActiveProvider: (provider) => set({ activeProvider: provider }),

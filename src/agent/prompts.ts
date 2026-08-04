@@ -206,6 +206,17 @@ export function getToolLabel(
       const comp = typeof args.component === "string" ? args.component : "componente";
       return `Previsualizando ${comp}`;
     },
+    docs_search: () => `Buscando documentación de "${query}"`,
+    docs_fetch: () => {
+      const url = typeof args.url === "string" ? args.url.slice(0, 40) : "página";
+      return `Leyendo ${url}`;
+    },
+    code_search: () => `Buscando paquetes: "${query}"`,
+    cve_check: () => {
+      const pkg = typeof args.package === "string" ? args.package : "dependencia";
+      return `Verificando vulnerabilidades de ${pkg}`;
+    },
+    synthesis: () => "Consolidando hallazgos",
   };
 
   const labelFn = labels[toolName];

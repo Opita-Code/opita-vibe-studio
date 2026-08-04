@@ -10,9 +10,26 @@ import type { Harness, HarnessContext, HarnessResult, SDDPhase } from "../types"
 
 /** Which MCP tools are relevant for each phase */
 const PHASE_MCP_MAP: Partial<Record<SDDPhase, string[]>> = {
-  explore: ["read_file", "list_files", "search_code"],
-  apply: ["read_file", "write_file", "apply_diff", "list_files", "search_code", "execute_command"],
-  verify: ["read_file", "execute_command", "search_code"],
+  explore: [
+    "read_file",
+    "list_files",
+    "search_code",
+    "docs_search",
+    "docs_fetch",
+    "code_search",
+    "cve_check",
+    "synthesis",
+  ],
+  apply: [
+    "read_file",
+    "write_file",
+    "apply_diff",
+    "list_files",
+    "search_code",
+    "execute_command",
+    "cve_check",
+  ],
+  verify: ["read_file", "execute_command", "search_code", "docs_search"],
 };
 
 /** Tools that are always available */

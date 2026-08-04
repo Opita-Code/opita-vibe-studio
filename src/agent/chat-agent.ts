@@ -20,6 +20,7 @@ import { streamSSE, type StreamOptions } from "./stream-client";
 import { getSystemPrompt, getToolLabel } from "./prompts";
 import { executeTool } from "@/tools/executor";
 import type { ToolCall } from "@/tools/definitions";
+import { useChatStore, type ResearchStatus } from "@/stores/chat";
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -28,6 +29,15 @@ const MAX_ITERATIONS = 5;
 
 /** Max consecutive errors before aborting */
 const MAX_CONSECUTIVE_ERRORS = 2;
+
+/** Mapea tools de documentación a su estado para el indicador visual. */
+const RESEARCH_TOOL_STATUS: Record<string, ResearchStatus> = {
+  docs_search: "searching",
+  docs_fetch: "fetching",
+  code_search: "code",
+  cve_check: "cve",
+  synthesis: "synthesizing",
+};
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -150,6 +160,12 @@ async function* handleChatToolRequest(
 
   const friendlyLabel = getToolLabel(toolCall.name, toolCall.args);
 
+  // Signal research status for OSINT tools (visual indicator in UI)
+  const researchStatus = RESEARCH_TOOL_STATUS[toolCall.name];
+  if (researchStatus) {
+    useChatStore.getState().setResearchStatus(researchStatus);
+  }
+
   // Create step (visible in the reasoning accordion)
   const step: AgentStep = {
     id: `chat-step-${Date.now()}-${stepLog.length}`,
@@ -163,6 +179,11 @@ async function* handleChatToolRequest(
 
   // Execute the tool (frontend executor — store/Sandpack/dark-memory)
   const result = await executeTool(toolCall);
+
+  // Clear research status after the OSINT tool finishes
+  if (researchStatus) {
+    useChatStore.getState().setResearchStatus(null);
+  }
 
   // Update step status
   step.status = result.success ? "done" : "error";
@@ -253,6 +274,11 @@ function getToolIcon(toolName: string): string {
     dark_memory_agent_memory_recall: "🧠",
     preview_component: "🖥️",
     refresh_preview: "🔄",
+    docs_search: "🌐",
+    docs_fetch: "📥",
+    code_search: "📦",
+    cve_check: "🛡️",
+    synthesis: "🧪",
   };
   return icons[toolName] || "🔨";
 }

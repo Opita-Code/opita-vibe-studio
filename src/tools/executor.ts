@@ -28,6 +28,15 @@ import {
 } from "@/lib/fs";
 import { useProjectStore } from "@/stores/project";
 import { triggerPreviewRefresh } from "@/lib/preview-refresh";
+import {
+  searchDocs,
+  fetchDoc,
+  searchCode,
+  checkCve,
+  formatSearchResults,
+  formatCveResults,
+  formatCodeSearchResults,
+} from "./research-bridge";
 
 // ─── Virtual Workspace Detection ───────────────────────────────
 
@@ -1129,6 +1138,157 @@ async function toolRefreshPreview(
   }
 }
 
+// ─── OSINT Research Tools ──────────────────────────────────────
+// Capa de documentación técnica: búsqueda web, lectura de docs, code search
+// y CVE check vía research-bridge (backend /research/* + APIs públicas
+// CORS-friendly). Todas son read-only y degradan elegante sin crashear el agente.
+
+async function toolDocsSearch(
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const query = String(args.query || "").trim();
+  if (!query) return { name: "docs_search", success: false, error: "Se requiere 'query'" };
+
+  try {
+    const limit = args.limit ? Number(args.limit) : undefined;
+    const results = await searchDocs(query, limit);
+
+    if (results.length === 0) {
+      return {
+        name: "docs_search",
+        success: true,
+        result: `No se encontraron resultados para '${query}'. Intenta reformular la búsqueda o usa code_search.`,
+      };
+    }
+
+    return {
+      name: "docs_search",
+      success: true,
+      result: `[${results.length} resultados para '${query}']\n\n${formatSearchResults(results)}\n\nUsa docs_fetch para leer una fuente en detalle (solo dominios de documentación), o cruza con otra búsqueda antes de concluir.`,
+    };
+  } catch (err) {
+    return {
+      name: "docs_search",
+      success: false,
+      error: `Error buscando documentación: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+async function toolDocsFetch(
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const url = String(args.url || "").trim();
+  if (!url) return { name: "docs_fetch", success: false, error: "Se requiere 'url'" };
+
+  try {
+    const maxLength = args.max_length ? Number(args.max_length) : undefined;
+    const page = await fetchDoc(url, maxLength);
+
+    if (!page.content.trim()) {
+      return {
+        name: "docs_fetch",
+        success: true,
+        result: `La página '${page.title || url}' no devolvió contenido legible.`,
+      };
+    }
+
+    const warnings = page.warnings?.length
+      ? `\n\n⚠️ Avisos: ${page.warnings.join("; ")}`
+      : "";
+
+    return {
+      name: "docs_fetch",
+      success: true,
+      result: `[${page.title || "Sin título"} — ${page.byteCount} bytes]\n\n${page.content}${warnings}`,
+    };
+  } catch (err) {
+    return {
+      name: "docs_fetch",
+      success: false,
+      error: `Error leyendo '${url}': ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+async function toolCodeSearch(
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const query = String(args.query || "").trim();
+  if (!query) return { name: "code_search", success: false, error: "Se requiere 'query'" };
+
+  try {
+    const limit = args.limit ? Number(args.limit) : undefined;
+    const results = await searchCode(query, limit);
+
+    if (results.length === 0) {
+      return {
+        name: "code_search",
+        success: true,
+        result: `No se encontraron paquetes ni repositorios para '${query}'.`,
+      };
+    }
+
+    return {
+      name: "code_search",
+      success: true,
+      result: `[${results.length} resultados de código para '${query}']\n\n${formatCodeSearchResults(results)}`,
+    };
+  } catch (err) {
+    return {
+      name: "code_search",
+      success: false,
+      error: `Error buscando código: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+async function toolCveCheck(
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const pkg = String(args.package || "").trim();
+  if (!pkg) return { name: "cve_check", success: false, error: "Se requiere 'package'" };
+
+  try {
+    const vulns = await checkCve(pkg);
+
+    if (vulns.length === 0) {
+      return {
+        name: "cve_check",
+        success: true,
+        result: `No se encontraron vulnerabilidades conocidas para '${pkg}' en OSV.dev. (Esto no es una garantía de seguridad absoluta, pero es señal positiva.)`,
+      };
+    }
+
+    return {
+      name: "cve_check",
+      success: true,
+      result: `[${vulns.length} vulnerabilidad${vulns.length === 1 ? "" : "es"} para '${pkg}']\n\n${formatCveResults(vulns)}`,
+    };
+  } catch (err) {
+    return {
+      name: "cve_check",
+      success: false,
+      error: `Error verificando CVEs de '${pkg}': ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+async function toolSynthesis(
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const topic = String(args.topic || "").trim();
+  const decision = String(args.decision || "").trim();
+  if (!topic) return { name: "synthesis", success: false, error: "Se requiere 'topic'" };
+  if (!decision) return { name: "synthesis", success: false, error: "Se requiere 'decision'" };
+
+  return {
+    name: "synthesis",
+    success: true,
+    result: `Síntesis registrada: [${topic}] ${decision}\n\nRecuerda guardar este hallazgo en dark_memory_agent_memory_save (kind=finding) para futuras sesiones, y continúa con la implementación.`,
+  };
+}
+
 // ─── Main Executor ─────────────────────────────────────────────
 
 const TOOL_MAP: Record<string, (args: Record<string, unknown>) => Promise<ToolResult>> = {
@@ -1146,6 +1306,11 @@ const TOOL_MAP: Record<string, (args: Record<string, unknown>) => Promise<ToolRe
   execute_command: toolExecuteCommand,
   preview_component: toolPreviewComponent,
   refresh_preview: toolRefreshPreview,
+  docs_search: toolDocsSearch,
+  docs_fetch: toolDocsFetch,
+  code_search: toolCodeSearch,
+  cve_check: toolCveCheck,
+  synthesis: toolSynthesis,
 };
 
 /**

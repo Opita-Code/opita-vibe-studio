@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { MAX_CONTEXT_MESSAGES, getContextCount } from "@/stores/chat";
+import { MAX_CONTEXT_MESSAGES, getContextCount, RESEARCH_STATUS_LABELS } from "@/stores/chat";
+import { useChatStore } from "@/stores/chat";
 import { useGamificationStore } from "@/stores/gamification";
 import { useAuthStore } from "@/stores/auth";
 import type { Message } from "@/lib/types";
@@ -160,8 +161,40 @@ export function MessageList({ messages, isStreaming, onSuggestionClick, onNewCha
               onEdit={onEditMessage}
             />
           ))}
+
+          {/* OSINT research indicator — visible while the agent searches the web */}
+          <ResearchStatusChip />
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Research Status Chip ──────────────────────────────────────
+
+/**
+ * Chip de investigación OSINT: aparece cuando el agente está buscando en la
+ * web, leyendo páginas, verificando CVEs o sintetizando hallazgos.
+ * Se auto-oculta cuando researchStatus es null.
+ */
+function ResearchStatusChip() {
+  const researchStatus = useChatStore((s) => s.researchStatus);
+  if (!researchStatus) return null;
+
+  const label = RESEARCH_STATUS_LABELS[researchStatus] ?? "Investigando...";
+
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2 mt-3 w-fit rounded-xl bg-aura-cyan/[0.06] border border-aura-cyan/20 animate-fade-in"
+      role="status"
+      aria-live="polite"
+      data-testid="research-status-chip"
+    >
+      <span className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-aura-cyan opacity-75" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-aura-cyan" />
+      </span>
+      <span className="text-xs text-aura-cyan/90 font-medium">{label}</span>
     </div>
   );
 }

@@ -270,7 +270,31 @@ export default $config({
       },
     });
 
-    // 1.8 Sync API — Opita Sync Operations Hub with server-side tools
+    // 1.8 Research API — OSINT proxy (web search, fetch sanitizado, CVE check)
+    // Sin API keys: DuckDuckGo HTML server-side + OSV.dev. Auth OCAIS + rate limit.
+    const researchApi = new sst.aws.Function("ResearchAPI", {
+      url: {
+        cors: {
+          allowOrigins: [
+            "https://vibe.opitacode.com",
+            "https://opitacode.com",
+            "https://cuenta.opitacode.com",
+            "http://localhost:1420",
+          ],
+          allowMethods: ["POST"],
+          allowHeaders: ["Content-Type", "Authorization", "Cookie"],
+          allowCredentials: true,
+        },
+      },
+      handler: "packages/vibe-ai-backend/src/api/research.handler",
+      environment: {
+        JWT_SECRET: process.env.JWT_SECRET || "",
+        OCAIS_JWKS_URL: $app.stage === "prod" ? "https://api.opitacode.com/.well-known/jwks.json" : "",
+      },
+      timeout: "30 seconds",
+    });
+
+    // 1.9 Sync API — Opita Sync Operations Hub with server-side tools
     const syncApi = new sst.aws.Function("SyncAPI", {
       url: {
         cors: {
@@ -300,59 +324,12 @@ export default $config({
       streaming: true,
     });
 
-    const router = new sst.aws.Router("VibeRouter", {
-      domain: $app.stage === "prod" ? "api.opitacode.com" : "api-dev.opitacode.com",
-      routes: {
-        "/sync/*": syncApi.url,
-        "/billing/*": billingApi.url,
-        "/chat/*": api.url,
-        "/core/auth/*": authApiUrl,
-        "/core/*": coreApi.url,
-        "/storage/*": storageApi.url,
-      },
-      // ═══════════════════════════════════════════════════════════════
-      // ⚠️  CLOUDFRONT CACHE POLICY — READ BEFORE CHANGING  ⚠️
-      // ═══════════════════════════════════════════════════════════════
-      //
-      // headerBehavior: "whitelist" + ["Authorization", "Origin"]
-      //   ✅ Auth tokens reach Lambda → chat, billing, storage work
-      //   ✅ Origin reaches Lambda → CORS headers returned correctly
-      //   ⚠️  Disables CloudFront response caching (correct for API)
-      //
-      // headerBehavior: "none"
-      //   ❌ BREAKS AUTH — Authorization header stripped → "Falta token"
-      //   ✅ CORS works (Origin forwarded implicitly)
-      //
-      // headerBehavior: "whitelist" + ["Authorization"] (without Origin)
-      //   ✅ Auth works
-      //   ❌ BREAKS CORS — Origin stripped → no Access-Control-Allow-Origin
-      //
-      // BOTH Authorization AND Origin MUST be whitelisted.
-      // Removing either one breaks production. See git blame for history.
-      // ═══════════════════════════════════════════════════════════════
-      transform: {
-        cachePolicy: {
-          parametersInCacheKeyAndForwardedToOrigin: {
-            cookiesConfig: {
-              cookieBehavior: "all",
-            },
-            headersConfig: {
-              // ⚠️ BOTH headers are required:
-              // - Authorization → auth tokens reach Lambda
-              // - Origin → Lambda returns CORS headers
-              // Removing either breaks production.
-              headerBehavior: "whitelist",
-              headers: {
-                items: ["Authorization", "Origin"],
-              },
-            },
-            queryStringsConfig: {
-              queryStringBehavior: "all",
-            },
-          },
-        },
-      },
-    });
+    // Router migrated to opita-account-ui (Phase A cutover, 2026-08-04).
+    // The real api.opitacode.com distribution (E1VRLLH35PTCWT) is owned by
+    // the opita-account-ui stack. VibeStudio's old Router (E1KO6ZMHUX4HF9)
+    // was manually deleted — any remaining AWS resources from this block
+    // should be cleaned from Pulumi state on next backend deploy.
+    // See: opita-account-ui/sst.config.ts legacyVibeStudioOrigins.
 
     return {
       SyncApiUrl: syncApi.url,
@@ -360,7 +337,7 @@ export default $config({
       StorageApiUrl: storageApi.url,
       BillingApiUrl: billingApi.url,
       CoreApiUrl: coreApi.url,
-      RouterUrl: router.url,
+      ResearchApiUrl: researchApi.url,
       TableName: table.name,
       BucketName: storageBucket.name,
       DataLakeBucketName: dataLakeBucket.name,

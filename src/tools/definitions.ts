@@ -308,6 +308,120 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     parameters: [],
     dangerous: false,
   },
+  {
+    name: "docs_search",
+    description:
+      "Busca documentación técnica y soluciones en la web. " +
+      "ÚSALA cuando necesites documentación de librerías, sintaxis nueva, " +
+      "mejores prácticas actuales, o errores con soluciones conocidas — " +
+      "cualquier dato que pueda haber cambiado después de tu entrenamiento. " +
+      "NO la uses para buscar dentro del proyecto (usa search_code). " +
+      "Después de obtener resultados, cruza 2+ fuentes antes de dar una respuesta definitiva.",
+    parameters: [
+      {
+        name: "query",
+        type: "string",
+        description: "Consulta en lenguaje natural (ej: 'React 19 Server Components breaking changes')",
+        required: true,
+      },
+      {
+        name: "limit",
+        type: "number",
+        description: "Máximo de resultados a retornar (1-15, default 8)",
+        required: false,
+      },
+    ],
+    dangerous: false,
+  },
+  {
+    name: "docs_fetch",
+    description:
+      "Lee el contenido de una página de documentación, issue o referencia técnica. " +
+      "ÚSALA para leer documentación oficial, posts de StackOverflow o issues de GitHub " +
+      "que docs_search haya encontrado y necesites leer en detalle. " +
+      "SOLO dominios de documentación permitidos (react.dev, developer.mozilla.org, " +
+      "github.com, stackoverflow.com, npmjs.com, nodejs.org y similares).",
+    parameters: [
+      {
+        name: "url",
+        type: "string",
+        description: "URL completa a leer (ej: 'https://react.dev/blog/2024/12/05/react-19')",
+        required: true,
+      },
+      {
+        name: "max_length",
+        type: "number",
+        description: "Máximo de caracteres a retornar (1000-50000, default 20000)",
+        required: false,
+      },
+    ],
+    dangerous: false,
+  },
+  {
+    name: "code_search",
+    description:
+      "Busca paquetes y repositorios de código en registros públicos (npm, GitHub). " +
+      "ÚSALA para encontrar la librería correcta para una tarea, verificar si un paquete " +
+      "existe y cuál es la versión actual, o descubrir ejemplos de implementación. " +
+      "Complementa a docs_search cuando necesitas código real, no solo texto.",
+    parameters: [
+      {
+        name: "query",
+        type: "string",
+        description: "Términos de búsqueda (ej: 'jwt authentication express middleware')",
+        required: true,
+      },
+      {
+        name: "limit",
+        type: "number",
+        description: "Máximo de resultados a retornar (1-10, default 8)",
+        required: false,
+      },
+    ],
+    dangerous: false,
+  },
+  {
+    name: "cve_check",
+    description:
+      "Verifica vulnerabilidades conocidas (CVEs) de una dependencia npm usando OSV.dev. " +
+      "ÚSALA ANTES de agregar una dependencia al proyecto o cuando sospeches que una " +
+      "versión instalada tiene problemas de seguridad. " +
+      "Retorna severidad (CRITICAL/HIGH/MODERATE/LOW) y la versión que corrige cada vulnerabilidad.",
+    parameters: [
+      {
+        name: "package",
+        type: "string",
+        description: "Nombre del paquete npm (ej: 'jsonwebtoken', 'lodash', 'axios')",
+        required: true,
+      },
+    ],
+    dangerous: false,
+  },
+  {
+    name: "synthesis",
+    description:
+      "Indicación de síntesis: consolida los resultados de búsquedas anteriores " +
+      "(docs_search, docs_fetch, code_search, cve_check) en una conclusión accionable. " +
+      "ÚSALA cuando tengas 2+ fuentes y necesites decidir: qué versión usar, qué patrón " +
+      "seguir, o si un enfoque es seguro. " +
+      "La síntesis la haces TÚ como modelo: esta herramienta solo marca el punto de consolidación. " +
+      "Después de sintetizar, guarda el hallazgo con dark_memory_agent_memory_save.",
+    parameters: [
+      {
+        name: "topic",
+        type: "string",
+        description: "Tema que estás consolidando (ej: 'autenticación JWT en Express')",
+        required: true,
+      },
+      {
+        name: "decision",
+        type: "string",
+        description: "Conclusión: qué elegiste y por qué (ej: 'usar jsonwebtoken v9.0.3 — corrige CVE-2022-23529')",
+        required: true,
+      },
+    ],
+    dangerous: false,
+  },
 ];
 
 /**
