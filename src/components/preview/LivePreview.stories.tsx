@@ -20,26 +20,10 @@ const meta: Meta<typeof LivePreview> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const EmptyState: Story = {
-  args: {
-    version: 1,
-  },
-};
+export const EmptyState: Story = {};
 
-export const RenderedHTML: Story = {
-  args: {
-    version: 1,
-  },
-};
+export const RenderedHTML: Story = {};
 
-export const FullDocument: Story = {
-  args: {
-    version: 1,
-  },
-};
+export const FullDocument: Story = {};
 
-export const WithErrorScript: Story = {
-  args: {
-    version: 1,
-  },
-};
+export const WithErrorScript: Story = {};

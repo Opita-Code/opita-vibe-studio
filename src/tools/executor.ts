@@ -27,6 +27,7 @@ import {
   deleteEntry,
 } from "@/lib/fs";
 import { useProjectStore } from "@/stores/project";
+import { triggerPreviewRefresh } from "@/lib/preview-refresh";
 
 // ─── Virtual Workspace Detection ───────────────────────────────
 
@@ -1107,6 +1108,27 @@ async function toolPreviewComponent(
   }
 }
 
+async function toolRefreshPreview(
+  _args: Record<string, unknown>,
+): Promise<ToolResult> {
+  try {
+    const triggered = triggerPreviewRefresh();
+    return {
+      name: "refresh_preview",
+      success: true,
+      result: triggered
+        ? "Preview actualizado. El bundler re-ejecutó con los últimos archivos."
+        : "Preview no montado en este momento — los cambios ya se aplicarán en la próxima vista.",
+    };
+  } catch (err) {
+    return {
+      name: "refresh_preview",
+      success: false,
+      error: `Error refrescando preview: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
 // ─── Main Executor ─────────────────────────────────────────────
 
 const TOOL_MAP: Record<string, (args: Record<string, unknown>) => Promise<ToolResult>> = {
@@ -1123,6 +1145,7 @@ const TOOL_MAP: Record<string, (args: Record<string, unknown>) => Promise<ToolRe
   dark_memory_agent_memory_recall: toolDarkMemoryRecall,
   execute_command: toolExecuteCommand,
   preview_component: toolPreviewComponent,
+  refresh_preview: toolRefreshPreview,
 };
 
 /**

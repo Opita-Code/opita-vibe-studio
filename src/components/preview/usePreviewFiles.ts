@@ -8,7 +8,7 @@
  * - Limits file count for Sandpack performance
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useProjectStore } from "@/stores/project";
 import { useUIStore } from "@/stores/ui";
 
@@ -151,6 +151,7 @@ function toSandpackPath(relativePath: string, rootPath: string): string {
  * Maps the current project's file contents to Sandpack's virtual filesystem.
  *
  * Returns memoized result that only updates when fileContents change.
+ * Debounces updates ~500ms so Sandpack doesn't re-bundle on every keystroke.
  */
 export function usePreviewFiles(): PreviewFiles {
   const fileContents = useProjectStore((s) => s.fileContents);
@@ -158,8 +159,35 @@ export function usePreviewFiles(): PreviewFiles {
   const previewTarget = useUIStore((s) => s.previewTarget);
   const vibeLensEnabled = useUIStore((s) => s.vibeLensEnabled);
 
+  // ─── Debounced fileContents ─────────────────────────────────
+  // Sandpack re-bundles on every files prop change. Debouncing the
+  // snapshot prevents a full re-bundle on each keystroke (typing
+  // 20 chars = 20 re-bundles without this). The editor stays live
+  // (its own state), only the preview lags by ~500ms.
+  const [debouncedContents, setDebouncedContents] = useState(fileContents);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firstRunRef = useRef(true);
+
+  useEffect(() => {
+    // First render: show immediately (no artificial delay on mount).
+    if (firstRunRef.current) {
+      firstRunRef.current = false;
+      setDebouncedContents(fileContents);
+      return;
+    }
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setDebouncedContents(fileContents);
+    }, 500);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [fileContents]);
+
   return useMemo(() => {
-    const entries = Object.entries(fileContents);
+    const entries = Object.entries(debouncedContents);
 
     if (entries.length === 0) {
       return { files: {}, template: "react-ts" as const, hasPreviewableFiles: false, fileCount: 0 };
@@ -281,5 +309,5 @@ export default function App() {
       hasPreviewableFiles,
       fileCount: count,
     };
-  }, [fileContents, rootPath, previewTarget, vibeLensEnabled]);
+  }, [debouncedContents, rootPath, previewTarget, vibeLensEnabled]);
 }

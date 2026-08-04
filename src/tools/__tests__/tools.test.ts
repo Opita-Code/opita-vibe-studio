@@ -20,8 +20,8 @@ import {
 // ─── Tool Definitions ──────────────────────────────────────────
 
 describe("Tool Definitions", () => {
-  it("debe tener 12 herramientas definidas", () => {
-    expect(TOOL_DEFINITIONS).toHaveLength(12);
+  it("debe tener 13 herramientas definidas", () => {
+    expect(TOOL_DEFINITIONS).toHaveLength(13);
   });
 
   it("cada herramienta tiene name, description, y parameters", () => {

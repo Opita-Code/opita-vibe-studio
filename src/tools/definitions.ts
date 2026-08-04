@@ -299,6 +299,15 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     ],
     dangerous: false,
   },
+  {
+    name: "refresh_preview",
+    description:
+      "Fuerza la recarga del preview de VibeLens después de cambios. " +
+      "Úsala cuando hayas escrito/actualizado archivos y quieras asegurarte " +
+      "de que el preview re-bundlee y muestre el resultado más reciente.",
+    parameters: [],
+    dangerous: false,
+  },
 ];
 
 /**

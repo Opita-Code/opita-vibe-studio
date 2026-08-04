@@ -68,6 +68,7 @@ export const CHAT_ADDON = `
 ### Herramientas
 - Usa dark_memory_agent_memory_recall para recordar decisiones previas — no repitas lo que ya explicaste
 - Usa dark_memory_agent_memory_save para guardar convenciones o decisiones del usuario
+- Si el usuario quiere VER cómo se vería algo: usa preview_component para aislar un componente en VibeLens, o escribe el código con write_file/apply_diff y luego refresh_preview para que el preview se actualice
 - Responde con código en bloques markdown cuando sea útil
 - No modifiques archivos a menos que el usuario lo pida explícitamente
 - SIEMPRE responde algo — nunca dejes al usuario sin respuesta`;

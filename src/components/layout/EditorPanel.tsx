@@ -1,6 +1,7 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef } from "react";
 import { useUIStore } from "@/stores/ui";
 import { useProjectStore } from "@/stores/project";
+import type { LivePreviewHandle } from "@/components/preview/LivePreview";
 
 const VibePad = lazy(() =>
   import("@/components/editor/VibePad").then((m) => ({ default: m.VibePad }))
@@ -37,11 +38,12 @@ export function EditorPanel() {
   const diffOriginalContent = useProjectStore((s) => s.diffOriginalContent);
   const diffModifiedContent = useProjectStore((s) => s.diffModifiedContent);
   const closeDiffMode = useProjectStore((s) => s.closeDiffMode);
-  // Preview version counter — increments on save/tab-switch to trigger refresh
-  const [version, setVersion] = useState(0);
-  const prevActiveTabRef = useRef(activeTab);
+  // Preview handle — imperative refresh (replaces the old version counter).
+  const previewRef = useRef<LivePreviewHandle>(null);
 
   // ── Ctrl+S: guardar archivo activo ─────────────────────────
+  // Ya NO incrementa versión del preview — los cambios fluyen por
+  // el prop files reactivo de Sandpack (con debounce en usePreviewFiles).
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
@@ -49,8 +51,6 @@ export function EditorPanel() {
         const tab = useProjectStore.getState().activeTab;
         if (tab) {
           saveFile(tab);
-          // Increment preview version on save to trigger "Actualizado"
-          setVersion((v) => v + 1);
         }
       }
     };
@@ -68,14 +68,6 @@ export function EditorPanel() {
       return () => clearTimeout(timer);
     }
   }, [statusMessage]);
-
-  // ── Increment version when active tab changes ──────────────
-  useEffect(() => {
-    if (activeTab !== prevActiveTabRef.current) {
-      prevActiveTabRef.current = activeTab;
-      setVersion((v) => v + 1);
-    }
-  }, [activeTab]);
 
   // ── Editor + Preview shared markup ─────────────────────────
 
@@ -155,7 +147,7 @@ export function EditorPanel() {
 
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setVersion((v) => v + 1)}
+            onClick={() => previewRef.current?.refreshPreview()}
             aria-label="Recargar vista previa"
             className="px-2 py-1 text-xs text-slate-500 hover:text-white hover:bg-white/10 rounded transition-colors"
             title="Recargar vista previa"
@@ -185,7 +177,7 @@ export function EditorPanel() {
       </div>
 
       {/* Live Preview iframe */}
-      <LivePreview version={version} />
+      <LivePreview ref={previewRef} />
     </div>
   );
 

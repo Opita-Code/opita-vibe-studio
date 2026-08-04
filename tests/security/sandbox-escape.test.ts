@@ -172,6 +172,9 @@ describe("11.2 Security: Network sandbox", () => {
 // THEN eval/innerHTML patterns are not used
 //
 describe("11.2 Security: Eval prevention", () => {
+  // Nota: estos tests importan módulos pesados (LivePreview→Sandpack,
+  // build-agent→executor→stores) que en jsdom tardan >5s en cargarse.
+  // Timeout ampliado: la verificación es de fuente (toString), no de runtime.
   it("buildPreviewContent MUST NOT use eval() or innerHTML", async () => {
     const { buildPreviewContent } =
       await import("../../src/components/preview/LivePreview");
@@ -180,7 +183,7 @@ describe("11.2 Security: Eval prevention", () => {
     expect(source).not.toContain("innerHTML");
     expect(source).not.toContain("Function(");
     expect(source).not.toContain("setTimeout(");
-  });
+  }, 60_000);
 
   it("agent system MUST NOT eval or construct Function from AI responses", async () => {
     // The active agent system is build-agent.ts → runBuildAgent().
@@ -199,7 +202,7 @@ describe("11.2 Security: Eval prevention", () => {
     expect(intentSource).not.toContain("eval(");
     expect(buildAgentSource).not.toContain("Function(");
     expect(orchestratorSource).not.toContain("Function(");
-  });
+  }, 60_000);
 
   it("prompt templates MUST NOT interpolate user content unsafely", async () => {
     const { getSystemPrompt } = await import("../../src/agent/prompts");

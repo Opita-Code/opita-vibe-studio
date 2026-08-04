@@ -8,6 +8,7 @@ import { FileWatcher } from "@/components/editor/FileWatcher";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { WompiModal } from "@/components/usage/WompiModal";
 import { VibeLensToolbar } from "@/components/preview/VibeLensToolbar";
+import type { LivePreviewHandle } from "@/components/preview/LivePreview";
 import { useAuthStore } from "@/stores/auth";
 import { useKeybindings } from "@/lib/useKeybindings";
 import { AppLifecycle } from "./renderer/AppLifecycle";
@@ -62,8 +63,8 @@ function Workspace() {
   const terminalHeight = useUIStore((s) => s.terminalHeight);
   const setTerminalHeight = useUIStore((s) => s.setTerminalHeight);
 
-  // Preview version counter — for refresh
-  const [previewVersion, setPreviewVersion] = useState(0);
+  // Preview refresh handle — imperative (replaces the old version counter).
+  const previewRef = useRef<LivePreviewHandle>(null);
 
   // Ref for computing resize deltas → ratio
   const containerRef = useRef<HTMLDivElement>(null);
@@ -194,7 +195,7 @@ function Workspace() {
               exit={{ opacity: 0, width: 0 }}
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] as const }}
             >
-              <VibeLensToolbar onRefresh={() => setPreviewVersion((v) => v + 1)} />
+              <VibeLensToolbar onRefresh={() => previewRef.current?.refreshPreview()} />
               {/* Preview iframe */}
               <div className="flex-1 overflow-hidden bg-obsidian-950">
                 <Suspense fallback={
@@ -202,7 +203,7 @@ function Workspace() {
                     <span className="animate-pulse">Cargando VibeLens...</span>
                   </div>
                 }>
-                  <FullscreenPreview version={previewVersion} />
+                  <FullscreenPreview ref={previewRef} />
                 </Suspense>
               </div>
             </motion.div>
@@ -249,7 +250,7 @@ function Workspace() {
               exit={{ opacity: 0, width: 0 }}
               transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] as const }}
             >
-              <VibeLensToolbar onRefresh={() => setPreviewVersion((v) => v + 1)} />
+              <VibeLensToolbar onRefresh={() => previewRef.current?.refreshPreview()} />
               {/* Preview iframe */}
               <div className="flex-1 overflow-hidden bg-obsidian-950">
                 <Suspense fallback={
@@ -257,7 +258,7 @@ function Workspace() {
                     <span className="animate-pulse">Cargando VibeLens...</span>
                   </div>
                 }>
-                  <FullscreenPreview version={previewVersion} />
+                  <FullscreenPreview ref={previewRef} />
                 </Suspense>
               </div>
             </motion.div>
