@@ -177,8 +177,57 @@ export function CommandPalette() {
         setActiveSidebar(activeSidebar === "explorer" ? null : "explorer");
         break;
       }
+      case "TOGGLE_TERMINAL": {
+        const { terminalVisible, setTerminalVisible } = useUIStore.getState();
+        setTerminalVisible(!terminalVisible);
+        break;
+      }
       case "EXPORT_PROJECT": {
-        useUIStore.getState().setStatusMessage("Usa el panel de exportación para descargar tu proyecto.");
+        // VL-4: exportación real (antes solo mostraba un mensaje).
+        // Misma lógica que ExportProjectButton (virtual FS → ZIP → download).
+        try {
+          const { default: JSZip } = await import("jszip");
+          const projectStore = (await import("@/stores/project")).useProjectStore.getState();
+          const workspace = projectStore.workspaces.find(
+            (w) => w.id === projectStore.activeWorkspaceId,
+          ) ?? projectStore.workspaces[0];
+          if (!workspace) {
+            useUIStore.getState().setStatusMessage("Abre un proyecto para exportarlo.");
+            break;
+          }
+
+          const zip = new JSZip();
+          const prefix = `${workspace.id}/`;
+          for (const [fullPath, content] of Object.entries(projectStore.fileContents)) {
+            let relativePath = fullPath;
+            if (fullPath.startsWith(prefix)) {
+              relativePath = fullPath.slice(prefix.length);
+            } else if (fullPath.startsWith("template://")) {
+              const parts = fullPath.split("/");
+              const templatePrefix = parts.slice(0, 3).join("/") + "/";
+              relativePath = fullPath.slice(templatePrefix.length);
+            }
+            if (relativePath) {
+              zip.file(relativePath, content);
+            }
+          }
+
+          const blob = await zip.generateAsync({ type: "blob" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${workspace.name || "proyecto"}.zip`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          useUIStore.getState().setStatusMessage(`Proyecto exportado: ${workspace.name}.zip`);
+        } catch (err: unknown) {
+          useUIStore.getState().setStatusMessage(
+            `Error exportando: ${err instanceof Error ? err.message : "desconocido"}`,
+          );
+        }
         break;
       }
       default:
