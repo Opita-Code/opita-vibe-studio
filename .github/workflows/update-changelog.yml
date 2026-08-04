@@ -26,8 +26,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Use PAT so the push triggers other workflows if needed
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # PAT fine-grained con bypass branch protection: Contents R/W.
+          # GITHUB_TOKEN nunca puede bypassar "Require pull request";
+          # sin PAT el push falla con "protected branch update failed".
+          token: ${{ secrets.CHANGELOG_PAT }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
