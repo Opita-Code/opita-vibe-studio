@@ -2,6 +2,7 @@ import type { Message } from "@/lib/types";
 import { useAuthStore } from "@/stores/auth";
 import { CHAT_API_URL } from "@/lib/api-config";
 import { isSessionPlaceholder } from "@/lib/auth-fetch";
+import { ThinkParser, processThinkContent } from "@/agent/think-parser";
 
 // Chat API URL — sourced from environment via api-config.ts
 const AWS_API_URL = CHAT_API_URL;
@@ -122,6 +123,7 @@ export async function* streamAwsSse(
     const reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
+    const thinkParser = new ThinkParser();
 
     while (true) {
       const { done, value } = await reader.read();
@@ -164,13 +166,20 @@ export async function* streamAwsSse(
             
             // Si es un evento MCP (Fase 3), lo emitimos
             if (parsed.type === "mcp_tool_request") {
-               yield { 
-                 type: "mcp_tool_request", 
-                 content: "", 
-                 tool: parsed.tool, 
-                 args: parsed.args,
-                 toolCallId: parsed.toolCallId
-               };
+               // En web (no-Tauri): ignorar la tool request y continuar el stream.
+               const isTauriRuntime =
+                 typeof (globalThis as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== "undefined";
+               if (!isTauriRuntime) {
+                 yield { type: "error", errorType: "server" as const, content: "⚠️ El modelo intentó usar una herramienta no disponible en la web. Continuando con la respuesta..." };
+               } else {
+                 yield { 
+                   type: "mcp_tool_request", 
+                   content: "", 
+                   tool: parsed.tool, 
+                   args: parsed.args,
+                   toolCallId: parsed.toolCallId
+                 };
+               }
             }
             // Error inline del backend (AI SDK runtime errors)
             else if (parsed.error || parsed.type === "error") {
@@ -184,7 +193,11 @@ export async function* streamAwsSse(
             }
             // Si es texto de chat
             else if (parsed.content) {
-              yield { type: "text", content: parsed.content };
+              // Bloques <think> con estado entre chunks (MiniMax).
+              const events = processThinkContent(thinkParser, String(parsed.content));
+              for (const ev of events) {
+                yield { type: ev.type, content: ev.content };
+              }
             } else {
               console.debug("[SSE-DEBUG] Chunk skipped:", JSON.stringify(parsed).slice(0, 200));
             }

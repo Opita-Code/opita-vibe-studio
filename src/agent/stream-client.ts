@@ -13,6 +13,7 @@
 import type { Message } from "@/lib/types";
 import type { SSEChunk } from "./types";
 import { useAuthStore } from "@/stores/auth";
+import { ThinkParser, processThinkContent } from "./think-parser";
 
 import { CHAT_API_URL } from "@/lib/api-config";
 import { isSessionPlaceholder } from "@/lib/auth-fetch";
@@ -95,6 +96,8 @@ export async function* streamSSE(
   options: StreamOptions
 ): AsyncGenerator<SSEChunk> {
   try {
+    // Parser de bloques <think> — el estado vive entre chunks (MiniMax).
+    const thinkParser = new ThinkParser();
     const token = useAuthStore.getState().session?.token;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -198,12 +201,24 @@ export async function* streamSSE(
 
           // MCP tool request from backend (includes toolCallId for ReAct loop)
           if (parsed.type === "mcp_tool_request") {
-            yield {
-              type: "tool_request",
-              tool: parsed.tool,
-              toolCallId: parsed.toolCallId || `call-${Date.now()}`,
-              args: parsed.args || {},
-            };
+            // En web (no-Tauri) las tools MCP no están disponibles: el modelo
+            // intentó usar una tool que no puede ejecutar. NO cortar el stream
+            // — emitir warning y continuar con la respuesta del modelo.
+            const isTauriRuntime =
+              typeof (globalThis as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== "undefined";
+            if (!isTauriRuntime) {
+              yield {
+                type: "error",
+                content: "⚠️ El modelo intentó usar una herramienta no disponible en la web. Continuando con la respuesta...",
+              };
+            } else {
+              yield {
+                type: "tool_request",
+                tool: parsed.tool,
+                toolCallId: parsed.toolCallId || `call-${Date.now()}`,
+                args: parsed.args || {},
+              };
+            }
           }
           // Error from backend
           else if (parsed.error || parsed.type === "error") {
@@ -219,14 +234,12 @@ export async function* streamSSE(
           }
           // Text content — FIX: use !== undefined to avoid dropping empty strings
           else if (parsed.content !== undefined) {
-            // Check if this is reasoning content (wrapped in <think> tags)
-            if (
-              typeof parsed.content === "string" &&
-              parsed.content.includes("<think>")
-            ) {
-              yield { type: "reasoning", content: parsed.content };
-            } else {
-              yield { type: "text", content: parsed.content };
+            // Procesar bloques <think> con estado entre chunks (MiniMax).
+            // El parser emite reasoning para el contenido dentro de <think>
+            // y text para el contenido fuera. Colapsa los tags.
+            const events = processThinkContent(thinkParser, String(parsed.content));
+            for (const ev of events) {
+              yield { type: ev.type, content: ev.content };
             }
           }
           // Unknown chunk type — silently skip (no debug logs in production)

@@ -117,4 +117,50 @@ describe("streamSSE — primer token (bug Lambda Function URL)", () => {
 
     expect(textParts).toBe("AB");
   });
+
+  it("mcp_tool_request en web: warning + stream continúa (no corta)", async () => {
+    // Sin __TAURI_INTERNALS__ → contexto web.
+    // @ts-expect-error — forzar entorno web
+    delete globalThis.__TAURI_INTERNALS__;
+
+    const stream =
+      '{"headers":{"Content-Type":"text/event-stream"}}\u0000\u0000\u0000\u0000' +
+      'data: {"type":"mcp_tool_request","tool":"list_files","toolCallId":"call_1","args":{}}\n\n' +
+      'data: {"content":"respuesta final"}\n\ndata: [DONE]\n\n';
+
+    mockFetch.mockResolvedValue(lambdaFunctionUrlResponse([enc.encode(stream)]));
+
+    const out = await collectSSE();
+
+    const errors = out.filter((c) => c.type === "error");
+    const texts = out
+      .filter((c): c is Extract<SSEChunk, { type: "text" }> => c.type === "text")
+      .map((c) => c.content)
+      .join("");
+
+    // Debe emitir warning y CONTINUAR con la respuesta del modelo.
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].content).toContain("no disponible en la web");
+    expect(texts).toBe("respuesta final");
+    expect(out.some((c) => c.type === "done")).toBe(true);
+  });
+
+  it("mcp_tool_request en Tauri: emite tool_request normal", async () => {
+    // Simular entorno Tauri.
+    // @ts-expect-error — forzar entorno tauri
+    globalThis.__TAURI_INTERNALS__ = {};
+
+    const stream =
+      '{"headers":{"Content-Type":"text/event-stream"}}\u0000\u0000\u0000\u0000' +
+      'data: {"type":"mcp_tool_request","tool":"read_file","toolCallId":"call_2","args":{"path":"a.ts"}}\n\n' +
+      'data: {"content":"ok"}\n\ndata: [DONE]\n\n';
+
+    mockFetch.mockResolvedValue(lambdaFunctionUrlResponse([enc.encode(stream)]));
+
+    const out = await collectSSE();
+
+    const toolRequests = out.filter((c) => c.type === "tool_request");
+    expect(toolRequests.length).toBe(1);
+    expect(toolRequests[0].tool).toBe("read_file");
+  });
 });
