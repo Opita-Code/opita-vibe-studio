@@ -20,6 +20,7 @@ import { ActivityBar } from "@/components/layout/ActivityBar";
 import { ExplorerDock } from "@/components/layout/ExplorerDock";
 import { ChatHistoryPanel } from "@/components/chat/ChatHistoryPanel";
 import { CommandPalette } from "@/components/layout/CommandPalette";
+import { TerminalPanel } from "@/components/terminal/TerminalPanel";
 import { MissionPanel } from "@/components/gamification/MissionPanel";
 import { LevelUpCeremony } from "@/components/gamification/LevelUpCeremony";
 import { useGamificationStore } from "@/stores/gamification";
@@ -56,6 +57,11 @@ function Workspace() {
   const fullscreenSplitRatio = useUIStore((s) => s.fullscreenSplitRatio);
   const setFullscreenSplitRatio = useUIStore((s) => s.setFullscreenSplitRatio);
 
+  // Terminal inferior (VL-2): toggleado desde ActivityBar / MobileNavBar.
+  const terminalVisible = useUIStore((s) => s.terminalVisible);
+  const terminalHeight = useUIStore((s) => s.terminalHeight);
+  const setTerminalHeight = useUIStore((s) => s.setTerminalHeight);
+
   // Preview version counter — for refresh
   const [previewVersion, setPreviewVersion] = useState(0);
 
@@ -83,8 +89,9 @@ function Workspace() {
   const sidePanelTransition = { duration: 0.3, ease: [0.4, 0, 0.2, 1] as const };
 
   return (
-    <div ref={containerRef} className="flex flex-1 overflow-hidden relative w-full h-full pb-16 md:pb-0">
-      {/* 1. Activity bar (izquierda) — oculta en fullscreen */}
+    <div className="flex flex-col flex-1 overflow-hidden relative w-full h-full">
+      <div ref={containerRef} className="flex flex-1 overflow-hidden relative w-full h-full pb-16 md:pb-0">
+        {/* 1. Activity bar (izquierda) — oculta en fullscreen */}
       <AnimatePresence>
         {!chatFullscreen && (
           <motion.div
@@ -255,6 +262,42 @@ function Workspace() {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+      </div>
+
+      {/* 8. Terminal inferior — visible con toggle (VL-2) */}
+      <AnimatePresence>
+        {terminalVisible && (
+          <motion.div
+            key="terminal-panel"
+            className="shrink-0 border-t border-white/10 bg-obsidian-950 z-30"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: terminalHeight, opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+          >
+            {/* Resize handle */}
+            <div
+              className="h-1.5 w-full cursor-row-resize hover:bg-aura-purple/30 transition-colors"
+              onMouseDown={(e) => {
+                const startY = e.clientY;
+                const startH = terminalHeight;
+                const onMove = (ev: MouseEvent) => {
+                  const delta = startY - ev.clientY;
+                  const next = Math.min(500, Math.max(120, startH + delta));
+                  setTerminalHeight(next);
+                };
+                const onUp = () => {
+                  window.removeEventListener("mousemove", onMove);
+                  window.removeEventListener("mouseup", onUp);
+                };
+                window.addEventListener("mousemove", onMove);
+                window.addEventListener("mouseup", onUp);
+              }}
+            />
+            <TerminalPanel height={terminalHeight} />
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
