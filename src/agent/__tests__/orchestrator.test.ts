@@ -1,7 +1,29 @@
 import { describe, it, expect } from "vitest";
 import { decideTDD, decideDelivery } from "../orchestrator";
+import { mapActiveModeToIntent } from "../orchestrator";
 
 describe("orchestrator decisions", () => {
+  // ─── ActiveMode → Intent (VL-4) ────────────────────────────
+
+  describe("mapActiveModeToIntent", () => {
+    it("null para 'auto' (clasificación automática)", () => {
+      expect(mapActiveModeToIntent("auto")).toBeNull();
+      expect(mapActiveModeToIntent(undefined)).toBeNull();
+    });
+
+    it("'construir' → code", () => {
+      expect(mapActiveModeToIntent("construir")).toBe("code");
+    });
+
+    it("'planear' → explore", () => {
+      expect(mapActiveModeToIntent("planear")).toBe("explore");
+    });
+
+    it("'vibe' y 'chat' → chat", () => {
+      expect(mapActiveModeToIntent("vibe")).toBe("chat");
+      expect(mapActiveModeToIntent("chat")).toBe("chat");
+    });
+  });
   // ─── TDD Decision ─────────────────────────────────────────
 
   describe("decideTDD", () => {

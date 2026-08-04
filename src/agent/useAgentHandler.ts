@@ -327,6 +327,7 @@ export function useAgentHandler() {
           hasGit: projectCtx.hasGit,
           projectFiles: projectCtx.rootFiles,
           packageManager: projectCtx.packageManager,
+          activeMode: (chatStore.activeMode as "auto" | "construir" | "planear" | "vibe" | "chat") || "auto",
           persona: useUIStore.getState().persona,
           customPersonaPrompt: useUIStore.getState().customPersonaPrompt || undefined,
         };

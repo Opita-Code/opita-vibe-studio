@@ -22,7 +22,7 @@ interface AWSTypes {
   HttpResponseStream: {
     from: (
       stream: NodeJS.WritableStream,
-      options: { headers: Record<string, string> }
+      options: { headers?: Record<string, string>; statusCode?: number }
     ) => NodeJS.WritableStream & { setContentType: (type: string) => void };
   };
 }
@@ -403,7 +403,11 @@ export const handler = awslambda.streamifyResponse(
     const tokenCandidates = [bearerToken, ocaisCookieToken].filter(Boolean);
 
     if (tokenCandidates.length === 0) {
-      responseStream.setContentType("application/json");
+      // HTTP 401 real (VL-4): errores de auth NO son 200 con error en body.
+      responseStream = awslambda.HttpResponseStream.from(responseStream, {
+        statusCode: 401,
+        headers: { "Content-Type": "application/json" }
+      });
       responseStream.write(JSON.stringify({ error: "Unauthorized: Falta token Bearer o cookie" }));
       responseStream.end();
       return;
@@ -444,7 +448,11 @@ export const handler = awslambda.streamifyResponse(
 
     if (!tokenVerified) {
       console.error("JWT verification failed for all token sources (Bearer + cookie)");
-      responseStream.setContentType("application/json");
+      // HTTP 401 real (VL-4).
+      responseStream = awslambda.HttpResponseStream.from(responseStream, {
+        statusCode: 401,
+        headers: { "Content-Type": "application/json" }
+      });
       responseStream.write(JSON.stringify({ error: "Unauthorized: Token inválido" }));
       responseStream.end();
       return;

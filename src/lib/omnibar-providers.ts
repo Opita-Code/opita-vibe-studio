@@ -34,16 +34,17 @@ export function filterOmniItems(query: string, items: OmniItem[]): OmniItem[] {
   );
 }
 
-// Mock providers for demonstration of the OmniBar capabilities
+// Providers del OmniBar — todas las acciones tienen handler en
+// CommandPalette.tsx (VL-4: eliminados los items sin implementación).
 export const OMNI_ITEMS: OmniItem[] = [
   // Commands
   { id: "cmd-new-file", title: "Nuevo Archivo", category: "Commands", iconType: "command", keywords: ["create", "nuevo", "archivo", "file"], action: "NEW_FILE" },
   { id: "cmd-report-bug", title: "Reportar Bug", subtitle: "Envía feedback al equipo", category: "Commands", iconType: "bug", keywords: ["bug", "error", "feedback", "report"], action: "REPORT_BUG" },
-  { id: "cmd-toggle-theme", title: "Alternar Tema Oscuro/Claro", category: "Commands", iconType: "command", keywords: ["theme", "tema", "dark", "light"], action: "TOGGLE_THEME" },
   { id: "cmd-toggle-missions", title: "Abrir Misiones", subtitle: "XP, rachas y recompensas", category: "Commands", iconType: "command", keywords: ["misiones", "missions", "xp", "gamificacion", "racha", "streak"], action: "TOGGLE_MISSIONS" },
   { id: "cmd-toggle-fullscreen", title: "Chat Pantalla Completa", subtitle: "Maximizar o restaurar el chat", category: "Commands", iconType: "chat", keywords: ["fullscreen", "maximizar", "pantalla", "chat"], action: "TOGGLE_CHAT_FULLSCREEN" },
   { id: "cmd-new-chat", title: "Nuevo Chat", subtitle: "Inicia una conversación limpia", category: "Commands", iconType: "chat", keywords: ["nuevo", "chat", "conversacion", "limpiar"], action: "NEW_CHAT" },
   { id: "cmd-toggle-explorer", title: "Alternar Explorador", subtitle: "Mostrar u ocultar panel de archivos", category: "Commands", iconType: "file", keywords: ["explorador", "archivos", "sidebar", "panel"], action: "TOGGLE_EXPLORER" },
+  { id: "cmd-toggle-terminal", title: "Alternar Terminal", subtitle: "Mostrar u ocultar la terminal", category: "Commands", iconType: "command", keywords: ["terminal", "consola", "shell", "comandos"], action: "TOGGLE_TERMINAL" },
   { id: "cmd-export", title: "Exportar Proyecto", subtitle: "Descargar como ZIP", category: "Commands", iconType: "command", keywords: ["export", "exportar", "zip", "descargar", "download"], action: "EXPORT_PROJECT" },
   
   // Settings

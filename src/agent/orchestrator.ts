@@ -83,6 +83,23 @@ export async function runHarnessPreExecute(
 /** How the agent delivers changes */
 export type DeliveryStrategy = "direct" | "pr" | "feature-branch";
 
+/**
+ * Mapea el modo UI explícito del usuario a un intent del agente.
+ * 'auto'/undefined → null (clasificación automática por classifyIntent).
+ * VL-4: hace que el selector Construir/Planear/Vibe afecte el routing real.
+ */
+export function mapActiveModeToIntent(
+  activeMode?: "auto" | "construir" | "planear" | "vibe" | "chat",
+): "code" | "explore" | "chat" | null {
+  switch (activeMode) {
+    case "construir": return "code";
+    case "planear": return "explore";
+    case "vibe":
+    case "chat": return "chat";
+    default: return null;
+  }
+}
+
 export interface OrchestratorConfig {
   /** AI provider ID (e.g., "deepseek", "gemini") */
   providerId: string;
@@ -110,6 +127,10 @@ export interface OrchestratorConfig {
   packageManager?: "npm" | "pnpm" | "bun" | "yarn" | null;
   /** Whether git is initialized in the project */
   hasGit?: boolean;
+  /** Modo UI explícito seleccionado por el usuario (VL-4).
+   *  'auto' (default) → classifyIntent automático.
+   *  'construir' → intent code, 'planear' → intent explore, 'vibe' → intent chat. */
+  activeMode?: "auto" | "construir" | "planear" | "vibe" | "chat";
   /** Active persona ID for Aura's communication tone */
   persona?: PersonaId;
   /** Custom persona prompt (only used when persona === "custom") */
@@ -142,7 +163,11 @@ export async function* handleMessage(
   config: OrchestratorConfig
 ): AsyncGenerator<AgentEvent> {
   // 1. Classify intent
-  const intent = classifyIntent(userText, config.hasProjectOpen);
+  // VL-4: si el usuario seleccionó un modo UI explícito (no 'auto'),
+  // respetarlo en vez de clasificar automáticamente. Esto hace que el
+  // selector Construir/Planear/Vibe afecte el routing REAL del agente.
+  const explicitIntent = mapActiveModeToIntent(config.activeMode);
+  const intent = explicitIntent ?? classifyIntent(userText, config.hasProjectOpen);
 
   // 1b. Harness pre-execute (VL-3): el engine inyecta decisiones de
   // memoria/modelo/skills. Degradación elegante si falla.

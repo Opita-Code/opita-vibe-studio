@@ -163,4 +163,21 @@ describe("streamSSE — primer token (bug Lambda Function URL)", () => {
     expect(toolRequests.length).toBe(1);
     expect(toolRequests[0].tool).toBe("read_file");
   });
+
+  it("HTTP 401 con body JSON → error traducido (VL-4)", async () => {
+    // El backend ahora devuelve 401 REAL con body de error.
+    const resp = new Response(
+      JSON.stringify({ error: "Unauthorized: Token inválido" }),
+      { status: 401, headers: { "Content-Type": "application/json" } },
+    );
+    mockFetch.mockResolvedValue(resp);
+
+    const out = await collectSSE();
+
+    const errors = out.filter((c) => c.type === "error");
+    expect(errors.length).toBe(1);
+    expect(errors[0].content).toContain("Unauthorized");
+    // No debe continuar el stream tras el error.
+    expect(out.some((c) => c.type === "done")).toBe(false);
+  });
 });
