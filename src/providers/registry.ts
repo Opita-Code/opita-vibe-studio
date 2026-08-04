@@ -8,6 +8,11 @@ import { createOpenRouterProvider } from "./openrouter";
 import { createCustomProvider } from "./custom";
 import { createChatGPTWebProvider } from "./chatgpt-web";
 import { createAnthropicProvider } from "./anthropic";
+import { createTogetherProvider } from "./together";
+import { createGroqProvider } from "./groq";
+import { createMistralProvider } from "./mistral";
+import { createCohereProvider } from "./cohere";
+import { createPerplexityProvider } from "./perplexity";
 
 // ─── Default Model Definitions ─────────────────────────────────
 
@@ -194,6 +199,123 @@ const MINIMAX_MODELS: ModelConfig[] = [
   },
 ];
 
+// ─── BYOK providers (VL-5): modelos seleccionables con key propia ─
+
+const TOGETHER_MODELS: ModelConfig[] = [
+  {
+    id: "meta-llama/Llama-3-70b-chat-hf",
+    name: "Llama 3 70B",
+    providerId: "together",
+    maxTokens: 4096,
+    temperature: 0.7,
+    costPer1kInput: 0.00088,
+    costPer1kOutput: 0.00088,
+    tier: "byok",
+  },
+  {
+    id: "mistralai/Mixtral-8x7B-Instruct-v0.1",
+    name: "Mixtral 8x7B",
+    providerId: "together",
+    maxTokens: 4096,
+    temperature: 0.7,
+    costPer1kInput: 0.0006,
+    costPer1kOutput: 0.0006,
+    tier: "byok",
+  },
+];
+
+const GROQ_MODELS: ModelConfig[] = [
+  {
+    id: "llama3-8b-8192",
+    name: "Llama 3 8B",
+    providerId: "groq",
+    maxTokens: 8192,
+    temperature: 0.7,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    tier: "byok",
+  },
+  {
+    id: "mixtral-8x7b-32768",
+    name: "Mixtral 8x7B",
+    providerId: "groq",
+    maxTokens: 32768,
+    temperature: 0.7,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    tier: "byok",
+  },
+];
+
+const MISTRAL_MODELS: ModelConfig[] = [
+  {
+    id: "mistral-large-latest",
+    name: "Mistral Large",
+    providerId: "mistral",
+    maxTokens: 32768,
+    temperature: 0.7,
+    costPer1kInput: 0.002,
+    costPer1kOutput: 0.006,
+    tier: "byok",
+  },
+  {
+    id: "codestral-latest",
+    name: "Codestral (código)",
+    providerId: "mistral",
+    maxTokens: 32768,
+    temperature: 0.2,
+    costPer1kInput: 0.0002,
+    costPer1kOutput: 0.0006,
+    tier: "byok",
+  },
+];
+
+const COHERE_MODELS: ModelConfig[] = [
+  {
+    id: "command-r-plus",
+    name: "Command R+",
+    providerId: "cohere",
+    maxTokens: 128000,
+    temperature: 0.7,
+    costPer1kInput: 0.003,
+    costPer1kOutput: 0.015,
+    tier: "byok",
+  },
+  {
+    id: "command-r",
+    name: "Command R",
+    providerId: "cohere",
+    maxTokens: 128000,
+    temperature: 0.7,
+    costPer1kInput: 0.0005,
+    costPer1kOutput: 0.0015,
+    tier: "byok",
+  },
+];
+
+const PERPLEXITY_MODELS: ModelConfig[] = [
+  {
+    id: "llama-3.1-sonar-large-128k-online",
+    name: "Sonar Large (online)",
+    providerId: "perplexity",
+    maxTokens: 128000,
+    temperature: 0.7,
+    costPer1kInput: 0.001,
+    costPer1kOutput: 0.001,
+    tier: "byok",
+  },
+  {
+    id: "llama-3.1-sonar-small-128k-online",
+    name: "Sonar Small (online)",
+    providerId: "perplexity",
+    maxTokens: 128000,
+    temperature: 0.7,
+    costPer1kInput: 0.0002,
+    costPer1kOutput: 0.0002,
+    tier: "byok",
+  },
+];
+
 // ─── Model map ─────────────────────────────────────────────────
 
 const MODEL_MAP: Record<string, ModelConfig[]> = {
@@ -205,6 +327,11 @@ const MODEL_MAP: Record<string, ModelConfig[]> = {
   openrouter: OPENROUTER_MODELS,
   custom: CUSTOM_MODELS,
   "chatgpt-web": CHATGPT_WEB_MODELS,
+  together: TOGETHER_MODELS,
+  groq: GROQ_MODELS,
+  mistral: MISTRAL_MODELS,
+  cohere: COHERE_MODELS,
+  perplexity: PERPLEXITY_MODELS,
 };
 
 // ─── Provider Registry ─────────────────────────────────────────
@@ -231,6 +358,11 @@ export function initializeProviders(): void {
     createOpenRouterProvider(),
     createCustomProvider(),
     createChatGPTWebProvider(),
+    createTogetherProvider(),
+    createGroqProvider(),
+    createMistralProvider(),
+    createCohereProvider(),
+    createPerplexityProvider(),
   ];
 
   providers = new Map(defaults.map((p) => [p.id, p]));
