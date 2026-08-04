@@ -132,6 +132,14 @@ export async function* streamAwsSse(
       }
 
       buffer += decoder.decode(value, { stream: true });
+
+      // Lambda Function URL (awslambda.streamifyResponse) antepone un prefix
+      // de headers en JSON + null bytes PEGADO al primer evento SSE:
+      //   {"headers":{"Content-Type":"text/event-stream"}}\u0000\u0000...data: {"content":"EX"}
+      // Sin separarlos, el split("\n") deja el primer data: dentro de una línea
+      // que no empieza con "data: " → el primer token se pierde ("EXITO" → "ITO").
+      // Reemplazar null bytes por saltos de línea separa el prefix del primer evento.
+      buffer = buffer.replace(/\u0000+/g, "\n");
       const lines = buffer.split("\n");
       
       // Mantenemos el último fragmento incompleto (si no termina en newline) en el buffer
