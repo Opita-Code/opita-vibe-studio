@@ -58,36 +58,46 @@ jobs:
           echo "═══════════════════════════════════════════════"
           echo "  DEV POST-DEPLOY VERIFICATION"
           echo "═══════════════════════════════════════════════"
-          
-          echo "🌐 Waiting for api-dev.opitacode.com to be reachable..."
-          DNS_OK=false
-          for i in {1..25}; do
-            # Try to curl the endpoint. If it resolves and connects, curl returns HTTP status (non-000).
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://api-dev.opitacode.com/core/auth/me || true)
-            if [ "$HTTP_CODE" != "000" ]; then
-              echo "  ✅ api-dev.opitacode.com is reachable! (HTTP: $HTTP_CODE)"
-              DNS_OK=true
-              break
-            fi
-            echo "  [Attempt $i/25] api-dev.opitacode.com not reachable yet. Waiting 12s..."
-            sleep 12
-          done
 
-          if [ "$DNS_OK" = "false" ]; then
-            echo "  ❌ ERROR: api-dev.opitacode.com failed to become reachable after 5 minutes."
-            echo "  This is likely because CNAME records are hosted on Cloudflare and api-dev.opitacode.com"
-            echo "  needs to be manually added in the Cloudflare DNS panel as a CNAME to the dev CloudFront router."
+          # Captura las URLs reales de las Lambdas desde el estado SST (Stack outputs).
+          # NO usa api-dev.opitacode.com: ese CNAME quedó apuntando a una
+          # distribución CloudFront eliminada en el Phase A cutover
+          # (E1KO6ZMHUX4HF9 → opita-account-ui E1VRLLH35PTCWT). La verificación
+          # debe medir el deliverable real: las Lambdas que se acaban de deployar.
+          SST_OUTPUTS=$(npx sst state export --stage dev 2>/dev/null | python -c "
+import sys, json
+d = json.load(sys.stdin)
+for r in d.get('latest', {}).get('resources', []):
+    if r.get('type') == 'pulumi:pulumi:Stack':
+        for k, v in (r.get('outputs') or {}).items():
+            print(f'{k}: {v}')
+" 2>/dev/null)
+          echo "SST outputs:"
+          echo "$SST_OUTPUTS"
+
+          CORE_API_URL=$(echo "$SST_OUTPUTS" | grep '^CoreApiUrl:' | awk '{print $2}' | tr -d ' ')
+          CHAT_API_URL=$(echo "$SST_OUTPUTS" | grep '^ChatApiUrl:' | awk '{print $2}' | tr -d ' ')
+          BILLING_API_URL=$(echo "$SST_OUTPUTS" | grep '^BillingApiUrl:' | awk '{print $2}' | tr -d ' ')
+
+          if [ -z "$CORE_API_URL" ] || [ -z "$CHAT_API_URL" ] || [ -z "$BILLING_API_URL" ]; then
+            echo "  ❌ FAIL: No se pudieron leer las URLs de las Lambdas dev desde sst outputs"
             exit 1
           fi
 
+          echo "🌐 Verificando Lambdas dev directamente (sin DNS intermedio)..."
+          echo "  CoreAPI:  $CORE_API_URL"
+          echo "  ChatAPI:  $CHAT_API_URL"
+          echo "  Billing:  $BILLING_API_URL"
+
           FAILURES=0
 
-          # 1. Core API reachable
+          # 1. Core API reachable (la ruta /core/auth/me no existe directo en
+          #    la Lambda; un 404 de la propia Lambda = respondió OK. 000/502 = muerta)
           echo ""
           echo "── 1/3 Core API (Dev) ──"
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://api-dev.opitacode.com/core/auth/me || true)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${CORE_API_URL}core/auth/me" || true)
           echo "  /core/auth/me → $HTTP_CODE"
-          if [ "$HTTP_CODE" = "000" ] || [ "$HTTP_CODE" = "404" ] || [ "$HTTP_CODE" = "502" ]; then
+          if [ "$HTTP_CODE" = "000" ] || [ "$HTTP_CODE" = "502" ]; then
             echo "  ❌ FAIL: Dev Core API returned $HTTP_CODE"
             FAILURES=$((FAILURES + 1))
           else
@@ -97,7 +107,7 @@ jobs:
           # 2. Chat health check — verifies providers have valid keys
           echo ""
           echo "── 2/3 Chat Providers (Dev) ──"
-          CHAT_RESPONSE=$(curl -s -X POST https://api-dev.opitacode.com/chat/ \
+          CHAT_RESPONSE=$(curl -s -X POST "${CHAT_API_URL}chat/" \
             -H "Content-Type: application/json" \
             -H "Origin: https://dev.opitacode.com" \
             -d '{"action":"health_check"}' || echo '{"status":"error"}')
@@ -131,7 +141,7 @@ jobs:
           # 3. Billing API reachable
           echo ""
           echo "── 3/3 Billing API (Dev) ──"
-          BILL_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://api-dev.opitacode.com/billing/sign?product=VIBE_STUDENT&userId=health-check" || echo "000")
+          BILL_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${BILLING_API_URL}billing/sign?product=VIBE_STUDENT&userId=health-check" || echo "000")
           echo "  /billing/sign → $BILL_CODE"
           if [ "$BILL_CODE" = "000" ] || [ "$BILL_CODE" = "502" ]; then
             echo "  ❌ FAIL: Dev Billing API unreachable or returned $BILL_CODE"

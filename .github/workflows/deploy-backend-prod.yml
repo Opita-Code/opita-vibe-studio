@@ -57,9 +57,44 @@ jobs:
           echo "═══════════════════════════════════════════════"
           FAILURES=0
 
-          # 1. Core API reachable
+          # Captura las URLs reales de las Lambdas desde el estado SST (Stack outputs).
+          # api.opitacode.com pasa por el CloudFront de opita-account-ui
+          # (E1VRLLH35PTCWT) cuyos origins apuntan a estas URLs — verificar
+          # ambos: el endpoint público (e2e) y la Lambda directa (sin CF).
+          SST_OUTPUTS=$(npx sst state export --stage prod 2>/dev/null | python -c "
+import sys, json
+d = json.load(sys.stdin)
+for r in d.get('latest', {}).get('resources', []):
+    if r.get('type') == 'pulumi:pulumi:Stack':
+        for k, v in (r.get('outputs') or {}).items():
+            print(f'{k}: {v}')
+" 2>/dev/null)
+          echo "SST outputs:"
+          echo "$SST_OUTPUTS"
+
+          CORE_API_URL=$(echo "$SST_OUTPUTS" | grep '^CoreApiUrl:' | awk '{print $2}' | tr -d ' ')
+          CHAT_API_URL=$(echo "$SST_OUTPUTS" | grep '^ChatApiUrl:' | awk '{print $2}' | tr -d ' ')
+          BILLING_API_URL=$(echo "$SST_OUTPUTS" | grep '^BillingApiUrl:' | awk '{print $2}' | tr -d ' ')
+
+          # 0. Lambda directa reachable (sin CloudFront)
           echo ""
-          echo "── 1/3 Core API (Prod) ──"
+          echo "── 0/4 Lambdas directas (Prod) ──"
+          if [ -n "$CORE_API_URL" ]; then
+            DIRECT_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${CORE_API_URL}core/auth/me" || true)
+            echo "  CoreAPI direct → $DIRECT_CODE"
+            if [ "$DIRECT_CODE" = "000" ] || [ "$DIRECT_CODE" = "502" ]; then
+              echo "  ❌ FAIL: Prod CoreAPI Lambda directa murió"
+              FAILURES=$((FAILURES + 1))
+            else
+              echo "  ✅ Prod CoreAPI Lambda viva"
+            fi
+          else
+            echo "  ⚠️  No se pudo leer CoreApiUrl de sst outputs (skip check directo)"
+          fi
+
+          # 1. Core API reachable vía api.opitacode.com (CloudFront opita-account)
+          echo ""
+          echo "── 1/4 Core API (Prod, vía CF) ──"
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://api.opitacode.com/core/auth/me)
           echo "  /core/auth/me → $HTTP_CODE"
           if [ "$HTTP_CODE" = "000" ]; then
@@ -71,7 +106,7 @@ jobs:
 
           # 2. Chat health check — verifies providers have valid keys
           echo ""
-          echo "── 2/3 Chat Providers (Prod) ──"
+          echo "── 2/4 Chat Providers (Prod) ──"
           CHAT_RESPONSE=$(curl -s -X POST https://api.opitacode.com/chat/ \
             -H "Content-Type: application/json" \
             -H "Origin: https://vibe.opitacode.com" \
@@ -105,7 +140,7 @@ jobs:
 
           # 3. Billing API reachable
           echo ""
-          echo "── 3/3 Billing API (Prod) ──"
+          echo "── 3/4 Billing API (Prod) ──"
           BILL_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://api.opitacode.com/billing/sign?product=VIBE_STUDENT&userId=health-check")
           echo "  /billing/sign → $BILL_CODE"
           if [ "$BILL_CODE" = "000" ]; then
