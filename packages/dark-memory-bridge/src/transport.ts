@@ -168,6 +168,7 @@ export class MemoryTransport implements BridgeTransport {
   private rows: Array<Record<string, unknown>> = [];
   private nextRowId = 1;
   private activeSession: string | null = null;
+  private sessionSeq = 0;
 
   async call(tool: string, args: Record<string, unknown>): Promise<unknown> {
     switch (tool) {
@@ -178,7 +179,10 @@ export class MemoryTransport implements BridgeTransport {
         };
 
       case "dark_memory_session_start": {
-        this.activeSession = `sess-mem-${Date.now().toString(36)}`;
+        // Sufijo con contador monótono: Date.now() solo no garantiza unicidad
+        // si dos sessionStart() ocurren en el mismo milisegundo.
+        this.sessionSeq += 1;
+        this.activeSession = `sess-mem-${Date.now().toString(36)}-${this.sessionSeq.toString(36)}`;
         return {
           session_id: this.activeSession,
           operator: args.operator,

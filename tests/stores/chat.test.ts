@@ -4,6 +4,7 @@ import {
   MAX_CONTEXT_MESSAGES,
   getContextMessages,
   getContextCount,
+  RESEARCH_STATUS_LABELS,
 } from "../../src/stores/chat";
 import type { Message } from "../../src/lib/types";
 
@@ -333,3 +334,284 @@ describe("Session lifecycle", () => {
     expect(s.sessions[s.activeSessionId].messages).toHaveLength(0);
   });
 });
+
+// ── Remaining actions / selectors ───────────────────────────────
+
+describe("ChatStore — misc mutations", () => {
+  const makeMsg = (id: string, role: "user" | "assistant" = "user"): Message => ({
+    id,
+    role,
+    content: `Mensaje ${id}`,
+    timestamp: Date.now(),
+  });
+
+  beforeEach(() => {
+    useChatStore.setState({
+      sessions: {
+        default: { id: "default", title: "Test", messages: [], updatedAt: Date.now() },
+      },
+      activeSessionId: "default",
+      abortController: null,
+    });
+  });
+
+  it("editMessage should rewrite content and truncate following messages", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeMsg("m1"));
+    store.addMessage(makeMsg("m2", "assistant"));
+    store.addMessage(makeMsg("m3"));
+    store.editMessage("m2", "editado");
+
+    const messages = useChatStore.getState().sessions["default"].messages;
+    expect(messages.map((m) => m.id)).toEqual(["m1", "m2"]);
+    expect(messages[1].content).toBe("editado");
+  });
+
+  it("editMessage should be a no-op for unknown ids", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeMsg("m1"));
+    store.editMessage("missing", "x");
+    expect(useChatStore.getState().sessions["default"].messages).toHaveLength(1);
+  });
+
+  it("addMessageStep should append a step to the target message", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeMsg("m1", "assistant"));
+    store.addMessageStep("m1", {
+      id: "s1",
+      title: "Tarea",
+      status: "running",
+      detail: "en proceso",
+    });
+
+    const msg = useChatStore.getState().sessions["default"].messages[0];
+    expect(msg.subagentSteps).toHaveLength(1);
+    expect(msg.subagentSteps![0].id).toBe("s1");
+  });
+
+  it("appendReasoningToLastMessage should accumulate reasoning", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeMsg("m1", "assistant"));
+    store.appendReasoningToLastMessage("pienso ");
+    store.appendReasoningToLastMessage("más");
+    expect(useChatStore.getState().sessions["default"].messages[0].reasoning).toBe(
+      "pienso más",
+    );
+  });
+
+  it("abortStreaming should abort the active controller and clear transient state", () => {
+    const controller = new AbortController();
+    const abortSpy = vi.spyOn(controller, "abort");
+    useChatStore.setState({
+      isStreaming: true,
+      isExecutingMCP: true,
+      researchStatus: "searching",
+      abortController: controller,
+    });
+
+    useChatStore.getState().abortStreaming();
+
+    const s = useChatStore.getState();
+    expect(abortSpy).toHaveBeenCalled();
+    expect(s.isStreaming).toBe(false);
+    expect(s.isExecutingMCP).toBe(false);
+    expect(s.researchStatus).toBeNull();
+    expect(s.abortController).toBeNull();
+  });
+
+  it("abortStreaming should work without an active controller", () => {
+    useChatStore.setState({ isStreaming: true, abortController: null });
+    useChatStore.getState().abortStreaming();
+    expect(useChatStore.getState().isStreaming).toBe(false);
+  });
+
+  it("should toggle the remaining flag setters", () => {
+    const s = useChatStore.getState();
+    s.setExecutingMCP(true);
+    s.setResearchStatus("cve");
+    s.setAbortController(new AbortController());
+    s.setActiveModelId("deepseek-v4-pro");
+    s.setUseSubagent(false);
+    s.setSubagentInstructions("instrucciones");
+    s.setActiveMode("construir");
+    s.setShareActiveFileContext(false);
+    s.setExecutionMode("automatic");
+    s.setDeliveryStrategy("auto-split");
+    s.setPendingConfirmation({ phase: "verificar", plan: "plan-x" });
+
+    const state = useChatStore.getState();
+    expect(state.isExecutingMCP).toBe(true);
+    expect(state.researchStatus).toBe("cve");
+    expect(state.abortController).toBeInstanceOf(AbortController);
+    expect(state.activeModelId).toBe("deepseek-v4-pro");
+    expect(state.useSubagent).toBe(false);
+    expect(state.subagentInstructions).toBe("instrucciones");
+    expect(state.activeMode).toBe("construir");
+    expect(state.shareActiveFileContext).toBe(false);
+    expect(state.executionMode).toBe("automatic");
+    expect(state.deliveryStrategy).toBe("auto-split");
+    expect(state.pendingConfirmation).toEqual({ phase: "verificar", plan: "plan-x" });
+  });
+
+  it("confirmPhase should clear the pending confirmation", () => {
+    useChatStore.setState({ pendingConfirmation: { phase: "construir", plan: "p" } });
+    useChatStore.getState().confirmPhase();
+    expect(useChatStore.getState().pendingConfirmation).toBeNull();
+  });
+
+  it("should manage the chaining counters", () => {
+    const s = useChatStore.getState();
+    s.incrementChainingStep();
+    s.incrementChainingStep();
+    s.incrementChainingErrors();
+    expect(useChatStore.getState().chainingSteps).toBe(2);
+    expect(useChatStore.getState().chainingErrors).toBe(1);
+    s.resetChaining();
+    expect(useChatStore.getState().chainingSteps).toBe(0);
+    expect(useChatStore.getState().chainingErrors).toBe(0);
+  });
+});
+
+describe("ChatStore — agent execution + sections", () => {
+  const makeAssistant = (id: string): Message => ({
+    id,
+    role: "assistant",
+    content: "respuesta",
+    timestamp: Date.now(),
+  });
+
+  beforeEach(() => {
+    useChatStore.setState({
+      sessions: {
+        default: { id: "default", title: "Test", messages: [], updatedAt: Date.now() },
+      },
+      activeSessionId: "default",
+    });
+  });
+
+  it("initMessageExecution should create execution on the message", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeAssistant("m1"));
+    store.initMessageExecution("m1");
+
+    const msg = useChatStore.getState().sessions["default"].messages[0];
+    expect(msg.agentExecution).toBeDefined();
+    expect(msg.agentExecution!.phase).toBe("thinking");
+    expect(msg.agentExecution!.status).toBe("running");
+  });
+
+  it("initMessageExecution should preserve existing execution", () => {
+    const store = useChatStore.getState();
+    store.addMessage({ ...makeAssistant("m1"), agentExecution: { phase: "construir", progress: 1, roadmap: [], steps: [], filesChanged: [], status: "running" as const, startedAt: 1 } });
+    store.initMessageExecution("m1");
+    expect(useChatStore.getState().sessions["default"].messages[0].agentExecution!.phase).toBe("construir");
+  });
+
+  it("updateMessageExecution should merge partial updates", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeAssistant("m1"));
+    store.initMessageExecution("m1");
+    store.updateMessageExecution("m1", { progress: 50, phase: "verificar" });
+
+    const exec = useChatStore.getState().sessions["default"].messages[0].agentExecution!;
+    expect(exec.progress).toBe(50);
+    expect(exec.phase).toBe("verificar");
+  });
+
+  it("updateMessageExecution should be a no-op without execution", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeAssistant("m1"));
+    store.updateMessageExecution("m1", { progress: 10 });
+    expect(useChatStore.getState().sessions["default"].messages[0].agentExecution).toBeUndefined();
+  });
+
+  it("setMessageStatus should stamp completedAt for done/error", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeAssistant("m1"));
+    store.initMessageExecution("m1");
+    store.setMessageStatus("m1", "done");
+
+    const exec = useChatStore.getState().sessions["default"].messages[0].agentExecution!;
+    expect(exec.status).toBe("done");
+    expect(exec.completedAt).toBeTypeOf("number");
+
+    store.setMessageStatus("m1", "error");
+    expect(useChatStore.getState().sessions["default"].messages[0].agentExecution!.status).toBe("error");
+  });
+
+  it("setMessageStatus should not stamp completedAt for running", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeAssistant("m1"));
+    store.initMessageExecution("m1");
+    store.setMessageStatus("m1", "running");
+    const exec = useChatStore.getState().sessions["default"].messages[0].agentExecution!;
+    expect(exec.completedAt).toBeUndefined();
+  });
+
+  it("setUserMessageStatus should update the delivery status", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeMsgLocal("m1"));
+    store.setUserMessageStatus("m1", "sent");
+    expect(useChatStore.getState().sessions["default"].messages[0].deliveryStatus).toBe("sent");
+  });
+
+  it("deleteMessage should remove the message", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeMsgLocal("m1"));
+    store.addMessage(makeAssistant("m2"));
+    store.deleteMessage("m1");
+    expect(useChatStore.getState().sessions["default"].messages.map((m) => m.id)).toEqual(["m2"]);
+  });
+
+  it("appendSection should add a section and appendToSection should extend it", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeAssistant("m1"));
+    store.appendSection("m1", { id: "sec1", type: "code", title: "Código", content: "const" });
+
+    let msg = useChatStore.getState().sessions["default"].messages[0];
+    expect(msg.sections).toHaveLength(1);
+    expect(msg.sections![0].content).toBe("const");
+
+    store.appendToSection("m1", "sec1", " a = 1;");
+    msg = useChatStore.getState().sessions["default"].messages[0];
+    expect(msg.sections![0].content).toBe("const a = 1;");
+  });
+
+  it("appendSection should be a no-op for unknown messages", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeAssistant("m1"));
+    store.appendSection("missing", { id: "s", type: "text", title: "t", content: "c" });
+    expect(useChatStore.getState().sessions["default"].messages[0].sections).toBeUndefined();
+  });
+
+  it("appendToSection should be a no-op when the message has no sections", () => {
+    const store = useChatStore.getState();
+    store.addMessage(makeAssistant("m1"));
+    store.appendToSection("m1", "nope", "x");
+    expect(useChatStore.getState().sessions["default"].messages[0].sections).toBeUndefined();
+  });
+});
+
+describe("ChatStore — selectors edge cases", () => {
+  it("getContextMessages should return an empty list for no messages", () => {
+    expect(getContextMessages([])).toEqual([]);
+  });
+
+  it("getContextMessages should keep a single oversized message", () => {
+    const messages = [
+      { id: "huge", role: "user" as const, content: "A".repeat(200_000), timestamp: 1 },
+    ];
+    const context = getContextMessages(messages);
+    expect(context).toHaveLength(1);
+    expect(context[0].id).toBe("huge");
+  });
+
+  it("RESEARCH_STATUS_LABELS should expose Spanish labels", () => {
+    expect(RESEARCH_STATUS_LABELS.searching).toBe("Buscando documentación...");
+    expect(RESEARCH_STATUS_LABELS.synthesizing).toBe("Consolidando hallazgos...");
+  });
+});
+
+function makeMsgLocal(id: string): Message {
+  return { id, role: "user", content: `Mensaje ${id}`, timestamp: Date.now() };
+}

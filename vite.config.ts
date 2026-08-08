@@ -26,6 +26,11 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
       "@opita/memory-sdk": path.resolve(__dirname, "./packages/memory-sdk/src/index.ts"),
       "@opita/dark-memory-bridge": path.resolve(__dirname, "./packages/dark-memory-bridge/src/index.ts"),
+      // Test-only: the real @pulumi/aws is bundled inside .sst/platform and is
+      // not resolvable from the root, which breaks vitest's transform of
+      // sst.config.ts. Only sst.config.ts imports it and it never enters the
+      // Vite bundle, so this alias is inert for the app build.
+      "@pulumi/aws": path.resolve(__dirname, "./tests/stubs/pulumi-aws-stub.mjs"),
     },
   },
 
@@ -38,6 +43,31 @@ export default defineConfig({
       "**/packages/**",
       "**/node_modules/**",
     ],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      include: [
+        "src/**/*.{ts,tsx}",
+        "landing/**/*.{js,mjs}",
+        "scripts/**/*.{js,mjs}",
+        "sst.config.ts",
+        "packages/memory-sdk/src/**/*.ts",
+        "packages/dark-memory-bridge/src/**/*.ts",
+      ],
+      exclude: [
+        "**/*.d.ts",
+        "**/__tests__/**",
+        "src/stories/**",
+        "src/main.tsx",
+        "src/vite-env.d.ts",
+      ],
+      thresholds: {
+        statements: 80,
+        branches: 70,
+        functions: 70,
+        lines: 80,
+      },
+    },
   },
 
   build: {

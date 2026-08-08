@@ -113,7 +113,9 @@ async function flush(): Promise<void> {
 
 function scheduleFlush(): void {
   if (flushTimer) return;
-  const interval = config?.flushIntervalMs || DEFAULT_FLUSH_INTERVAL_MS;
+  // ?? en vez de ||: un flushIntervalMs: 0 intencional (flush inmediato en
+  // cada batch) no debe caer al default.
+  const interval = config?.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS;
   flushTimer = setTimeout(() => {
     flushTimer = null;
     flush();

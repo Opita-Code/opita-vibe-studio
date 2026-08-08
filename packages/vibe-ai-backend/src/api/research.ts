@@ -294,15 +294,10 @@ async function handleFetch(body: any): Promise<{ title: string; content: string;
     throw new Error(`Protocolo no soportado: '${parsed.protocol}'`);
   }
 
-  // Allowlist de dominios de documentación (limitación estándar)
-  if (!isDocsUrlAllowed(parsed.toString())) {
-    throw new Error(
-      `Dominio no permitido: '${parsed.hostname}'. /fetch solo lee documentación técnica ` +
-      `(react.dev, developer.mozilla.org, github.com, stackoverflow.com, npmjs.com, etc.).`,
-    );
-  }
-
-  // SSRF guard: block private/local IPs and loopback hosts
+  // SSRF guard: block private/local IPs and loopback hosts.
+  // Corre ANTES de la allowlist para que localhost/127.0.0.1/.local/.internal
+  // siempre queden bloqueados con mensaje de seguridad (antes la allowlist
+  // los rechazaba primero y este guard era código muerto para esos casos).
   const hostname = parsed.hostname.toLowerCase();
   if (
     hostname === "localhost" ||
@@ -316,6 +311,46 @@ async function handleFetch(body: any): Promise<{ title: string; content: string;
     hostname === "[::1]"
   ) {
     throw new Error(`URL bloqueada por seguridad: hosts privados/locales no permitidos.`);
+  }
+
+  // DNS rebinding guard: resolver el host y verificar que ninguna IP
+  // resultante sea privada/loopback (un dominio permitido podría resolver
+  // a una IP interna tras rebinding). Best-effort: si la resolución falla
+  // (DNS no disponible), el resto de guards siguen aplicando.
+  try {
+    const { lookup } = await import("node:dns/promises");
+    const addresses = await lookup(hostname, { all: true, verbatim: true });
+    const privateHit = addresses.find((a) => {
+      const ip = a.address;
+      if (ip.includes(":")) {
+        const lower = ip.toLowerCase();
+        return lower === "::1" || lower.startsWith("fc") || lower.startsWith("fd") || lower.startsWith("fe8");
+      }
+      return (
+        ip === "127.0.0.1" ||
+        /^10\./.test(ip) ||
+        /^192\.168\./.test(ip) ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ||
+        /^169\.254\./.test(ip)
+      );
+    });
+    if (privateHit) {
+      throw new Error(`URL bloqueada por seguridad: DNS resuelve a IP privada (${privateHit.address}).`);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("URL bloqueada")) {
+      throw err;
+    }
+    // Resolución DNS fallida (red/DNS indisponible): no bloqueamos aquí,
+    // los guards sintácticos + allowlist siguen aplicando.
+  }
+
+  // Allowlist de dominios de documentación (limitación estándar)
+  if (!isDocsUrlAllowed(parsed.toString())) {
+    throw new Error(
+      `Dominio no permitido: '${parsed.hostname}'. /fetch solo lee documentación técnica ` +
+      `(react.dev, developer.mozilla.org, github.com, stackoverflow.com, npmjs.com, etc.).`,
+    );
   }
 
   const res = await fetch(parsed.toString(), {

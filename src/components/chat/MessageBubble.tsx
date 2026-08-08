@@ -264,7 +264,7 @@ function ReasoningAccordion({ steps, thinkContent, isStreaming }: { steps?: impo
   const label = isStreaming
     ? "Pensando..."
     : stepCount > 0
-      ? `${stepCount} operación${stepCount === 1 ? "" : "es"}`
+      ? `${stepCount} ${stepCount === 1 ? "operación" : "operaciones"}`
       : "Razonamiento";
   
   if (!hasSteps && !thinkContent) return null;

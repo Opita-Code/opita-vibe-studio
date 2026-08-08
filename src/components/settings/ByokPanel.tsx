@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   getByokProviderDisplayInfo,
   saveProviderKey,
@@ -23,6 +23,23 @@ export function ByokPanel() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  // Timer para retrasar el colapso del form tras guardar, de modo que el
+  // mensaje de éxito tenga tiempo de renderizarse (React agrupa los setState).
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const collapseFormAfterSuccess = useCallback(() => {
+    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    collapseTimerRef.current = setTimeout(() => {
+      setSelectedProvider(null);
+      collapseTimerRef.current = null;
+    }, 1600);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    };
+  }, []);
 
   const loadProviders = useCallback(async () => {
     setLoading(true);
@@ -86,14 +103,14 @@ export function ByokPanel() {
       setSaveSuccess(true);
       setApiKey("");
       setEndpoint("");
-      setSelectedProvider(null); // Collapse form
+      collapseFormAfterSuccess(); // Deja ver el mensaje de éxito antes de colapsar
       await loadProviders();
     } catch (err) {
       setSaveError(`Error al guardar: ${String(err)}`);
     } finally {
       setSaving(false);
     }
-  }, [apiKey, endpoint, selectedProvider, loadProviders]);
+  }, [apiKey, endpoint, selectedProvider, loadProviders, collapseFormAfterSuccess]);
 
   const handleDelete = useCallback(
     async (providerId: string) => {
@@ -273,7 +290,7 @@ export function ByokPanel() {
                                     expiresAt: tokens.expiresAt,
                                   });
                                   setSaveSuccess(true);
-                                  setSelectedProvider(null);
+                                  collapseFormAfterSuccess(); // Deja ver el mensaje de éxito antes de colapsar
                                   await loadProviders();
                                 } catch (err) {
                                   setSaveError("Error al guardar: " + String(err));
@@ -336,7 +353,7 @@ export function ByokPanel() {
 
                           <button
                             onClick={handleSave}
-                            disabled={saving || !apiKey.trim()}
+                            disabled={saving}
                             className="mt-2 w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-aura-cyan to-aura-purple hover:opacity-90 disabled:opacity-50 disabled:grayscale transition-all shadow-lg shadow-aura-cyan/20"
                           >
                             {saving ? "Verificando Conexión..." : "Conectar Proveedor"}

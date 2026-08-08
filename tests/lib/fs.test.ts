@@ -9,6 +9,7 @@ const mockWriteFile = vi.fn();
 const mockListDir = vi.fn();
 const mockCreateDir = vi.fn();
 const mockDeleteEntry = vi.fn();
+const mockRename = vi.fn();
 const mockExecShell = vi.fn();
 
 describe("fs helpers", () => {
@@ -21,6 +22,7 @@ describe("fs helpers", () => {
       listDirectory: mockListDir,
       createDirectory: mockCreateDir,
       deleteEntry: mockDeleteEntry,
+      renameEntry: mockRename,
       execShell: mockExecShell,
       selectDirectory: vi.fn(),
       openInExternalTerminal: vi.fn(),
@@ -102,5 +104,50 @@ describe("fs helpers", () => {
 
     await saveFileContent("/test/file.ts", "new content");
     expect(mockWriteFile).toHaveBeenCalledWith("/test/file.ts", "new content");
+  });
+
+  it("createFileItem should write an empty file", async () => {
+    const { createFileItem } = await import("../../src/lib/fs");
+    await createFileItem("/test/new.ts");
+    expect(mockWriteFile).toHaveBeenCalledWith("/test/new.ts", "");
+  });
+
+  it("createDir should delegate to backend createDirectory", async () => {
+    const { createDir } = await import("../../src/lib/fs");
+    await createDir("/test/newdir");
+    expect(mockCreateDir).toHaveBeenCalledWith("/test/newdir");
+  });
+
+  it("deleteEntry should delegate to backend deleteEntry", async () => {
+    const { deleteEntry } = await import("../../src/lib/fs");
+    await deleteEntry("/test/file.ts");
+    expect(mockDeleteEntry).toHaveBeenCalledWith("/test/file.ts");
+  });
+
+  it("renameEntry should delegate to backend renameEntry", async () => {
+    const { renameEntry } = await import("../../src/lib/fs");
+    mockRename.mockResolvedValue(undefined);
+    await renameEntry("/test/a.ts", "/test/b.ts");
+    expect(mockRename).toHaveBeenCalledWith("/test/a.ts", "/test/b.ts");
+  });
+
+  it("loadProject should treat unreadable directories as empty", async () => {
+    const { loadProject } = await import("../../src/lib/fs");
+
+    mockListDir
+      .mockResolvedValueOnce([
+        { name: "secret", path: "/test/secret", type: "directory" },
+      ])
+      .mockRejectedValueOnce(new Error("permission denied"));
+
+    const result = await loadProject("/test");
+    expect(result[0].type).toBe("directory");
+    expect(result[0].children).toEqual([]);
+  });
+
+  it("isGitRepo should return false when listing fails", async () => {
+    const { isGitRepo } = await import("../../src/lib/fs");
+    mockListDir.mockRejectedValue(new Error("boom"));
+    await expect(isGitRepo("/test")).resolves.toBe(false);
   });
 });

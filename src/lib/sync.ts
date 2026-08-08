@@ -72,7 +72,13 @@ export class SyncEngine {
       const data = await urlRes.json();
       uploadUrl = data.uploadUrl;
     } catch (err) {
-      console.warn("Fallo al obtener Pre-signed URL real. Haciendo fallback a simulación para desarrollo.", err);
+      // Solo un fallo de red (API inalcanzable, típico en dev sin backend)
+      // activa el fallback a localStorage. Un error HTTP real (4xx/5xx)
+      // debe propagarse, no degradarse silenciosamente.
+      if (!(err instanceof TypeError)) {
+        throw err;
+      }
+      console.warn("API de storage inalcanzable. Haciendo fallback a simulación para desarrollo.", err);
       await new Promise((resolve) => setTimeout(resolve, 1500));
       const reader = new FileReader();
       reader.readAsDataURL(zipBlob);
@@ -149,12 +155,16 @@ export class SyncEngine {
       const data = await urlRes.json();
       downloadUrl = data.downloadUrl;
     } catch (err) {
-      // Fallback to localStorage for dev environments
-      if (err instanceof Error && err.message.includes("No hay un respaldo")) {
-        throw err; // Re-throw "no backup" errors
+      // Re-lanzar los errores que NO son de red:
+      //  - "No hay un respaldo" (404 esperado) se propaga tal cual.
+      //  - Errores HTTP reales (4xx/5xx) se propagan, no se degradan.
+      // Solo un fallo de red (TypeError, API inalcanzable — típico en dev
+      // sin backend) activa el fallback a localStorage.
+      if (!(err instanceof TypeError)) {
+        throw err;
       }
 
-      console.warn("Fallo al obtener Pre-signed URL de descarga. Intentando fallback localStorage.", err);
+      console.warn("API de storage inalcanzable. Intentando fallback localStorage.", err);
       const base64data = localStorage.getItem(`vibe-sync-${rootPath}`);
       if (!base64data) {
         throw new Error("No hay un respaldo en la nube para este proyecto.");

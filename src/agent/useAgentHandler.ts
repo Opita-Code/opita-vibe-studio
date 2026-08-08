@@ -275,7 +275,13 @@ export function useAgentHandler() {
       const afterGrace = useChatStore.getState();
       const sessionAfterGrace = afterGrace.sessions[afterGrace.activeSessionId];
       const stillExists = sessionAfterGrace?.messages.some((m) => m.id === assistantMsgId);
-      if (!stillExists) return;
+      if (!stillExists) {
+        // P0 fix: este early-return ocurre ANTES del try/finally — liberar
+        // el concurrency guard aquí para que cancel()/editPending() durante
+        // la grace window no bloqueen futuros send() permanentemente.
+        isRunningRef.current = false;
+        return;
+      }
 
       // ─── Prepare ──────────────────────────────────────────
       chatStore.setStreaming(true);
@@ -443,11 +449,15 @@ export function useAgentHandler() {
     const grace = gracePendingRef.current;
     if (grace && grace.userMsgId === messageId) {
       clearTimeout(grace.timerId);
-      const { text, attachments } = grace;
+      const { text, attachments, resolve } = grace;
       gracePendingRef.current = null;
       useChatStore.getState().deleteMessage(grace.userMsgId);
       useChatStore.getState().deleteMessage(grace.assistantMsgId);
       restoreInputRef.current?.(text, attachments);
+      // P0 fix: resolve the dangling grace promise so send()'s finally block
+      // runs and releases isRunningRef — otherwise the P0 guard at send()
+      // line 155 blocks every future send() permanently.
+      resolve();
       return;
     }
     // Si ya está en "sent" → soft-abort y restaurar texto

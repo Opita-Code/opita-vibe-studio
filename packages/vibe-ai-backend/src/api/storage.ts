@@ -3,6 +3,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Resource as SSTResource } from "sst";
 const Resource = SSTResource as any;
 import * as jwt from "jose";
+import { randomUUID } from "node:crypto";
 
 const s3Client = new S3Client({});
 
@@ -104,7 +105,7 @@ export const handler = async (event: any) => {
       return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "Falta filename o contentType" }) };
     }
 
-    const uniqueId = crypto.randomUUID();
+    const uniqueId = randomUUID();
     const objectKey = `uploads/${userId}/${uniqueId}-${filename}`;
 
     const command = new PutObjectCommand({

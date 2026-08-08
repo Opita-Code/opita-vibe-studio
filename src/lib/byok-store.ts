@@ -215,7 +215,9 @@ export async function saveProviderKey(
 
       const json = await res.json();
       if (json.error) {
-        if (json.error.includes("Unauthorized") || json.error.includes("Token") || res.status === 401) {
+        // Nota: aquí res.ok ya es true (status 2xx) — el 401 se maneja arriba
+        // en la rama !res.ok, así que res.status === 401 sería código muerto.
+        if (json.error.includes("Unauthorized") || json.error.includes("Token")) {
           useAuthStore.getState().logout();
           throw new Error("Sesión expirada. Por favor, inicia sesión nuevamente.");
         }

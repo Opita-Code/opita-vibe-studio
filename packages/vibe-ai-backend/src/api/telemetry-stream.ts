@@ -38,10 +38,8 @@ export const handler = async (event: DynamoDBStreamEvent) => {
       const item = unmarshall(record.dynamodb.NewImage as Record<string, any>);
 
       // Derive productId — field was added in the ingestion upgrade;
-      // fall back to source mapping for pre-existing records.
-      const productId =
-        item.productId ||
-        (item.source === "landing" ? "vibe-studio" : "vibe-studio");
+      // fall back to the product default for pre-existing records.
+      const productId = item.productId || "vibe-studio";
 
       if (!recordsByProduct[productId]) {
         recordsByProduct[productId] = [];
