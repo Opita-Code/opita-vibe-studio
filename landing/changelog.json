@@ -1,5 +1,61 @@
 [
   {
+    "version": "0.5.2",
+    "date": "2026-08-08",
+    "title": "Backend fixes spec 899: SSRF + DNS rebinding, errores HTTP propagan, randomUUID explícito (backend/v0.5.2)",
+    "components": [
+      {
+        "name": "Backend",
+        "tag": "backend/v0.5.2"
+      }
+    ],
+    "highlights": [
+      "research.ts: guard SSRF antes de allowlist + DNS rebinding guard (node:dns/promises)",
+      "sync.ts: errores HTTP reales propagan (solo TypeError hace fallback dev)",
+      "storage.ts randomUUID import explícito, telemetry-stream ternaria muerta, bridge session id único, telemetry-sdk flushIntervalMs ??"
+    ],
+    "details": {
+      "Backend": [
+        "🐛 research.ts: SSRF antes de allowlist + DNS rebinding guard (node:dns/promises)",
+        "🐛 sync.ts: errores HTTP reales propagan (solo TypeError hace fallback dev)",
+        "🐛 byok-store.ts: quitado res.status===401 muerto",
+        "🐛 storage.ts: import explícito randomUUID de node:crypto",
+        "🐛 telemetry-stream.ts: ternaria muerta simplificada",
+        "🐛 dark-memory-bridge transport: contador monótono sessionSeq para session id",
+        "🐛 telemetry-sdk: ?? en vez de || para flushIntervalMs (0 intencional respetado)"
+      ],
+      "Web App": [
+        "🐛 CI: health checks usan Lambda URLs reales del SST state, no CNAME estático de Cloudflare"
+      ]
+    }
+  },
+  {
+    "version": "1.3.1",
+    "date": "2026-08-08",
+    "title": "11 bugs arreglados + coverage 51.75%→87.44% (spec 899, web/v1.3.1)",
+    "components": [
+      {
+        "name": "Web App",
+        "tag": "web/v1.3.1"
+      }
+    ],
+    "highlights": [
+      "11 bugs reales arreglados (P0: useAgentHandler grace promise colgada, sync.ts errores HTTP silenciosos, research.ts SSRF + DNS rebinding)",
+      "Coverage global 51.75%→87.44% — 2300 tests, tsc limpio en todos los paquetes",
+      "CI: health checks usan Lambda URLs reales del SST state (fix del CNAME muerto de Cloudflare)"
+    ],
+    "details": {
+      "Web App": [
+        "🐛 11 bugs arreglados + coverage 51.75%→87.44%, suite 1371→2300 tests, tsc limpio",
+        "🐛 one-liner python en health checks (el multi-line python rompía el YAML literal block)",
+        "🐛 health checks usan Lambda URLs reales del SST state, no CNAME estático de Cloudflare"
+      ],
+      "Backend": [
+        "🐛 backend fixes: SSRF antes de allowlist + DNS rebinding guard, randomUUID explícito, ternaria muerta, session id único, flushIntervalMs ??"
+      ]
+    }
+  },
+  {
     "version": "0.6.0",
     "date": "2026-08-08",
     "title": "Restaurar card 'Herramientas Personalizables' — ahora es real (spec 807, web/v1.3.0)",
