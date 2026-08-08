@@ -1,5 +1,117 @@
 [
   {
+    "version": "0.3.7",
+    "date": "2026-08-08",
+    "title": "Restaurar card 'Herramientas Personalizables' — ahora es real (spec 807, web/v1.3.0)",
+    "components": [
+      {
+        "name": "Web App",
+        "tag": "web/v0.3.7"
+      },
+      {
+        "name": "Backend",
+        "tag": "backend/v0.3.7"
+      },
+      {
+        "name": "Landing",
+        "tag": "landing/v0.3.7"
+      }
+    ],
+    "highlights": [
+      "Up to date tras spec 899 — Playwright abolido (dark-copilot), 13 providers, tags v1.3.1/v0.5.2, changelog",
+      "Add v1.3.1 y v0.5.2 (spec 899 — 11 bugs arreglados + coverage 87.44%)",
+      "Add v1.1.0 (live preview + chat tools)"
+    ],
+    "details": {
+      "Web App": [
+        "📝 up to date tras spec 899 — Playwright abolido (dark-copilot), 13 providers, tags v1.3.1/v0.5.2, changelog",
+        "📝 add v1.3.1 y v0.5.2 (spec 899 — 11 bugs arreglados + coverage 87.44%)",
+        "🐛 one-liner python en health checks (el multi-line python rompía el YAML literal block)",
+        "🐛 health checks usan Lambda URLs reales del SST state, no CNAME estático de Cloudflare",
+        "🐛 spec 899 — 11 bugs arreglados + coverage 51.75%→87.44%, suite 1371→2300 tests, tsc limpio",
+        "✨ UI de definición de herramientas personalizadas (spec 807)",
+        "✨ spec 789 — docs tools (search/fetch/code/cve/synthesis) + ResearchAPI lambda + quitar VibeRouter stale",
+        "🐛 update-changelog usa CHANGELOG_PAT en vez de GITHUB_TOKEN (bypass branch protection)",
+        "📝 add v1.1.0 (live preview + chat tools)",
+        "✨ live preview real + chat-agent con tools (specs 778/779)",
+        "🐛 deploy-landing prod tambien en push a main (consistencia con dev)",
+        "✨ centralizar keys LLM en SSM /opita-llm/* (patrón transversal)",
+        "✨ montar TerminalPanel en App + eliminar 10 archivos de código muerto (#14)",
+        "✨ dark-memory como backend de memoria/RAG de Aura + abolición Playwright (#10)",
+        "✨ integrar MiniMax al pool de providers + CI sin E2E",
+        "🐛 migrar sesión a OCAIS (__opita_session + refresh rotativo + JWKS)",
+        "📝 de-hallucinate contra auditoría org-wide 2026-07-28",
+        "🐛 montar ViewTabs directamente en App.tsx tras eliminar StatusbarSlot",
+        "🐛 ViewTabs a11y tests requieren template scaffolded en layout chat-first",
+        "eliminar StatusBar.test.tsx (componente ya eliminado)",
+        "eliminar StatusBar.tsx, StatusBar.stories.tsx y StatusbarSlot.tsx",
+        "✨ fase 4 - merge StatusBar en ActionBar, eliminar barra inferior",
+        "✨ fase 3 - mision activa en empty state del chat",
+        "🐛 corregir tests que fallan en CI por lazy loading y falta de FS backend",
+        "✨ fase 2 - contexto visible de IA en header del chat",
+        "📝 add v0.5.1",
+        "🐛 agregar permisos DynamoDB Stream a TelemetryStreamProcessor",
+        "✨ agregar productos al whitelist de ingesta",
+        "✨ fase 1c - ActivityBar simplificada de 9 a 5 items",
+        "📝 add v1.0.1",
+        "✨ estandarizar recolección de datos con data lake S3 y SDK unificado",
+        "✨ fase 1a y 1b - extraccion VibeLensToolbar y WelcomeScreen chat-first",
+        "📝 agregar regla de sincronizacion de tests E2E como parte del deploy",
+        "🐛 corregir URLs hardcodeadas que ignoraban el env de staging",
+        "🐛 corregido fallback de codigo de estado en verificacion de despliegue dev",
+        "🐛 robustecida la verificacion de API de dev usando curl en lugar de nslookup",
+        "✨ integrar landing page y changelog en flujos de despliegue y agregar manifiesto opita-ops",
+        "🐛 implementar fallbacks resilientes para parametros SSM en sst.config.ts",
+        "📝 agregar especificaciones y diseno del panel de administracion",
+        "archivar cambios completados de chat-ux-nocode y dev-stage-e2e-tdd",
+        "📝 agregar politica de aislamiento de rutas para staging compartido",
+        "✨ configurar stage backend dev, pipelines de CD aislados y tests E2E con TDD",
+        "🐛 solucionar switchSession duplicado y mock arrayBuffer en tests OPFS",
+        "✨ inyectar contexto de archivo activo y agregar salvaguarda para archivos grandes",
+        "✨ implementar barra de acciones rapidas de IA en el editor",
+        "✨ registrar modelos deepseek v4 y gemini pro con restricciones dinamicas por plan",
+        "📝 add v0.4.1",
+        "🐛 grant write permissions to changelog workflow",
+        "✨ migrate auth backend to accounts stack and bump to v0.4.1",
+        "🐛 use wildcard subdomain matching for *.opitacode.com",
+        "🐛 polish mobile layout animations and fix chatgpt validate endpoint",
+        "🐛 resolve P2 backend data race and cloud sync binary corruption",
+        "🐛 resolve P1 backend security and frontend performance bottlenecks",
+        "🐛 responsive mobile layout for MissionPanel, ChatPanel, MessageBubble, SettingsPanel, SidebarSlot",
+        "✨ auto-generate changelog on tag push",
+        "🐛 vendor memory-sdk source, remove external repo dependency",
+        "🐛 restore idb-keyval, add SDK checkout to web deploy, type-annotate catches",
+        "♻️ migrate from opita-cloud-context to @opita/memory-sdk (#5)",
+        "🐛 redirect opita-code a cuenta.opitacode.com en vez de /projects inexistente",
+        "🐛 forgot-password envía Opita Link en vez de código de 6 dígitos",
+        "✨ indentWithTab, drawSelection, rectangularSelection, highlightSpecialChars"
+      ],
+      "Landing": [
+        "✨ restaurar card 'Herramientas Personalizables' — ahora es real (spec 807, web/v1.3.0)",
+        "🐛 reemplazar promesa falsa 'Herramientas Personalizables' por 'Investigación de Documentación' (spec 789)",
+        "🐛 apuntar descargas a repo desktop Wails + entrada changelog v1.0.0",
+        "✨ descarga directa con detección de OS",
+        "🐛 fix bento grid layout — reorder features, full-width multiplatform card, update hero to v0.4.0",
+        "🐛 placeholder seguro para tokenizer, invalidación de cache",
+        "🐛 tokenizer-based syntax highlighter, previene corrupción entre regexes",
+        "🐛 cache-buster en mockup.js para invalidar CloudFront",
+        "🐛 eliminar regex de números que corrompía spans HTML en syntax highlighting",
+        "✨ mockup animado con typing progresivo, IntersectionObserver, input funcional",
+        "✨ mockup dinámico con escenarios aleatorios, input funcional, changelog por componente",
+        "🐛 inline style text-align, overflow por panel, rounded-corners correctos",
+        "🐛 alineación de código en mockup, hover labels inline, tooltip CSS refinado",
+        "✨ mockup interactivo, changelog auto-renderizado, hover en features",
+        "✨ SEO completo + features actualizadas v0.3.5",
+        "🐛 alinear texto a la izquierda en todas las pricing cards",
+        "🐛 quitar mención a Tauri y actualizar badge a v0.3.5"
+      ],
+      "Backend": [
+        "🐛 OCAIS única fuente de verdad — eliminar cadena Cognito/HMAC legacy (#9)",
+        "✨ agregar model swap de R1 y fallback reciproco a gemini"
+      ]
+    }
+  },
+  {
     "version": "0.5.2",
     "date": "2026-08-08",
     "title": "Backend fixes spec 899: SSRF + DNS rebinding, errores HTTP propagan, randomUUID explícito (backend/v0.5.2)",
