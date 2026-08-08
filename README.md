@@ -22,16 +22,16 @@
 
 | | |
 |---|---|
-| **Versión actual** | `0.5.0` (ver `package.json`) |
-| **Último tag documentado** | `v0.2.1` en [`release-notes.md`](release-notes.md) — *mojibake (UTF-8 doble-encoded) pendiente de arreglar en otra pasada* |
+| **Versión actual** | `0.5.0` (ver `package.json`) — tags de release: `web/v1.3.1` + `backend/v0.5.2` (spec 899) |
+| **Último tag documentado** | `web/v1.3.1`, `backend/v0.5.2` · changelog en [`landing/changelog.json`](landing/changelog.json) |
 | **Stack headless** | Tauri v2 · React 18 · TypeScript 5.4 · Vite 5.4 · Tailwind 3.4 · Zustand 4.5 · CodeMirror 6 |
-| **Backend** | AWS Lambda vía SST v4 (`packages/vibe-ai-backend/`) · DynamoDB |
+| **Backend** | AWS Lambda vía SST v4 (`packages/vibe-ai-backend/`) · DynamoDB · CloudFront (opita-account-ui) |
 | **AI providers** | 13 (Anthropic · ChatGPT Web · Cohere · Custom · DeepSeek · Gemini · Groq · MiniMax · Mistral · OpenAI · OpenRouter · Perplexity · Together) — todos BYOK |
 | **Modelo DeepSeek canónico** | `deepseek-v4-pro`, `deepseek-v4-flash` *(ver `AGENTS.md` para contexto)* |
 | **Auth** | Magic Links propios · sin password · sin JWT |
 | **Studio** | dev: <https://dev.opitacode.com/app/> · prod: <https://vibe.opitacode.com/app/> |
 | **Landing** | <https://vibe.opitacode.com/> (estática, S3 + CloudFront) |
-| **Calidad** | OpenSpec SDD · strict TDD · Vitest (unit) + Playwright (e2e) |
+| **Calidad** | OpenSpec SDD · strict TDD · Vitest (unit/integration) + dark-copilot (E2E browser) — Playwright abolido (regla dura 2026-08-03) |
 | **Convención de commits** | `tipo(scope): descripción` (en español) |
 
 ## ¿Qué es Vibe Studio? · What is Vibe Studio?
@@ -43,7 +43,7 @@
 Características verificadas en este repo (no se afirmam features que no estén en `src/`, `packages/` o `src-tauri/`):
 
 - 🪄 Editor de código con highlighting por lenguaje (CodeMirror 6: JS/TS, CSS, HTML, JSON, Markdown, Python, XML, YAML)
-- 🤖 Chat IA multi-proveedor (12 proveedores — listados arriba) + BYOK en todos los tiers
+- 🤖 Chat IA multi-proveedor (13 proveedores — listados arriba) + BYOK en todos los tiers
 - 📁 Explorador de archivos · persistencia local (Tauri OPFS / IndexedDB) con sync cloud opcional (`packages/memory-sdk/`)
 - 🖥️ Live preview con [Sandpack](https://sandpack.codesandbox.io) (in-process React preview iframe)
 - 📦 Export de proyecto (zip via `jszip`)
@@ -60,7 +60,7 @@ opita-vibe-studio/
 │   ├── components/             UI: editor, chat, sidebar, settings, gamification, learning
 │   ├── stores/                 Zustand (auth, chat, project, ui, learning)
 │   ├── lib/                    fs backend, file watcher, sync, tokens, export, IPC
-│   ├── providers/              12 AI providers (anthropic, gemini, openai, deepseek, …)
+│   ├── providers/              13 AI providers (anthropic, gemini, openai, deepseek, …)
 │   ├── agent/                  Harness orchestration + multi-agent (chat/explore/build/spec/…)
 │   ├── extensions/vibe-ai/     Vibe-AI surface (extension points + memory channel)
 │   └── core/                   CoreHost + coreStore (IPC core bridge)
@@ -78,7 +78,7 @@ opita-vibe-studio/
 │   ├── api-gateway/            API Gateway / Cloudflare Workers config
 │   ├── memory-sdk/             Local + cloud sync (cloud-bridge, context-decay, offline-queue…)
 │   └── telemetry-sdk/          Telemetry package (token usage, persona selectors)
-├── tests/                      Playwright E2E · integration · lib · providers · stores
+├── tests/                      Unit + integration (Vitest) · E2E browser vía dark-copilot MCP
 ├── openspec/                   Spec-Driven Development specs + changes history
 ├── .github/workflows/          CI (npm test+lint+typecheck) + deploys
 │   ├── ci.yml
@@ -197,6 +197,6 @@ Construido con 💜 desde Colombia 🇨🇴 por [Opita Code](https://opitacode.c
 
 ---
 
-<sub>Última revisión del README: **2026-07-28** — auditoría org-wide de READMEs (de-hallucination contra real ground-truth: `package.json`, `sst.config.ts`, `openspec/config.yaml`, `src/auth/`, `AGENTS.md`). Pendientes separados: (a) arreglar mojibake en `release-notes.md`, `AGENTS.md`, `openspec/config.yaml`; (b) sincronizar `AGENTS.md` (aún dice Monaco, package.json usa CodeMirror 6); (c) cerrar el `[sst deploy --stage production]` que un README anterior recomendaba contra el comentario de `sst.config.ts:6`.</sub>
+<sub>Última revisión del README: **2026-08-08** — actualización post spec 899 (11 bugs arreglados + coverage 87.44%, 2300 tests, CI health checks con Lambda URLs reales). Pendientes separados: (a) arreglar mojibake en `release-notes.md`, `AGENTS.md`, `openspec/config.yaml`; (b) sincronizar `AGENTS.md` (aún dice Monaco, package.json usa CodeMirror 6); (c) regenerar el `CHANGELOG_PAT` de GitHub (venció/revocado — el workflow "Update Changelog" falla con 403 en el push); (d) decidir el futuro de `api-dev.opitacode.com` (CNAME apunta a distribución eliminada; el staging frontend sigue apuntando a ese dominio en `.env.staging`).</sub>
 
 </div>
