@@ -61,14 +61,7 @@ jobs:
           # api.opitacode.com pasa por el CloudFront de opita-account-ui
           # (E1VRLLH35PTCWT) cuyos origins apuntan a estas URLs — verificar
           # ambos: el endpoint público (e2e) y la Lambda directa (sin CF).
-          SST_OUTPUTS=$(npx sst state export --stage prod 2>/dev/null | python -c "
-import sys, json
-d = json.load(sys.stdin)
-for r in d.get('latest', {}).get('resources', []):
-    if r.get('type') == 'pulumi:pulumi:Stack':
-        for k, v in (r.get('outputs') or {}).items():
-            print(f'{k}: {v}')
-" 2>/dev/null)
+          SST_OUTPUTS=$(npx sst state export --stage prod 2>/dev/null | python -c 'import sys,json; d=json.load(sys.stdin); [print(f"{k}: {v}") for r in d.get("latest",{}).get("resources",[]) if r.get("type")=="pulumi:pulumi:Stack" for k,v in (r.get("outputs") or {}).items() if "Url" in k]' 2>/dev/null)
           echo "SST outputs:"
           echo "$SST_OUTPUTS"
 
