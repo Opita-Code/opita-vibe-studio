@@ -1,5 +1,36 @@
 [
   {
+    "version": "1.3.0",
+    "date": "2026-08-10",
+    "title": "Restaurar card 'Herramientas Personalizables' — ahora es real (spec 807, web/v1.3.0)",
+    "components": [
+      {
+        "name": "Web App",
+        "tag": "web/v1.3.0"
+      }
+    ],
+    "highlights": [
+      "Add v0.3.7",
+      "Up to date tras spec 899 — Playwright abolido (dark-copilot), 13 providers, tags v1.3.1/v0.5.2, changelog",
+      "Add v1.3.1 y v0.5.2 (spec 899 — 11 bugs arreglados + coverage 87.44%)"
+    ],
+    "details": {
+      "Web App": [
+        "📝 add v0.3.7",
+        "📝 up to date tras spec 899 — Playwright abolido (dark-copilot), 13 providers, tags v1.3.1/v0.5.2, changelog",
+        "📝 add v1.3.1 y v0.5.2 (spec 899 — 11 bugs arreglados + coverage 87.44%)",
+        "🐛 one-liner python en health checks (el multi-line python rompía el YAML literal block)",
+        "🐛 health checks usan Lambda URLs reales del SST state, no CNAME estático de Cloudflare",
+        "🐛 spec 899 — 11 bugs arreglados + coverage 51.75%→87.44%, suite 1371→2300 tests, tsc limpio",
+        "✨ UI de definición de herramientas personalizadas (spec 807)"
+      ],
+      "Landing": [
+        "✨ restaurar card 'Herramientas Personalizables' — ahora es real (spec 807, web/v1.3.0)",
+        "🐛 reemplazar promesa falsa 'Herramientas Personalizables' por 'Investigación de Documentación' (spec 789)"
+      ]
+    }
+  },
+  {
     "version": "0.3.7",
     "date": "2026-08-08",
     "title": "Restaurar card 'Herramientas Personalizables' — ahora es real (spec 807, web/v1.3.0)",
