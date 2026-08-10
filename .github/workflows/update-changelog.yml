@@ -26,10 +26,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # PAT fine-grained con bypass branch protection: Contents R/W.
-          # GITHUB_TOKEN nunca puede bypassar "Require pull request";
-          # sin PAT el push falla con "protected branch update failed".
-          token: ${{ secrets.CHANGELOG_PAT }}
+          # GITHUB_TOKEN con contents:write (job permissions) — sin branch
+          # protection en main (desactivada 2026-08-10, único dev) el push
+          # directo funciona. Ya no se necesita CHANGELOG_PAT (token gho_
+          # temporal que expiraba).
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
